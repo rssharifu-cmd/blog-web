@@ -1,0 +1,6 @@
+{
+  "name": "NetVentures - AI & Online Business Magazine",
+  "description": "A premium online business magazine and publishing platform focused on making money online, AI tools, SaaS reviews, affiliate marketing, and automation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
