@@ -4,11 +4,23 @@ import { Article, Category, Tag, SiteSettings, ArticleInput } from '../types.js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const isSupabaseConfigured = Boolean(
+  supabaseUrl && 
+  supabaseAnonKey && 
+  (supabaseUrl.startsWith('http://') || supabaseUrl.startsWith('https://'))
+);
 
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+const initSupabase = () => {
+  if (!isSupabaseConfigured) return null;
+  try {
+    return createClient(supabaseUrl, supabaseAnonKey);
+  } catch (err) {
+    console.error('Failed to initialize Supabase client:', err);
+    return null;
+  }
+};
+
+export const supabase = initSupabase();
 
 // ==========================================
 // SEED DATA FOR LOCAL FALLBACK
