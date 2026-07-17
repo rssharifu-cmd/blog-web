@@ -14,6 +14,8 @@ import {
   deleteCategory, 
   createTag, 
   loginAdmin, 
+  registerAdmin,
+  requestPasswordReset,
   verifySession, 
   changeAdminPassword, 
   isSupabaseConfigured
@@ -28,7 +30,10 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ navigate, categories, tags, onRefreshData }: AdminLayoutProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [authSuccessMsg, setAuthSuccessMsg] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
@@ -92,16 +97,61 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
+    setAuthSuccessMsg('');
     setLoginLoading(true);
 
     try {
-      const data = await loginAdmin(password);
+      const data = await loginAdmin(email, password);
       localStorage.setItem('net_admin_token', data.token);
       setIsAuthenticated(true);
       setPassword('');
       fetchAdminData();
     } catch (err: any) {
-      setLoginError(err.message || 'Incorrect password.');
+      setLoginError(err.message || 'Incorrect email or password.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setAuthSuccessMsg('');
+    setLoginLoading(true);
+
+    try {
+      const res = await registerAdmin(email, password);
+      if (res.success) {
+        setAuthSuccessMsg(res.message);
+        // Switch to login tab on success
+        if (!isSupabaseConfigured) {
+          setPassword('');
+        }
+      }
+    } catch (err: any) {
+      setLoginError(err.message || 'Registration failed.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    setAuthSuccessMsg('');
+    setLoginLoading(true);
+
+    try {
+      const success = await requestPasswordReset(email);
+      if (success) {
+        if (isSupabaseConfigured) {
+          setAuthSuccessMsg('Password reset link sent! Please check your email inbox.');
+        } else {
+          setAuthSuccessMsg('Offline reset simulated. Default password is "admin123". Custom fallback saved.');
+        }
+      }
+    } catch (err: any) {
+      setLoginError(err.message || 'Failed to request password reset.');
     } finally {
       setLoginLoading(false);
     }
@@ -239,44 +289,113 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
         <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 w-48 h-48 bg-gold-500/5 rounded-full blur-3xl pointer-events-none" />
           
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <div className="inline-flex p-3 bg-zinc-800 text-white rounded-xl mb-4">
               <Sparkles className="h-6 w-6 text-gold-500" />
             </div>
             <h2 className="font-display font-bold text-2xl text-white tracking-tight">NetVentures CMS Login</h2>
-            <p className="mt-2 text-sm text-gray-400">Provide password credentials to unlock publishing and platform operations.</p>
+            <p className="mt-2 text-xs text-gray-400">
+              {isSupabaseConfigured 
+                ? '🔐 Authenticating with live Supabase database' 
+                : '💾 Running in offline fallback database mode'}
+            </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          {/* Tab Selection */}
+          <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-950 rounded-lg mb-6 border border-zinc-800/60 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => { setAuthMode('login'); setLoginError(''); setAuthSuccessMsg(''); }}
+              className={`py-1.5 rounded-md transition-colors cursor-pointer ${authMode === 'login' ? 'bg-zinc-800 text-white shadow-xs' : 'text-gray-400 hover:text-white'}`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthMode('register'); setLoginError(''); setAuthSuccessMsg(''); }}
+              className={`py-1.5 rounded-md transition-colors cursor-pointer ${authMode === 'register' ? 'bg-zinc-800 text-white shadow-xs' : 'text-gray-400 hover:text-white'}`}
+            >
+              Register
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthMode('forgot'); setLoginError(''); setAuthSuccessMsg(''); }}
+              className={`py-1.5 rounded-md transition-colors cursor-pointer ${authMode === 'forgot' ? 'bg-zinc-800 text-white shadow-xs' : 'text-gray-400 hover:text-white'}`}
+            >
+              Recover
+            </button>
+          </div>
+
+          <form 
+            onSubmit={
+              authMode === 'login' ? handleLogin : 
+              authMode === 'register' ? handleRegister : 
+              handleForgotPassword
+            } 
+            className="space-y-4"
+          >
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-                CMS Password
+                Email Address
               </label>
               <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password (default: admin123)"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. editor@netventures.com"
                 required
                 className="w-full px-4 py-3 rounded-xl border border-zinc-700 bg-zinc-950 text-white placeholder-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-gold-500 focus:border-gold-500 text-sm transition-all"
               />
             </div>
 
+            {authMode !== 'forgot' && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={authMode === 'register' ? 'Choose a strong password' : 'Enter password'}
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-700 bg-zinc-950 text-white placeholder-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-gold-500 focus:border-gold-500 text-sm transition-all"
+                />
+              </div>
+            )}
+
             {loginError && (
-              <div className="flex items-center gap-2 p-3 rounded-xl border border-rose-500/10 bg-rose-500/5 text-rose-400 text-xs animate-shake">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <div className="flex items-start gap-2 p-3 rounded-xl border border-rose-500/10 bg-rose-500/5 text-rose-400 text-xs animate-shake">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <span>{loginError}</span>
+              </div>
+            )}
+
+            {authSuccessMsg && (
+              <div className="flex items-start gap-2 p-3 rounded-xl border border-emerald-500/10 bg-emerald-500/5 text-emerald-400 text-xs">
+                <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <span>{authSuccessMsg}</span>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loginLoading}
-              className="w-full py-3 px-4 rounded-xl bg-white text-zinc-950 hover:bg-zinc-100 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 px-4 rounded-xl bg-white text-zinc-950 hover:bg-zinc-100 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-55"
             >
-              {loginLoading ? 'Unlocking...' : 'Verify & Unlock CMS'}
+              {loginLoading ? 'Processing...' : 
+               authMode === 'login' ? 'Verify & Unlock CMS' : 
+               authMode === 'register' ? 'Register Account' : 
+               'Send Recovery Instructions'}
             </button>
           </form>
+
+          {/* Quick Info context helper */}
+          {!isSupabaseConfigured && authMode === 'login' && (
+            <p className="mt-4 text-[11px] text-center text-zinc-500 font-mono">
+              💡 Fallback credentials: admin@netventures.com / admin123
+            </p>
+          )}
 
           <div className="mt-8 pt-6 border-t border-zinc-800/80 text-center">
             <button

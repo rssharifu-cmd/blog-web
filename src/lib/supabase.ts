@@ -1,8 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 import { Article, Category, Tag, SiteSettings, ArticleInput } from '../types.js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+let rawSupabaseUrl = (import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_UR || '').trim();
+let rawSupabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANO || '').trim();
+
+// Format and clean up the Supabase URL
+if (rawSupabaseUrl) {
+  // If user only pasted the project ID (e.g., lpeeukmddwtciacvrwta), build full URL
+  if (!rawSupabaseUrl.includes('://')) {
+    rawSupabaseUrl = `https://${rawSupabaseUrl}.supabase.co`;
+  }
+  // Strip trailing /rest/v1/ or /rest/v1 or slashes to avoid double paths in Supabase client
+  rawSupabaseUrl = rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '');
+  rawSupabaseUrl = rawSupabaseUrl.replace(/\/$/, '');
+}
+
+const supabaseUrl = rawSupabaseUrl;
+const supabaseAnonKey = rawSupabaseAnonKey;
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl && 
@@ -495,13 +509,11 @@ export const uploadFeaturedImage = async (file: File): Promise<string> => {
 // AUTHENTICATION AND PASSWORD ACTIONS
 // ==========================================
 
-export const loginAdmin = async (password: string): Promise<{ token: string; username: string }> => {
+export const loginAdmin = async (email: string, password: string): Promise<{ token: string; username: string }> => {
   if (isSupabaseConfigured && supabase) {
-    // Authenticate using standard Supabase email auth
-    const adminEmail = `admin@netventures.com`; // standard convention
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: adminEmail,
-      password: password
+      email,
+      password
     });
 
     if (error) {
@@ -510,29 +522,79 @@ export const loginAdmin = async (password: string): Promise<{ token: string; use
 
     return {
       token: data.session?.access_token || 'mock_token',
-      username: 'admin'
+      username: data.user?.email || 'admin'
     };
   } else {
-    // Fallback mode password validation (admin123)
-    if (password === 'admin123' || password === localStorage.getItem('net_admin_pass_fallback') || 'admin123') {
-      const storedPass = localStorage.getItem('net_admin_pass_fallback') || 'admin123';
-      if (password !== storedPass) {
-        throw new Error('Incorrect credentials');
-      }
+    // Fallback mode password validation
+    const storedEmail = localStorage.getItem('net_admin_email_fallback') || 'admin@netventures.com';
+    const storedPass = localStorage.getItem('net_admin_pass_fallback') || 'admin123';
+    
+    if (email.trim().toLowerCase() === storedEmail.trim().toLowerCase() && password === storedPass) {
       return {
         token: 'fallback-token-' + Date.now(),
-        username: 'admin'
+        username: email
       };
     } else {
-      throw new Error('Incorrect password');
+      throw new Error('Incorrect email or password. (Default: admin@netventures.com / admin123)');
     }
+  }
+};
+
+export const registerAdmin = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+  if (isSupabaseConfigured && supabase) {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin + '/secret-cms-login'
+      }
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const checkConfirmed = data.user?.identities?.length === 0 || data.session;
+    return {
+      success: true,
+      message: checkConfirmed 
+        ? 'Account registered successfully!' 
+        : 'Registration confirmation sent! Please check your email inbox to verify.'
+    };
+  } else {
+    localStorage.setItem('net_admin_email_fallback', email);
+    localStorage.setItem('net_admin_pass_fallback', password);
+    return {
+      success: true,
+      message: 'Offline admin account configured successfully in local storage!'
+    };
+  }
+};
+
+export const requestPasswordReset = async (email: string): Promise<boolean> => {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/secret-cms-login'
+    });
+    if (error) throw new Error(error.message);
+    return true;
+  } else {
+    const storedEmail = localStorage.getItem('net_admin_email_fallback') || 'admin@netventures.com';
+    if (email.trim().toLowerCase() !== storedEmail.trim().toLowerCase()) {
+      throw new Error('No admin account found with that email address.');
+    }
+    return true;
   }
 };
 
 export const verifySession = async (token: string): Promise<boolean> => {
   if (isSupabaseConfigured && supabase) {
-    const { data: { user } } = await supabase.auth.getUser(token);
-    return Boolean(user);
+    try {
+      const { data: { user } } = await supabase.auth.getUser(token);
+      return Boolean(user);
+    } catch {
+      return false;
+    }
   } else {
     return token.startsWith('fallback-token-');
   }

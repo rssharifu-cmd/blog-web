@@ -143,7 +143,7 @@ export default function App() {
   const activeArticleSlug = isSingleArticle ? pathParts[2] : null;
 
   // Render Hidden CMS View (Strictly separated from the public layouts)
-  if (currentPath === '/admin') {
+  if (currentPath === '/secret-cms-login') {
     return (
       <AdminLayout 
         navigate={navigate}
