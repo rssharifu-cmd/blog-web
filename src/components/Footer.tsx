@@ -65,6 +65,14 @@ export default function Footer({ navigate, settings }: FooterProps) {
               </li>
               <li>
                 <button
+                  onClick={() => handleLinkClick('/admin')}
+                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-gold-500 dark:hover:text-gold-500 transition-colors cursor-pointer font-semibold text-zinc-600 dark:text-zinc-300"
+                >
+                  Admin Panel (CMS)
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => handleLinkClick('/about')}
                   className="text-sm text-gray-500 dark:text-gray-400 hover:text-gold-500 dark:hover:text-gold-500 transition-colors cursor-pointer"
                 >
