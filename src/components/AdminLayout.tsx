@@ -49,6 +49,8 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDesc, setNewCategoryDesc] = useState('');
   const [newTagName, setNewTagName] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+  const [tagError, setTagError] = useState('');
 
   // Password fields
   const [oldPassword, setOldPassword] = useState('');
@@ -166,6 +168,7 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   // Create Category
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCategoryError('');
     if (!newCategoryName.trim()) return;
 
     try {
@@ -176,29 +179,37 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
         setCategorySuccess(true);
         setTimeout(() => setCategorySuccess(false), 3000);
         onRefreshData();
+      } else {
+        setCategoryError('Failed to create category. Database returned an empty response.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setCategoryError(err.message || 'Failed to create category. Please verify your database connection or permissions.');
     }
   };
 
   // Delete Category
   const handleDeleteCategory = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this category?')) return;
+    setCategoryError('');
 
     try {
       const success = await deleteCategory(id);
       if (success) {
         onRefreshData();
+      } else {
+        setCategoryError('Failed to delete category.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setCategoryError(err.message || 'Failed to delete category.');
     }
   };
 
   // Create Tag
   const handleCreateTag = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTagError('');
     if (!newTagName.trim()) return;
 
     try {
@@ -208,9 +219,12 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
         setTagSuccess(true);
         setTimeout(() => setTagSuccess(false), 3000);
         onRefreshData();
+      } else {
+        setTagError('Failed to create tag.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setTagError(err.message || 'Failed to create tag. Please verify your database connection or permissions.');
     }
   };
 
@@ -711,6 +725,13 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                       <p className="text-xs text-emerald-500 font-medium">Category created successfully!</p>
                     )}
 
+                    {categoryError && (
+                      <div className="flex items-start gap-2 p-3 rounded-xl border border-rose-500/10 bg-rose-500/5 text-rose-400 text-xs animate-shake">
+                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        <span>{categoryError}</span>
+                      </div>
+                    )}
+
                     <button
                       type="submit"
                       className="w-full py-2 px-4 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold text-xs uppercase tracking-wider transition-colors cursor-pointer"
@@ -767,6 +788,13 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
 
                     {tagSuccess && (
                       <p className="text-xs text-emerald-500 font-medium">Tag created successfully!</p>
+                    )}
+
+                    {tagError && (
+                      <div className="flex items-start gap-2 p-3 rounded-xl border border-rose-500/10 bg-rose-500/5 text-rose-400 text-xs animate-shake">
+                        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                        <span>{tagError}</span>
+                      </div>
                     )}
 
                     <button
