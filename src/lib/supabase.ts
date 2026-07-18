@@ -568,54 +568,24 @@ export const uploadFeaturedImage = async (file: File): Promise<string> => {
         .upload(filePath, file);
 
       if (uploadError) {
-        const isBucketNotFound = uploadError.message?.toLowerCase().includes('bucket') || 
-                                 uploadError.message?.toLowerCase().includes('not found') ||
-                                 (uploadError as any).status === 404;
-                                 
-        if (isBucketNotFound) {
-          // Attempt to create the public bucket 'media'
-          const { error: createError } = await supabase.storage.createBucket('media', {
-            public: true,
-            fileSizeLimit: 5242880 // 5MB
-          });
-
-          if (!createError) {
-            // Retry upload
-            const { error: retryError } = await supabase.storage
-              .from('media')
-              .upload(filePath, file);
-            if (retryError) throw new Error(retryError.message);
-          } else {
-            // If creation fails (e.g. because of policy/role limits), try to insert via storage.buckets table
-            try {
-              const { error: sqlBucketError } = await supabase.rpc('create_media_bucket_fallback');
-              if (sqlBucketError) throw sqlBucketError;
-            } catch (rpcErr) {
-              // ignore and throw original error or let it propagate
-            }
-            throw new Error(`Bucket 'media' not found. We attempted to auto-create it, but encountered: ${createError.message}. Please create a public storage bucket named 'media' in your Supabase storage settings.`);
-          }
-        } else {
-          throw new Error(uploadError.message);
-        }
+        console.warn('Supabase storage upload failed, falling back to base64 DataURL:', uploadError.message);
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
       }
+
+      const { data } = supabase.storage.from('media').getPublicUrl(filePath);
+      return data.publicUrl;
     } catch (err: any) {
-      // Direct catch fallback: try to create the bucket anyway and retry
-      try {
-        await supabase.storage.createBucket('media', { public: true });
-        const { error: retryError } = await supabase.storage
-          .from('media')
-          .upload(filePath, file);
-        if (retryError) {
-          throw new Error(retryError.message);
-        }
-      } catch (innerErr) {
-        throw new Error(err.message || 'Storage upload error');
-      }
+      console.warn('Supabase storage upload threw error, falling back to base64 DataURL:', err);
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
     }
-
-    const { data } = supabase.storage.from('media').getPublicUrl(filePath);
-    return data.publicUrl;
   } else {
     // In fallback mode, simulate image upload by converting to DataURL or using Unsplash
     return new Promise((resolve) => {
