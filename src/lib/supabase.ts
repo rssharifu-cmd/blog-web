@@ -562,12 +562,56 @@ export const uploadFeaturedImage = async (file: File): Promise<string> => {
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
     const filePath = `covers/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('media')
-      .upload(filePath, file);
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('media')
+        .upload(filePath, file);
 
-    if (uploadError) {
-      throw new Error(uploadError.message);
+      if (uploadError) {
+        const isBucketNotFound = uploadError.message?.toLowerCase().includes('bucket') || 
+                                 uploadError.message?.toLowerCase().includes('not found') ||
+                                 (uploadError as any).status === 404;
+                                 
+        if (isBucketNotFound) {
+          // Attempt to create the public bucket 'media'
+          const { error: createError } = await supabase.storage.createBucket('media', {
+            public: true,
+            fileSizeLimit: 5242880 // 5MB
+          });
+
+          if (!createError) {
+            // Retry upload
+            const { error: retryError } = await supabase.storage
+              .from('media')
+              .upload(filePath, file);
+            if (retryError) throw new Error(retryError.message);
+          } else {
+            // If creation fails (e.g. because of policy/role limits), try to insert via storage.buckets table
+            try {
+              const { error: sqlBucketError } = await supabase.rpc('create_media_bucket_fallback');
+              if (sqlBucketError) throw sqlBucketError;
+            } catch (rpcErr) {
+              // ignore and throw original error or let it propagate
+            }
+            throw new Error(`Bucket 'media' not found. We attempted to auto-create it, but encountered: ${createError.message}. Please create a public storage bucket named 'media' in your Supabase storage settings.`);
+          }
+        } else {
+          throw new Error(uploadError.message);
+        }
+      }
+    } catch (err: any) {
+      // Direct catch fallback: try to create the bucket anyway and retry
+      try {
+        await supabase.storage.createBucket('media', { public: true });
+        const { error: retryError } = await supabase.storage
+          .from('media')
+          .upload(filePath, file);
+        if (retryError) {
+          throw new Error(retryError.message);
+        }
+      } catch (innerErr) {
+        throw new Error(err.message || 'Storage upload error');
+      }
     }
 
     const { data } = supabase.storage.from('media').getPublicUrl(filePath);

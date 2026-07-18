@@ -170,11 +170,17 @@ create policy "Allow authenticated users to view subscribers list"
 -- ----------------------------------------------------------
 -- 6. STORAGE BUCKETS CONFIGURATION (MEDIA)
 -- ----------------------------------------------------------
--- Note: Create a public storage bucket named 'media' in the Supabase dashboard.
--- Below are the security policies for the 'media' storage bucket.
+-- Note: Create the public storage bucket named 'media' if it doesn't exist.
+-- Create bucket automatically:
+insert into storage.buckets (id, name, public)
+values ('media', 'media', true)
+on conflict (id) do nothing;
 
--- Run this SQL in the SQL Editor to define bucket policies:
-/*
+-- Drop policies if they exist to prevent duplication errors
+drop policy if exists "Public read access to media" on storage.objects;
+drop policy if exists "Authenticated upload to media" on storage.objects;
+drop policy if exists "Authenticated delete from media" on storage.objects;
+
 -- 1. Allow public read access to media files
 create policy "Public read access to media"
   on storage.objects for select
@@ -189,7 +195,6 @@ create policy "Authenticated upload to media"
 create policy "Authenticated delete from media"
   on storage.objects for delete
   using ( bucket_id = 'media' and auth.role() = 'authenticated' );
-*/
 
 
 -- ----------------------------------------------------------
