@@ -110,6 +110,16 @@ export default function App() {
       .catch(err => console.error(err));
   };
 
+  // Increment article view count when active article slug changes (top-level hook to avoid violations)
+  useEffect(() => {
+    const parts = currentPath.split('/');
+    const isSingle = parts[1] === 'blog' && parts[2];
+    const activeSlug = isSingle ? parts[2] : null;
+    if (activeSlug) {
+      incrementArticleView(activeSlug);
+    }
+  }, [currentPath]);
+
   // Safe fetch for site settings
   const currentSettings = settings || {
     siteName: 'NetVentures',
@@ -165,13 +175,6 @@ export default function App() {
     // ----------------------------------------
     if (activeArticleSlug) {
       const article = articles.find(a => a.slug === activeArticleSlug);
-      
-      // If we've just navigated to an article, increment the hit view count on first load
-      useEffect(() => {
-        if (article) {
-          incrementArticleView(article.slug);
-        }
-      }, [activeArticleSlug]);
 
       if (!article) {
         return render404();
