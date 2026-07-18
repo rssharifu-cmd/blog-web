@@ -144,40 +144,59 @@ if (!isSupabaseConfigured) {
 // DB FIELD MAPPING HELPERS
 // ==========================================
 
-const mapArticleFromDb = (dbArt: any): Article => ({
-  id: dbArt.id,
-  title: dbArt.title,
-  slug: dbArt.slug,
-  content: dbArt.content,
-  shortDescription: dbArt.short_description || '',
-  categoryId: dbArt.category_id || '',
-  tags: dbArt.tags || [],
-  status: dbArt.status || 'draft',
-  featuredImage: dbArt.featured_image || '',
-  seoTitle: dbArt.seo_title || '',
-  seoDescription: dbArt.seo_description || '',
-  canonicalUrl: dbArt.canonical_url || '',
-  publishedAt: dbArt.published_at || new Date().toISOString(),
-  readingTime: dbArt.reading_time || 5,
-  views: dbArt.views || 0,
-  author: dbArt.author || 'Anonymous',
-  faq: dbArt.faq || []
-});
+const mapArticleFromDb = (dbArt: any): Article => {
+  if (!dbArt) return {} as any;
+  return {
+    id: dbArt.id,
+    title: dbArt.title,
+    slug: dbArt.slug,
+    content: dbArt.content,
+    shortDescription: dbArt.excerpt || dbArt.short_description || '',
+    categoryId: dbArt.category || dbArt.category_id || '',
+    tags: dbArt.tags || [],
+    status: dbArt.status || 'draft',
+    featuredImage: dbArt.featured_image || '',
+    seoTitle: dbArt.seo_title || '',
+    seoDescription: dbArt.meta_description || dbArt.seo_description || '',
+    canonicalUrl: dbArt.canonical_url || '',
+    publishedAt: dbArt.created_at || dbArt.published_at || new Date().toISOString(),
+    readingTime: dbArt.reading_time || 5,
+    views: dbArt.views || 0,
+    author: dbArt.author || 'Anonymous',
+    faq: dbArt.faq || []
+  };
+};
 
-const mapArticleToDb = (art: Partial<ArticleInput> & { id?: string }) => ({
-  id: art.id,
+const mapArticleToDbForInsert = (art: Partial<ArticleInput>) => ({
   title: art.title,
   slug: art.slug,
+  author: art.author || 'Elena Rostova',
+  category: art.categoryId,
+  excerpt: art.shortDescription,
   content: art.content,
-  short_description: art.shortDescription,
-  category_id: art.categoryId,
-  tags: art.tags,
-  status: art.status,
   featured_image: art.featuredImage,
-  author: art.author,
   seo_title: art.seoTitle,
-  seo_description: art.seoDescription,
+  meta_description: art.seoDescription,
   canonical_url: art.canonicalUrl,
+  status: art.status,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+});
+
+const mapArticleToDbForUpdate = (art: Partial<ArticleInput> & { id?: string }) => ({
+  title: art.title,
+  slug: art.slug,
+  author: art.author,
+  category: art.categoryId,
+  excerpt: art.shortDescription,
+  content: art.content,
+  featured_image: art.featuredImage,
+  seo_title: art.seoTitle,
+  meta_description: art.seoDescription,
+  canonical_url: art.canonicalUrl,
+  status: art.status,
+  updated_at: new Date().toISOString(),
+  tags: art.tags,
   faq: art.faq
 });
 
@@ -206,7 +225,7 @@ const mapSettingsToDb = (set: SiteSettings) => ({
 
 export const getArticles = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
   if (isSupabaseConfigured && supabase) {
-    let query = supabase.from('articles').select('*').order('published_at', { ascending: false });
+    let query = supabase.from('articles').select('*').order('created_at', { ascending: false });
     if (options?.status) {
       query = query.eq('status', options.status);
     }
@@ -360,18 +379,18 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
   if (isSupabaseConfigured && supabase) {
-    const dbPayload: any = mapArticleToDb(input);
-    dbPayload.reading_time = readingTime;
-    
     if (input.id) {
       // Update
+      const dbPayload: any = mapArticleToDbForUpdate(input);
+      dbPayload.reading_time = readingTime;
+      
       const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', input.id).select().single();
       if (error) throw new Error(error.message);
       return mapArticleFromDb(data);
     } else {
       // Insert
-      dbPayload.published_at = new Date().toISOString();
-      dbPayload.views = 0;
+      const dbPayload: any = mapArticleToDbForInsert(input);
+      
       const { data, error } = await supabase.from('articles').insert([dbPayload]).select().single();
       if (error) throw new Error(error.message);
       return mapArticleFromDb(data);

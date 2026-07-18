@@ -10,7 +10,7 @@ create extension if not exists "uuid-ossp";
 -- 1. CATEGORIES TABLE
 -- ----------------------------------------------------------
 create table public.categories (
-    id uuid default uuid_generate_v4() primary key,
+    id uuid default gen_random_uuid() primary key,
     name text not null,
     slug text not null unique,
     description text,
@@ -42,7 +42,7 @@ create policy "Allow authenticated users to delete categories"
 -- 2. TAGS TABLE
 -- ----------------------------------------------------------
 create table public.tags (
-    id uuid default uuid_generate_v4() primary key,
+    id uuid default gen_random_uuid() primary key,
     name text not null,
     slug text not null unique,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
@@ -69,24 +69,24 @@ create policy "Allow authenticated users to delete tags"
 -- 3. ARTICLES TABLE
 -- ----------------------------------------------------------
 create table public.articles (
-    id uuid default uuid_generate_v4() primary key,
+    id uuid default gen_random_uuid() primary key,
     title text not null,
     slug text not null unique,
     content text not null,
-    short_description text,
-    category_id text, -- stored as text to preserve flexible mapping
+    excerpt text,
+    category text,
     tags text[] default '{}'::text[],
     status text default 'draft'::text check (status in ('draft', 'published')),
     featured_image text,
     seo_title text,
-    seo_description text,
+    meta_description text,
     canonical_url text,
-    published_at timestamp with time zone default timezone('utc'::text, now()) not null,
     reading_time integer default 5,
     views integer default 0,
     author text default 'Elena Rostova'::text,
     faq jsonb default '[]'::jsonb,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+    updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Enable Row Level Security (RLS)
@@ -149,7 +149,7 @@ create policy "Allow authenticated users to update site_settings"
 -- 5. NEWSLETTER SUBSCRIBERS TABLE
 -- ----------------------------------------------------------
 create table public.newsletter_subscribers (
-    id uuid default uuid_generate_v4() primary key,
+    id uuid default gen_random_uuid() primary key,
     email text not null unique,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
