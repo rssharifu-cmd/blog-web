@@ -167,38 +167,97 @@ const mapArticleFromDb = (dbArt: any): Article => {
   };
 };
 
-const mapArticleToDbForInsert = (art: Partial<ArticleInput>) => ({
-  title: art.title,
-  slug: art.slug,
-  author: art.author || 'Elena Rostova',
-  category: art.categoryId,
-  excerpt: art.shortDescription,
-  content: art.content,
-  featured_image: art.featuredImage,
-  seo_title: art.seoTitle,
-  meta_description: art.seoDescription,
-  canonical_url: art.canonicalUrl,
-  status: art.status,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
-});
+let detectedSchema: 'new' | 'old' | null = null;
 
-const mapArticleToDbForUpdate = (art: Partial<ArticleInput> & { id?: string }) => ({
-  title: art.title,
-  slug: art.slug,
-  author: art.author,
-  category: art.categoryId,
-  excerpt: art.shortDescription,
-  content: art.content,
-  featured_image: art.featuredImage,
-  seo_title: art.seoTitle,
-  meta_description: art.seoDescription,
-  canonical_url: art.canonicalUrl,
-  status: art.status,
-  updated_at: new Date().toISOString(),
-  tags: art.tags,
-  faq: art.faq
-});
+async function detectSchema(): Promise<'new' | 'old'> {
+  if (detectedSchema) return detectedSchema;
+  if (!isSupabaseConfigured || !supabase) return 'old';
+  
+  try {
+    const { error } = await supabase.from('articles').select('category').limit(1);
+    if (error) {
+      const msg = error.message?.toLowerCase() || '';
+      if (msg.includes('category') || msg.includes('column') || msg.includes('cache') || msg.includes('not found')) {
+        detectedSchema = 'old';
+      } else {
+        detectedSchema = 'new';
+      }
+    } else {
+      detectedSchema = 'new';
+    }
+  } catch (e) {
+    detectedSchema = 'old';
+  }
+  return detectedSchema;
+}
+
+const mapArticleToDbForInsert = (art: Partial<ArticleInput>, schema: 'new' | 'old') => {
+  const common = {
+    title: art.title,
+    slug: art.slug,
+    author: art.author || 'Elena Rostova',
+    content: art.content,
+    featured_image: art.featuredImage,
+    seo_title: art.seoTitle,
+    canonical_url: art.canonicalUrl,
+    status: art.status,
+    tags: art.tags || [],
+    faq: art.faq || []
+  };
+
+  if (schema === 'new') {
+    return {
+      ...common,
+      category: art.categoryId,
+      excerpt: art.shortDescription,
+      meta_description: art.seoDescription,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  } else {
+    return {
+      ...common,
+      category_id: art.categoryId,
+      short_description: art.shortDescription,
+      seo_description: art.seoDescription,
+      published_at: new Date().toISOString(),
+      created_at: new Date().toISOString()
+    };
+  }
+};
+
+const mapArticleToDbForUpdate = (art: Partial<ArticleInput> & { id?: string }, schema: 'new' | 'old') => {
+  const common = {
+    title: art.title,
+    slug: art.slug,
+    author: art.author,
+    content: art.content,
+    featured_image: art.featuredImage,
+    seo_title: art.seoTitle,
+    canonical_url: art.canonicalUrl,
+    status: art.status,
+    tags: art.tags,
+    faq: art.faq
+  };
+
+  if (schema === 'new') {
+    return {
+      ...common,
+      category: art.categoryId,
+      excerpt: art.shortDescription,
+      meta_description: art.seoDescription,
+      updated_at: new Date().toISOString()
+    };
+  } else {
+    return {
+      ...common,
+      category_id: art.categoryId,
+      short_description: art.shortDescription,
+      seo_description: art.seoDescription,
+      published_at: new Date().toISOString()
+    };
+  }
+};
 
 const mapSettingsFromDb = (dbSet: any): SiteSettings => ({
   siteName: dbSet.site_name || 'NetVentures',
@@ -379,9 +438,10 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
   if (isSupabaseConfigured && supabase) {
+    const schema = await detectSchema();
     if (input.id) {
       // Update
-      const dbPayload: any = mapArticleToDbForUpdate(input);
+      const dbPayload: any = mapArticleToDbForUpdate(input, schema);
       dbPayload.reading_time = readingTime;
       
       const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', input.id).select().single();
@@ -389,7 +449,7 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
       return mapArticleFromDb(data);
     } else {
       // Insert
-      const dbPayload: any = mapArticleToDbForInsert(input);
+      const dbPayload: any = mapArticleToDbForInsert(input, schema);
       
       const { data, error } = await supabase.from('articles').insert([dbPayload]).select().single();
       if (error) throw new Error(error.message);
