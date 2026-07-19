@@ -126,9 +126,18 @@ export default function Footer({ navigate, settings }: FooterProps) {
           <p className="text-xs text-gray-400 dark:text-gray-500">
             {settings.footerText}
           </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
-            Build for AI & human discovery. Designed with <Heart className="h-3 w-3 text-red-500 fill-current" /> in 2026.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+              Build for AI & human discovery. Designed with <Heart className="h-3 w-3 text-red-500 fill-current" /> in 2026.
+            </p>
+            <button 
+              onClick={() => handleLinkClick('/secret-cms-login')} 
+              className="text-[10px] text-gray-300 dark:text-zinc-800 hover:text-gold-500 hover:dark:text-gold-500 transition-colors font-mono select-none cursor-pointer"
+              title="Admin Access"
+            >
+              0000
+            </button>
+          </div>
         </div>
       </div>
     </footer>
