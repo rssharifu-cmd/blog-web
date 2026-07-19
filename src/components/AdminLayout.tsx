@@ -890,6 +890,29 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                   />
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-gray-100 dark:border-zinc-800/50">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Google Analytics 4 Measurement ID (GA4)</label>
+                    <input
+                      type="text"
+                      value={siteSettings.googleAnalyticsId || ''}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, googleAnalyticsId: e.target.value })}
+                      placeholder="e.g. G-XXXXXXXXXX"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Google Search Console Verification Tag / ID</label>
+                    <input
+                      type="text"
+                      value={siteSettings.googleSearchConsoleVerification || ''}
+                      onChange={(e) => setSiteSettings({ ...siteSettings, googleSearchConsoleVerification: e.target.value })}
+                      placeholder="e.g. google-site-verification=XXXXXXXXXXXXXXX"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
+                    />
+                  </div>
+                </div>
+
                 {settingsSuccess && (
                   <div className="flex items-center gap-2 p-3 rounded-xl border border-emerald-500/10 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 text-xs">
                     <CheckCircle2 className="h-4.5 w-4.5" />

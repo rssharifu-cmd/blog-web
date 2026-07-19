@@ -10,6 +10,7 @@ import Newsletter from './components/Newsletter.js';
 import Chatbot from './components/Chatbot.js';
 import Toc from './components/Toc.js';
 import AdminLayout from './components/AdminLayout.js';
+import SocialShare from './components/SocialShare.js';
 import { Article, Category, Tag, SiteSettings } from './types.js';
 import { 
   getArticles, 
@@ -35,6 +36,17 @@ export default function App() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // GDPR Cookie Consent state
+  const [cookieConsent, setCookieConsent] = useState<string | null>(() => {
+    return localStorage.getItem('cookieConsent');
+  });
+
+  // Reset pagination on filter or category changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategorySlug]);
 
   // Contact form state
   const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
@@ -52,6 +64,14 @@ export default function App() {
       setCurrentPath(window.location.pathname);
     };
     window.addEventListener('popstate', handlePopState);
+    
+    // Check URL parameters on mount
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q');
+    if (q) {
+      setSearchQuery(q);
+    }
+    
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
@@ -129,6 +149,370 @@ export default function App() {
     footerText: '© 2026 NetVentures.',
     affiliateDisclosure: 'Disclosure: Some links are affiliate links.'
   };
+
+  // ==========================================
+  // DYNAMIC SEO, METADATA & SCHEMA.ORG GRAPH INJECTION
+  // ==========================================
+  useEffect(() => {
+    if (loading) return;
+
+    const siteName = currentSettings.siteName || 'NetVentures';
+    const siteDesc = currentSettings.siteDescription || 'Premium digital business strategies and insights.';
+    const logoUrl = currentSettings.logoUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80';
+    const origin = window.location.origin;
+
+    let title = `${siteName} - Premium Digital Business Strategy & SaaS Magazine`;
+    let description = siteDesc;
+    let canonicalUrl = `${origin}${currentPath}`;
+    let image = logoUrl;
+    let type = 'website';
+    const schemas: any[] = [];
+
+    // Base Organization Schema (Fully mapped, FTC and GSC compliant)
+    const orgSchema = {
+      "@type": "Organization",
+      "@id": `${origin}/#organization`,
+      "name": siteName,
+      "url": origin,
+      "logo": {
+        "@type": "ImageObject",
+        "@id": `${origin}/#logo`,
+        "url": logoUrl,
+        "caption": siteName
+      },
+      "image": {
+        "@id": `${origin}/#logo`
+      }
+    };
+
+    // Add Organization Schema globally to all pages' graph context to reinforce authority parameters (EEAT)
+    schemas.push(orgSchema);
+
+    const parts = currentPath.split('/');
+    const isBlogSingle = parts[1] === 'blog' && parts[2];
+    
+    if (isBlogSingle) {
+      const article = articles.find(a => a.slug === parts[2]);
+      if (article) {
+        title = article.seoTitle || `${article.title} - ${siteName}`;
+        description = article.seoDescription || article.shortDescription;
+        canonicalUrl = article.canonicalUrl || `${origin}/blog/${article.slug}`;
+        image = article.featuredImage;
+        type = 'article';
+
+        // 1. Multi-type Article Schema for maximum Google Discover, Google News, and GSC rich result validation
+        const blogPostingSchema = {
+          "@type": ["Article", "NewsArticle", "BlogPosting"],
+          "@id": `${canonicalUrl}/#article`,
+          "isPartOf": {
+            "@id": `${origin}/#website`
+          },
+          "headline": article.title,
+          "description": article.shortDescription,
+          "image": [article.featuredImage],
+          "datePublished": article.publishedAt || new Date().toISOString(),
+          "dateModified": article.publishedAt || new Date().toISOString(),
+          "author": {
+            "@type": "Person",
+            "name": article.author || "Elena Rostova"
+          },
+          "publisher": {
+            "@id": `${origin}/#organization`
+          },
+          "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": canonicalUrl
+          }
+        };
+        schemas.push(blogPostingSchema);
+
+        // 2. BreadcrumbList Schema
+        const breadcrumbSchema = {
+          "@type": "BreadcrumbList",
+          "@id": `${canonicalUrl}/#breadcrumb`,
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": origin
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Blog",
+              "item": `${origin}/blog`
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": article.title,
+              "item": canonicalUrl
+            }
+          ]
+        };
+        schemas.push(breadcrumbSchema);
+
+        // 3. FAQPage Schema (if FAQ exists)
+        if (article.faq && article.faq.length > 0) {
+          const faqSchema = {
+            "@type": "FAQPage",
+            "mainEntity": article.faq.map(item => ({
+              "@type": "Question",
+              "name": item.question,
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": item.answer
+              }
+            }))
+          };
+          schemas.push(faqSchema);
+        }
+      } else {
+        title = `Route Missing - ${siteName}`;
+        description = "The requested consulting blueprint was archived or relocated to safeguard semantic site architecture.";
+      }
+    } else if (currentPath === '/blog') {
+      title = `Library Columns - ${siteName}`;
+      description = `Browse our premium library of digital strategies, SaaS case studies, and passive income blueprints.`;
+      
+      // 1. Blog Schema
+      const blogSchema = {
+        "@type": "Blog",
+        "@id": `${origin}/blog/#blog`,
+        "name": `Library Columns - ${siteName}`,
+        "description": description,
+        "publisher": {
+          "@id": `${origin}/#organization`
+        }
+      };
+      schemas.push(blogSchema);
+
+      // 2. Breadcrumbs Schema
+      const breadcrumbSchema = {
+        "@type": "BreadcrumbList",
+        "@id": `${origin}/blog/#breadcrumb`,
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": origin
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Blog",
+            "item": `${origin}/blog`
+          }
+        ]
+      };
+      schemas.push(breadcrumbSchema);
+    } else if (currentPath === '/search') {
+      title = searchQuery ? `Search: "${searchQuery}" - ${siteName}` : `Consulting Library Search - ${siteName}`;
+      description = "Utilize our secure, factual search tool to explore SaaS blueprints, cold outreach guides, and content marketing strategies.";
+      
+      const breadcrumbSchema = {
+        "@type": "BreadcrumbList",
+        "@id": `${origin}/search/#breadcrumb`,
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": origin
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Search Results",
+            "item": `${origin}/search`
+          }
+        ]
+      };
+      schemas.push(breadcrumbSchema);
+    } else if (currentPath === '/about') {
+      title = `About Our Editorial Desk - ${siteName}`;
+      description = "Learn about our editorial transparency, digital systems expertise, author profiles, and content publishing workflow.";
+      
+      const breadcrumbSchema = {
+        "@type": "BreadcrumbList",
+        "@id": `${origin}/about/#breadcrumb`,
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": origin
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "About",
+            "item": `${origin}/about`
+          }
+        ]
+      };
+      schemas.push(breadcrumbSchema);
+    } else if (currentPath === '/contact') {
+      title = `Contact Inquiries - ${siteName}`;
+      description = "Get in touch with our administrative or editorial desk for general inquiries, SaaS reviews, or sponsorships.";
+      
+      const breadcrumbSchema = {
+        "@type": "BreadcrumbList",
+        "@id": `${origin}/contact/#breadcrumb`,
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": origin
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Contact",
+            "item": `${origin}/contact`
+          }
+        ]
+      };
+      schemas.push(breadcrumbSchema);
+    } else if (currentPath === '/privacy') {
+      title = `Privacy Policy - ${siteName}`;
+      description = "Our clear data storage, cookie transparency, and editorial security parameters.";
+    } else if (currentPath === '/terms') {
+      title = `Terms & Conditions - ${siteName}`;
+      description = "Intellectual property, compliance mandates, and consulting liability limitations.";
+    } else if (currentPath === '/disclosure') {
+      title = `Affiliate Marketing Disclosure - ${siteName}`;
+      description = "FTC disclosure and partnership details explaining digital server asset funding.";
+    } else if (currentPath === '/') {
+      // Home Page WebSite Schema with SearchAction for Sitelinks Search Box
+      const websiteSchema = {
+        "@type": "WebSite",
+        "@id": `${origin}/#website`,
+        "url": origin,
+        "name": siteName,
+        "description": siteDesc,
+        "publisher": {
+          "@id": `${origin}/#organization`
+        },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": `${origin}/search?q={search_term_string}`
+          },
+          "query-input": "required name=search_term_string"
+        }
+      };
+      schemas.push(websiteSchema);
+    }
+
+    // Apply Meta Updates to Document Header
+    document.title = title;
+
+    const setMeta = (nameOrProperty: string, value: string, isProperty = false) => {
+      let el = isProperty 
+        ? document.querySelector(`meta[property="${nameOrProperty}"]`)
+        : document.querySelector(`meta[name="${nameOrProperty}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        if (isProperty) {
+          el.setAttribute('property', nameOrProperty);
+        } else {
+          el.setAttribute('name', nameOrProperty);
+        }
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', value);
+    };
+
+    setMeta('description', description);
+
+    // Canonical link with strict formatting
+    let canonicalEl = document.querySelector('link[rel="canonical"]');
+    if (!canonicalEl) {
+      canonicalEl = document.createElement('link');
+      canonicalEl.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonicalEl);
+    }
+    canonicalEl.setAttribute('href', canonicalUrl);
+
+    // Ensure absolute image resolution for social crawlers (Google, Facebook, Twitter, Discord)
+    let absoluteImage = image;
+    if (image && !image.startsWith('http://') && !image.startsWith('https://')) {
+      absoluteImage = `${origin}${image.startsWith('/') ? '' : '/'}${image}`;
+    }
+
+    // Open Graph (SEO)
+    setMeta('og:title', title, true);
+    setMeta('og:description', description, true);
+    setMeta('og:type', type, true);
+    setMeta('og:url', canonicalUrl, true);
+    setMeta('og:site_name', siteName, true);
+    setMeta('og:image', absoluteImage, true);
+
+    // Twitter Cards (SEO)
+    setMeta('twitter:card', 'summary_large_image');
+    setMeta('twitter:title', title);
+    setMeta('twitter:description', description);
+    setMeta('twitter:image', absoluteImage);
+
+    // Dynamic schema graph injector
+    let schemaScript = document.getElementById('schema-org-jsonld') as HTMLScriptElement;
+    if (schemaScript) schemaScript.remove();
+
+    if (schemas.length > 0) {
+      schemaScript = document.createElement('script');
+      schemaScript.id = 'schema-org-jsonld';
+      schemaScript.type = 'application/ld+json';
+      schemaScript.text = JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": schemas
+      });
+      document.head.appendChild(schemaScript);
+    }
+
+    // Google Search Console (GSC) Verification tag
+    const gscValue = currentSettings?.googleSearchConsoleVerification;
+    if (gscValue) {
+      let token = gscValue;
+      if (gscValue.includes('content=')) {
+        const match = gscValue.match(/content="([^"]+)"/) || gscValue.match(/content='([^']+)'/);
+        if (match) token = match[1];
+      }
+      let metaGsc = document.querySelector('meta[name="google-site-verification"]');
+      if (!metaGsc) {
+        metaGsc = document.createElement('meta');
+        metaGsc.setAttribute('name', 'google-site-verification');
+        document.head.appendChild(metaGsc);
+      }
+      metaGsc.setAttribute('content', token);
+    }
+
+    // Google Analytics 4 (GA4) Tracker injection
+    const gaId = currentSettings?.googleAnalyticsId;
+    if (gaId && gaId.startsWith('G-')) {
+      if (!document.getElementById('google-analytics-script')) {
+        const gaScript = document.createElement('script');
+        gaScript.id = 'google-analytics-script';
+        gaScript.async = true;
+        gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+        document.head.appendChild(gaScript);
+
+        const gaInitScript = document.createElement('script');
+        gaInitScript.id = 'google-analytics-init-script';
+        gaInitScript.text = `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${gaId}');
+        `;
+        document.head.appendChild(gaInitScript);
+      }
+    }
+  }, [currentPath, articles, loading, currentSettings]);
 
   // Render Loader
   if (loading) {
@@ -350,12 +734,19 @@ export default function App() {
                 </div>
               )}
 
-              {/* Social Share mockup & Affiliate Disclaimer reference */}
-              <div className="p-4 rounded-xl border border-gray-100 dark:border-zinc-900 bg-amber-500/2 dark:bg-amber-500/1 border-amber-500/10 text-xs text-gray-400 dark:text-gray-500 leading-relaxed font-sans mt-8">
-                <strong>Editorial Transparency:</strong> Elena and the editorial team only recommend products we have personally vetted, configured, or integrated. Read our complete{' '}
-                <button onClick={() => navigate('/disclosure')} className="font-semibold underline hover:text-gold-500">
-                  Affiliate Disclosure
-                </button>.
+              {/* Social Share & Affiliate Disclaimer reference */}
+              <div className="mt-8 space-y-6">
+                <SocialShare 
+                  url={article.canonicalUrl || `${window.location.origin}/blog/${article.slug}`} 
+                  title={article.seoTitle || article.title} 
+                />
+                
+                <div className="p-4 rounded-xl border border-gray-100 dark:border-zinc-900 bg-amber-500/2 dark:bg-amber-500/1 border-amber-500/10 text-xs text-gray-400 dark:text-gray-500 leading-relaxed font-sans">
+                  <strong>Editorial Transparency:</strong> Elena and the editorial team only recommend products we have personally vetted, configured, or integrated. Read our complete{' '}
+                  <button onClick={() => navigate('/disclosure')} className="font-semibold underline hover:text-gold-500">
+                    Affiliate Disclosure
+                  </button>.
+                </div>
               </div>
 
               {/* Next/Previous Article Nav links */}
@@ -387,6 +778,66 @@ export default function App() {
             <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
               <Toc content={article.content} />
               
+              {/* Popular Insights Widget */}
+              <div className="p-6 rounded-2xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 space-y-4">
+                <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white uppercase tracking-wider border-b border-gray-100 dark:border-zinc-900 pb-2">
+                  Popular Insights
+                </h4>
+                <div className="divide-y divide-gray-100 dark:divide-zinc-900/60 space-y-3.5">
+                  {articles
+                    .filter(a => a.id !== article.id)
+                    .sort((a, b) => b.views - a.views)
+                    .slice(0, 3)
+                    .map((art, idx) => (
+                      <div 
+                        key={art.id} 
+                        onClick={() => navigate(`/blog/${art.slug}`)}
+                        className="pt-3.5 flex gap-3.5 items-start cursor-pointer group"
+                      >
+                        <span className="font-display font-bold text-xl text-gray-200 dark:text-zinc-800 group-hover:text-gold-500 transition-colors">
+                          0{idx + 1}
+                        </span>
+                        <div className="space-y-0.5">
+                          <h5 className="font-display font-bold text-xs text-gray-900 dark:text-white group-hover:text-gold-500 transition-colors line-clamp-2">
+                            {art.title}
+                          </h5>
+                          <p className="text-[10px] font-mono text-gray-400">{art.views} views</p>
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+
+              {/* Latest Blueprints Widget */}
+              <div className="p-6 rounded-2xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 space-y-4">
+                <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white uppercase tracking-wider border-b border-gray-100 dark:border-zinc-900 pb-2">
+                  Latest Blueprints
+                </h4>
+                <div className="divide-y divide-gray-100 dark:divide-zinc-900/60 space-y-3.5">
+                  {articles
+                    .filter(a => a.id !== article.id)
+                    .slice(0, 3)
+                    .map((art) => (
+                      <div 
+                        key={art.id} 
+                        onClick={() => navigate(`/blog/${art.slug}`)}
+                        className="pt-3.5 cursor-pointer group space-y-1"
+                      >
+                        <h5 className="font-display font-bold text-xs text-gray-900 dark:text-white group-hover:text-gold-500 transition-colors line-clamp-2">
+                          {art.title}
+                        </h5>
+                        <div className="flex items-center gap-2 text-[10px] font-mono text-gray-400">
+                          <span>{new Date(art.publishedAt).toLocaleDateString('en', {month: 'short', day: 'numeric'})}</span>
+                          <span>•</span>
+                          <span>{art.readingTime} min read</span>
+                        </div>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+
               <div className="p-6 rounded-2xl border border-gray-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20 text-center space-y-4">
                 <Compass className="h-8 w-8 text-gold-500 mx-auto" />
                 <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white">Need custom guidance?</h4>
@@ -424,6 +875,100 @@ export default function App() {
     }
 
     // ----------------------------------------
+    // 2.5. SEARCH RESULT DEDICATED VIEW
+    // ----------------------------------------
+    if (currentPath === '/search') {
+      const filtered = articles.filter(art => {
+        const query = searchQuery.toLowerCase();
+        return (
+          art.title.toLowerCase().includes(query) ||
+          art.content.toLowerCase().includes(query) ||
+          art.shortDescription.toLowerCase().includes(query) ||
+          art.tags.some(t => t.toLowerCase().includes(query))
+        );
+      });
+
+      return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10 animate-fade-in">
+          <div className="space-y-4">
+            <span className="text-[10px] font-mono text-gold-500 font-bold uppercase tracking-widest bg-gold-500/10 px-3 py-1 rounded-full">Factual Search Query</span>
+            <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">
+              {searchQuery ? `Results for "${searchQuery}"` : "Consulting Library Search"}
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 max-w-xl leading-relaxed text-sm">
+              Explore factual code blueprints, SEO guides, and passive income methodologies matching your criteria.
+            </p>
+          </div>
+
+          <div className="relative max-w-md">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                const url = new URL(window.location.href);
+                if (e.target.value) {
+                  url.searchParams.set('q', e.target.value);
+                } else {
+                  url.searchParams.delete('q');
+                }
+                window.history.replaceState(null, '', url.pathname + url.search);
+              }}
+              placeholder="Search library by keyword, tag, title..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
+            />
+            <Search className="absolute left-3.5 top-3 h-4.5 w-4.5 text-gray-400" />
+          </div>
+
+          {searchQuery && filtered.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+              {filtered.map(art => (
+                <ArticleCard 
+                  key={art.id} 
+                  article={art} 
+                  category={categories.find(c => c.id === art.categoryId)}
+                  onClick={() => navigate(`/blog/${art.slug}`)} 
+                />
+              ))}
+            </div>
+          ) : searchQuery ? (
+            <div className="p-12 text-center border border-dashed border-gray-200 dark:border-zinc-800 rounded-2xl max-w-xl mx-auto space-y-3">
+              <p className="text-gray-400 font-medium">No blueprints matched your search query.</p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Check spelling, try broader keywords, or reset query parameter to browse the full library.
+              </p>
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="text-xs font-semibold text-gold-500 hover:underline"
+              >
+                Clear Search
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <p className="text-sm text-gray-500 font-medium">Explore some of our popular categories:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+                {categories.map(cat => (
+                  <div
+                    key={cat.id}
+                    onClick={() => {
+                      setSelectedCategorySlug(cat.slug);
+                      navigate('/blog');
+                    }}
+                    className="p-6 rounded-2xl border border-gray-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-gold-500/30 transition-all cursor-pointer text-center space-y-2 flex flex-col justify-between"
+                  >
+                    <p className="font-display font-bold text-sm text-gray-900 dark:text-white capitalize">{cat.name}</p>
+                    <p className="text-[11px] text-gray-400 line-clamp-2 leading-relaxed">{cat.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ----------------------------------------
     // 2. BLOG CATALOGUE / SEARCH VIEW
     // ----------------------------------------
     if (currentPath === '/blog') {
@@ -439,6 +984,13 @@ export default function App() {
           : true;
         return matchesCategory && matchesSearch;
       });
+
+      const articlesPerPage = 6;
+      const totalPages = Math.ceil(filtered.length / articlesPerPage);
+      const paginatedArticles = filtered.slice(
+        (currentPage - 1) * articlesPerPage,
+        currentPage * articlesPerPage
+      );
 
       return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10 animate-fade-in">
@@ -496,17 +1048,60 @@ export default function App() {
             )}
           </div>
 
-          {/* Article grid rendering */}
-          {filtered.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-              {filtered.map(art => (
-                <ArticleCard 
-                  key={art.id} 
-                  article={art} 
-                  category={categories.find(c => c.id === art.categoryId)}
-                  onClick={() => navigate(`/blog/${art.slug}`)} 
-                />
-              ))}
+          {/* Article grid rendering with pagination */}
+          {paginatedArticles.length > 0 ? (
+            <div className="space-y-12">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+                {paginatedArticles.map(art => (
+                  <ArticleCard 
+                    key={art.id} 
+                    article={art} 
+                    category={categories.find(c => c.id === art.categoryId)}
+                    onClick={() => navigate(`/blog/${art.slug}`)} 
+                  />
+                ))}
+              </div>
+
+              {/* Pagination controls widget */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-8 border-t border-gray-100 dark:border-zinc-900/60 font-mono text-xs text-gray-500">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-100 dark:border-zinc-850 hover:border-gold-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-zinc-950"
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                  </button>
+                  
+                  <div className="hidden sm:flex items-center gap-2">
+                    {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(page => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold transition-all cursor-pointer ${
+                          currentPage === page
+                            ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950'
+                            : 'hover:bg-zinc-50 dark:hover:bg-zinc-900'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className="sm:hidden text-xs">
+                    Page {currentPage} of {totalPages}
+                  </span>
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-100 dark:border-zinc-850 hover:border-gold-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-zinc-950"
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-12 text-center border border-dashed border-gray-200 dark:border-zinc-800 rounded-2xl max-w-xl mx-auto space-y-3">
@@ -779,9 +1374,9 @@ export default function App() {
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gold-500 text-zinc-950 uppercase tracking-wider">
                 <Sparkles className="h-3.5 w-3.5 fill-current" /> AI & Automation Solopreneurs
               </span>
-              <h2 className="font-display font-bold text-3xl sm:text-5xl lg:text-6xl tracking-tight leading-tight">
+              <h1 className="font-display font-bold text-3xl sm:text-5xl lg:text-6xl tracking-tight leading-tight">
                 Unlock the Automated <span className="text-gold-500">Digital Income</span> Framework
-              </h2>
+              </h1>
               <p className="text-sm sm:text-base text-gray-300 leading-relaxed max-w-xl">
                 We design and publish battle-tested step-by-step blueprints, cold outreach setups, SaaS evaluations, and programmatic SEO guidelines to automate your digital wealth.
               </p>
@@ -951,27 +1546,65 @@ export default function App() {
     return render404();
   };
 
-  const render404 = () => (
-    <div className="max-w-md mx-auto px-4 py-16 text-center space-y-6 animate-fade-in">
-      <div className="p-4 bg-zinc-900 dark:bg-zinc-850 rounded-2xl w-16 h-16 flex items-center justify-center text-white text-xl font-bold mx-auto">
-        404
+  const render404 = () => {
+    const recent = articles.slice(0, 3);
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center space-y-8 animate-fade-in">
+        <div className="p-4 bg-zinc-900 dark:bg-zinc-850 rounded-2xl w-16 h-16 flex items-center justify-center text-white text-xl font-bold mx-auto">
+          404
+        </div>
+        <div className="space-y-2">
+          <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Consulting Route Missing</h2>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+            The requested consulting blueprint was archived or relocated to safeguard semantic site architecture. Search our active index instead:
+          </p>
+        </div>
+
+        <div className="relative max-w-md mx-auto">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                navigate('/search');
+              }
+            }}
+            placeholder="Search active columns..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
+          />
+          <Search className="absolute left-3.5 top-3 h-4.5 w-4.5 text-gray-400" />
+        </div>
+
+        {recent.length > 0 && (
+          <div className="pt-6 border-t border-gray-150 dark:border-zinc-900 space-y-4">
+            <h3 className="font-display font-bold text-sm text-gray-900 dark:text-white uppercase tracking-wider">Active Strategic Columns</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+              {recent.map(art => (
+                <div 
+                  key={art.id} 
+                  onClick={() => navigate(`/blog/${art.slug}`)}
+                  className="p-4 rounded-xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 hover:border-gold-500/30 transition-all cursor-pointer"
+                >
+                  <h4 className="font-display font-bold text-xs text-gray-900 dark:text-white line-clamp-2">{art.title}</h4>
+                  <p className="text-[10px] text-gray-400 mt-1 font-mono">{art.readingTime} min read</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2">
+          <button 
+            onClick={() => navigate('/')}
+            className="px-6 py-2 bg-zinc-950 dark:bg-white hover:bg-zinc-850 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+          >
+            Return to magazine
+          </button>
+        </div>
       </div>
-      <div>
-        <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Route Missing</h2>
-        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-2">
-          The requested consulting blueprint was archived or relocated to safeguard semantic site architecture.
-        </p>
-      </div>
-      <div className="pt-2">
-        <button 
-          onClick={() => navigate('/')}
-          className="px-6 py-2 bg-zinc-950 dark:bg-white hover:bg-zinc-850 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
-        >
-          Return to magazine
-        </button>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-zinc-950 text-gray-900 dark:text-gray-100 transition-colors duration-200">
@@ -1041,6 +1674,38 @@ export default function App() {
             <div className="text-[11px] text-gray-400">
               Press <kbd className="font-mono bg-zinc-100 dark:bg-zinc-800 px-1 py-0.5 rounded">Enter</kbd> to view search results inside library columns.
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* GDPR Cookie Consent Banner */}
+      {!cookieConsent && (
+        <div className="fixed bottom-6 left-6 right-6 md:left-auto md:right-6 md:max-w-md z-50 bg-white dark:bg-zinc-900 border border-gray-150 dark:border-zinc-800 shadow-2xl p-5 rounded-2xl space-y-4 animate-fade-in">
+          <div className="space-y-1">
+            <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white">Cookie Consent Protocol</h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              We utilize technical cookies to enhance site navigation, measure programmatic traffic, and optimize our floating co-pilot. All processing aligns with EEAT standard guidelines.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 justify-end text-xs font-semibold">
+            <button
+              onClick={() => {
+                localStorage.setItem('cookieConsent', 'declined');
+                setCookieConsent('declined');
+              }}
+              className="px-3.5 py-2 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors cursor-pointer"
+            >
+              Decline
+            </button>
+            <button
+              onClick={() => {
+                localStorage.setItem('cookieConsent', 'accepted');
+                setCookieConsent('accepted');
+              }}
+              className="px-4 py-2 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-xl hover:opacity-90 transition-all cursor-pointer"
+            >
+              Accept Consent
+            </button>
           </div>
         </div>
       )}

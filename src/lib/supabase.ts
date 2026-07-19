@@ -63,7 +63,9 @@ const DEFAULT_SETTINGS: SiteSettings = {
   contactEmail: 'editor@netventures.com',
   logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80',
   footerText: '© 2026 NetVentures. Premium digital business strategies and insights.',
-  affiliateDisclosure: 'Affiliate Disclosure: Some of the links on this website are affiliate links, meaning we may earn a small commission if you make a purchase through them, at no extra cost to you. We only recommend products we have personally tested and trust.'
+  affiliateDisclosure: 'Affiliate Disclosure: Some of the links on this website are affiliate links, meaning we may earn a small commission if you make a purchase through them, at no extra cost to you. We only recommend products we have personally tested and trust.',
+  googleAnalyticsId: '',
+  googleSearchConsoleVerification: ''
 };
 
 const DEFAULT_ARTICLES: Article[] = [
@@ -265,7 +267,9 @@ const mapSettingsFromDb = (dbSet: any): SiteSettings => ({
   contactEmail: dbSet.contact_email || '',
   logoUrl: dbSet.logo_url || '',
   footerText: dbSet.footer_text || '',
-  affiliateDisclosure: dbSet.affiliate_disclosure || ''
+  affiliateDisclosure: dbSet.affiliate_disclosure || '',
+  googleAnalyticsId: dbSet.google_analytics_id || '',
+  googleSearchConsoleVerification: dbSet.google_search_console_verification || ''
 });
 
 const mapSettingsToDb = (set: SiteSettings) => ({
@@ -275,7 +279,9 @@ const mapSettingsToDb = (set: SiteSettings) => ({
   contact_email: set.contactEmail,
   logo_url: set.logoUrl,
   footer_text: set.footerText,
-  affiliate_disclosure: set.affiliateDisclosure
+  affiliate_disclosure: set.affiliateDisclosure,
+  google_analytics_id: set.googleAnalyticsId || '',
+  google_search_console_verification: set.googleSearchConsoleVerification || ''
 });
 
 // ==========================================

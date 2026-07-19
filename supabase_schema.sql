@@ -125,6 +125,8 @@ create table public.site_settings (
     logo_url text,
     footer_text text,
     affiliate_disclosure text,
+    google_analytics_id text,
+    google_search_console_verification text,
     updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 

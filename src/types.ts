@@ -38,6 +38,8 @@ export interface SiteSettings {
   logoUrl: string;
   footerText: string;
   affiliateDisclosure: string;
+  googleAnalyticsId?: string;
+  googleSearchConsoleVerification?: string;
 }
 
 export interface UserSession {
