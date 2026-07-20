@@ -60,7 +60,7 @@ const DEFAULT_TAGS: Tag[] = [
 const DEFAULT_SETTINGS: SiteSettings = {
   siteName: 'NetVentures',
   siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.',
-  contactEmail: 'editor@netventures.com',
+  contactEmail: 'editor@netventures.online',
   logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80',
   footerText: '© 2026 NetVentures. Premium digital business strategies and insights.',
   affiliateDisclosure: 'Affiliate Disclosure: Some of the links on this website are affiliate links, meaning we may earn a small commission if you make a purchase through them, at no extra cost to you. We only recommend products we have personally tested and trust.',
@@ -625,7 +625,7 @@ export const loginAdmin = async (email: string, password: string): Promise<{ tok
     };
   } else {
     // Fallback mode password validation
-    const storedEmail = localStorage.getItem('net_admin_email_fallback') || 'admin@netventures.com';
+    const storedEmail = localStorage.getItem('net_admin_email_fallback') || 'admin@netventures.online';
     const storedPass = localStorage.getItem('net_admin_pass_fallback') || 'admin123';
     
     if (email.trim().toLowerCase() === storedEmail.trim().toLowerCase() && password === storedPass) {
@@ -634,7 +634,7 @@ export const loginAdmin = async (email: string, password: string): Promise<{ tok
         username: email
       };
     } else {
-      throw new Error('Incorrect email or password. (Default: admin@netventures.com / admin123)');
+      throw new Error('Incorrect email or password. (Default: admin@netventures.online / admin123)');
     }
   }
 };
@@ -678,7 +678,7 @@ export const requestPasswordReset = async (email: string): Promise<boolean> => {
     if (error) throw new Error(error.message);
     return true;
   } else {
-    const storedEmail = localStorage.getItem('net_admin_email_fallback') || 'admin@netventures.com';
+    const storedEmail = localStorage.getItem('net_admin_email_fallback') || 'admin@netventures.online';
     if (email.trim().toLowerCase() !== storedEmail.trim().toLowerCase()) {
       throw new Error('No admin account found with that email address.');
     }

@@ -144,7 +144,7 @@ export default function App() {
   const currentSettings = settings || {
     siteName: 'NetVentures',
     siteDescription: 'Premium digital business strategies and insights.',
-    contactEmail: 'editor@netventures.com',
+    contactEmail: 'editor@netventures.online',
     logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80',
     footerText: '© 2026 NetVentures.',
     affiliateDisclosure: 'Disclosure: Some links are affiliate links.'

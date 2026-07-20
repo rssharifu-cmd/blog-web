@@ -361,7 +361,7 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. editor@netventures.com"
+                placeholder="e.g. editor@netventures.online"
                 required
                 className="w-full px-4 py-3 rounded-xl border border-zinc-700 bg-zinc-950 text-white placeholder-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-gold-500 focus:border-gold-500 text-sm transition-all"
               />
@@ -412,7 +412,7 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
           {/* Quick Info context helper */}
           {!isSupabaseConfigured && authMode === 'login' && (
             <p className="mt-4 text-[11px] text-center text-zinc-500 font-mono">
-              💡 Fallback credentials: admin@netventures.com / admin123
+              💡 Fallback credentials: admin@netventures.online / admin123
             </p>
           )}
 
