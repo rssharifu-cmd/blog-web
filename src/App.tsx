@@ -21,9 +21,36 @@ import {
   isSupabaseConfigured
 } from './lib/supabase.js';
 
+const sanitizePath = (path: string): string => {
+  let cleaned = path;
+  
+  // If it has markdown junk or nested URLs
+  if (cleaned.includes('](') || cleaned.includes('(') || cleaned.includes('[') || cleaned.includes(')')) {
+    // Extract the portion before the bracket junk
+    const index = cleaned.search(/[\]\(\[\)]/);
+    if (index !== -1) {
+      cleaned = cleaned.substring(0, index);
+    }
+  }
+  
+  // Remove trailing slash if it is not just "/"
+  if (cleaned.length > 1 && cleaned.endsWith('/')) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  
+  return cleaned;
+};
+
 export default function App() {
   // Routing State
-  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [currentPath, setCurrentPath] = useState(() => {
+    const rawPath = window.location.pathname;
+    const clean = sanitizePath(rawPath);
+    if (clean !== rawPath) {
+      window.history.replaceState(null, '', clean + window.location.search);
+    }
+    return clean;
+  });
   
   // Base Data States
   const [articles, setArticles] = useState<Article[]>([]);
@@ -61,7 +88,11 @@ export default function App() {
   // Handle popstate for client-side custom routing
   useEffect(() => {
     const handlePopState = () => {
-      setCurrentPath(window.location.pathname);
+      const clean = sanitizePath(window.location.pathname);
+      if (clean !== window.location.pathname) {
+        window.history.replaceState(null, '', clean + window.location.search);
+      }
+      setCurrentPath(clean);
     };
     window.addEventListener('popstate', handlePopState);
     
@@ -88,8 +119,9 @@ export default function App() {
 
   // Navigate function
   const navigate = (path: string) => {
-    window.history.pushState(null, '', path);
-    setCurrentPath(path);
+    const clean = sanitizePath(path);
+    window.history.pushState(null, '', clean);
+    setCurrentPath(clean);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

@@ -2,14 +2,6 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
-    { "source": "/robots.txt", "destination": "/robots.txt" },
-    { "source": "/rss.xml", "destination": "/rss.xml" },
-    { "source": "/google434e3e2e7cafa73a.html", "destination": "/google434e3e2e7cafa73a.html" },
-    { "source": "/google:id.html", "destination": "/google:id.html" },
-    { "source": "/favicon.svg", "destination": "/favicon.svg" },
-    { "source": "/site.webmanifest", "destination": "/site.webmanifest" },
-    { "source": "/assets/(.*)", "destination": "/assets/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
