@@ -38,11 +38,18 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Active admin views: 'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor' | 'gsc'
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor' | 'gsc'>('dashboard');
+  // Active admin views: 'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor' | 'gsc' | 'api'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor' | 'gsc' | 'api'>('dashboard');
   const [articles, setArticles] = useState<Article[]>([]);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   
+  // API connection states
+  const [agentApiKey, setAgentApiKey] = useState('');
+  const [apiKeyLoading, setApiKeyLoading] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState('');
+  const [copiedApiKey, setCopiedApiKey] = useState(false);
+  const [copiedEndpointUrl, setCopiedEndpointUrl] = useState(false);
+
   // Settings edit states
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
 
@@ -69,6 +76,29 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
 
   // Token management
   const getToken = () => localStorage.getItem('net_admin_token') || '';
+
+  const fetchApiKey = async () => {
+    setApiKeyLoading(true);
+    setApiKeyError('');
+    try {
+      const token = getToken();
+      const response = await fetch('/api/v1/agent-api-key', {
+        headers: {
+          'x-admin-token': token
+        }
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setAgentApiKey(data.apiKey);
+      } else {
+        setApiKeyError(data.message || 'Failed to fetch agent API key.');
+      }
+    } catch (err: any) {
+      setApiKeyError(err.message || 'Error loading API key from server.');
+    } finally {
+      setApiKeyLoading(false);
+    }
+  };
 
   // Check auth session on mount
   useEffect(() => {
@@ -528,6 +558,17 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                 }`}
               >
                 <Globe className="h-4.5 w-4.5 text-gold-500" /> Google Search Console
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('api'); fetchApiKey(); }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                  activeTab === 'api'
+                    ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50'
+                }`}
+              >
+                <Key className="h-4.5 w-4.5 text-gold-500" /> API Connection
               </button>
 
               <button
@@ -1304,6 +1345,209 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                   Change Password
                 </button>
               </form>
+            )}
+
+            {/* API Connection Tab View */}
+            {activeTab === 'api' && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-xs space-y-6">
+                  <div>
+                    <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">AI Agent REST API Connection</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure and connect your autonomous AI agents or local writing scripts with the NetVentures Publishing Engine.</p>
+                  </div>
+
+                  {apiKeyLoading ? (
+                    <div className="py-12 text-center text-gray-400">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gold-500 mb-2"></div>
+                      <p className="text-xs">Securely fetching API key from backend...</p>
+                    </div>
+                  ) : apiKeyError ? (
+                    <div className="p-4 rounded-xl border border-rose-500/10 bg-rose-500/5 text-rose-400 text-xs flex items-start gap-2">
+                      <AlertCircle className="h-4.5 w-4.5 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-semibold">Failed to Retrieve API Key</p>
+                        <p className="mt-0.5 text-gray-400">{apiKeyError}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      
+                      {/* Token Section */}
+                      <div className="p-5 rounded-xl border border-gold-500/10 bg-gold-500/2 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="p-1.5 bg-gold-500/10 text-gold-500 rounded-md">
+                              <Key className="h-4 w-4" />
+                            </span>
+                            <span className="text-xs font-bold text-gray-700 dark:text-zinc-200 uppercase tracking-wider">Your Secure AI Agent API Key</span>
+                          </div>
+                          <span className="text-[10px] uppercase font-mono tracking-wider text-amber-500 font-semibold px-2 py-0.5 rounded-md bg-amber-500/5 border border-amber-500/10">
+                            Keep Secret
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex-1">
+                            <input
+                              type={copiedApiKey ? "text" : "password"}
+                              readOnly
+                              value={agentApiKey || 'netventures-agent-key-2026'}
+                              className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-gray-950 dark:text-white text-sm font-mono focus:outline-hidden"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(agentApiKey || 'netventures-agent-key-2026');
+                              setCopiedApiKey(true);
+                              setTimeout(() => setCopiedApiKey(false), 2000);
+                            }}
+                            className="py-3 px-5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold text-xs uppercase tracking-wider hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1.5 shrink-0"
+                          >
+                            {copiedApiKey ? (
+                              <>
+                                <Check className="h-4 w-4 text-emerald-500" /> Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4" /> Copy API Key
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">
+                          💡 <strong>How to give this to your Agent:</strong> Tell your agent to include this key in the <code>Authorization</code> header as <code>Bearer {agentApiKey || 'your-key'}</code> or as an <code>x-api-key</code> header when publishing articles or uploading media assets.
+                        </p>
+                      </div>
+
+                      {/* Endpoint Base URL */}
+                      <div className="space-y-2">
+                        <span className="block text-xs font-semibold uppercase tracking-wider text-gray-400">
+                          API Base URL (Endpoint)
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="text"
+                            readOnly
+                            value={`${window.location.origin}/api/v1`}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-700 dark:text-zinc-300 text-sm font-mono focus:outline-hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/api/v1`);
+                              setCopiedEndpointUrl(true);
+                              setTimeout(() => setCopiedEndpointUrl(false), 2000);
+                            }}
+                            className="py-3 px-5 border border-gray-200 dark:border-zinc-800 rounded-xl hover:border-gold-500/30 text-gray-600 dark:text-gray-300 hover:text-gold-500 font-semibold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                          >
+                            {copiedEndpointUrl ? (
+                              <>
+                                <Check className="h-4 w-4 text-emerald-500" /> Copied Base URL!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4" /> Copy URL
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Interactive Playground Link */}
+                      <div className="p-4 rounded-xl border border-emerald-500/10 bg-emerald-500/2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-bold text-gray-800 dark:text-zinc-100 flex items-center gap-1.5">
+                            <Sparkles className="h-4 w-4 text-gold-500" /> API Documentation & Sandbox
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5">Explore the OpenAPI 3.0 specifications, schemas, models, and run direct API sandboxing within our Swagger portal.</p>
+                        </div>
+                        <a
+                          href="/api/v1/docs"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="py-2.5 px-4 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold text-xs uppercase tracking-wider hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1 flex-shrink-0"
+                        >
+                          Open API Docs <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
+
+                      <div className="h-px bg-gray-100 dark:bg-zinc-800" />
+
+                      {/* Endpoints Reference Grid */}
+                      <div className="space-y-3">
+                        <span className="block text-xs font-semibold uppercase tracking-wider text-gray-400">
+                          Available Agent API Methods
+                        </span>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Method 1 */}
+                          <div className="p-4 rounded-xl border border-gray-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold rounded">
+                                POST
+                              </span>
+                              <span className="text-xs font-semibold text-gray-900 dark:text-white font-mono">
+                                /api/v1/articles
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-400">
+                              Compose and publish a search-optimized article. Dynamic SEO calculations for slugs, read-times, structured schemas, meta fields, and OG maps are auto-generated at execution.
+                            </p>
+                          </div>
+
+                          {/* Method 2 */}
+                          <div className="p-4 rounded-xl border border-gray-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-mono font-bold rounded">
+                                PUT
+                              </span>
+                              <span className="text-xs font-semibold text-gray-900 dark:text-white font-mono">
+                                /api/v1/articles/:id
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-400">
+                              Update an existing draft or published article by its unique database ID or URL slug. Merges attributes and recalculates sitemaps, RSS feeds, and SEO tags automatically.
+                            </p>
+                          </div>
+
+                          {/* Method 3 */}
+                          <div className="p-4 rounded-xl border border-gray-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold rounded">
+                                POST
+                              </span>
+                              <span className="text-xs font-semibold text-gray-900 dark:text-white font-mono">
+                                /api/v1/upload
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-400">
+                              Upload high-resolution media, cover photos, or post illustrations. Supports binary file uploads or Base64 encoded JSON data strings. Returns a public, responsive image URL.
+                            </p>
+                          </div>
+
+                          {/* Method 4 */}
+                          <div className="p-4 rounded-xl border border-gray-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 bg-zinc-500/15 text-gray-600 dark:text-gray-400 text-[10px] font-mono font-bold rounded">
+                                GET
+                              </span>
+                              <span className="text-xs font-semibold text-gray-900 dark:text-white font-mono">
+                                /api/v1/categories
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-400">
+                              Fetch lists of active content categories (slugs, UUIDs, descriptions) to correctly map and classify programmatic articles generated by the agent.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+
+                </div>
+              </div>
             )}
 
             {/* 6. EDITOR VIEW */}
