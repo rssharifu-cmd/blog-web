@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, FolderKanban, Settings, Key, LogOut, 
-  Plus, Edit, Trash2, Eye, EyeOff, Save, CheckCircle2, AlertCircle, Sparkles, TrendingUp
+  Plus, Edit, Trash2, Eye, EyeOff, Save, CheckCircle2, AlertCircle, Sparkles, TrendingUp,
+  Globe, Copy, ExternalLink, Check
 } from 'lucide-react';
 import { Article, Category, Tag, SiteSettings } from '../types.js';
 import ArticleEditor from './ArticleEditor.js';
@@ -37,8 +38,8 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Active admin views: 'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor'
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor'>('dashboard');
+  // Active admin views: 'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor' | 'gsc'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor' | 'gsc'>('dashboard');
   const [articles, setArticles] = useState<Article[]>([]);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   
@@ -515,6 +516,17 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
               </button>
 
               <button
+                onClick={() => setActiveTab('gsc')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                  activeTab === 'gsc'
+                    ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50'
+                }`}
+              >
+                <Globe className="h-4.5 w-4.5 text-gold-500" /> Google Search Console
+              </button>
+
+              <button
                 onClick={() => setActiveTab('password')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
                   activeTab === 'password'
@@ -927,6 +939,214 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                   <Save className="h-4 w-4" /> Save Configuration
                 </button>
               </form>
+            )}
+
+            {/* 4.5. GOOGLE SEARCH CONSOLE INTEGRATION VIEW */}
+            {activeTab === 'gsc' && siteSettings && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Intro */}
+                <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-xs space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 bg-gold-500/10 text-gold-500 rounded-lg">
+                      <Globe className="h-5 w-5" />
+                    </span>
+                    <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Google Search Console Integration</h2>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Verify site ownership, manage metadata verification tokens, and register XML sitemaps to unlock Google Search indexes.
+                  </p>
+                </div>
+
+                {/* Live Head Verification Scan Card */}
+                <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 text-white space-y-4 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 -translate-y-6 translate-x-6 w-32 h-32 bg-gold-500/5 rounded-full blur-2xl pointer-events-none" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono text-gold-500 font-bold uppercase tracking-widest bg-gold-500/10 px-3 py-1 rounded-full">
+                        Live Status Check
+                      </span>
+                      <h3 className="font-display font-bold text-lg text-white mt-2">Homepage Verification Header Tag</h3>
+                    </div>
+                    <div>
+                      {siteSettings.googleSearchConsoleVerification ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <Check className="h-3.5 w-3.5" /> Verification Active
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">
+                          Setup Pending
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-zinc-400 leading-relaxed font-mono bg-zinc-900 p-3.5 rounded-xl border border-zinc-800">
+                    {siteSettings.googleSearchConsoleVerification ? (
+                      <div>
+                        <span className="text-emerald-400">✔ Tag Found: </span>
+                        <span>{`<meta name="google-site-verification" content="${
+                          siteSettings.googleSearchConsoleVerification.includes('content=')
+                            ? (siteSettings.googleSearchConsoleVerification.match(/content="([^"]+)"/) || ['', siteSettings.googleSearchConsoleVerification])[1]
+                            : siteSettings.googleSearchConsoleVerification
+                        }" />`}</span>
+                      </div>
+                    ) : (
+                      <span className="text-amber-400">⚠ No GSC verification metadata detected in site header. Follow instructions below to configure.</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Main Setup Row */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Step-by-Step GSC Setup */}
+                  <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-xs space-y-6">
+                    <div>
+                      <h3 className="font-display font-bold text-lg text-gray-900 dark:text-white">Verification Walkthrough</h3>
+                      <p className="text-xs text-gray-400 mt-1">Activate site analytics and index processing in 3 quick steps.</p>
+                    </div>
+
+                    <div className="space-y-4 text-xs">
+                      <div className="flex gap-3">
+                        <div className="h-6 w-6 rounded-full bg-zinc-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 flex items-center justify-center font-bold flex-shrink-0">1</div>
+                        <div className="space-y-1 mt-0.5">
+                          <p className="font-bold text-gray-900 dark:text-white">Get Meta Tag from Google</p>
+                          <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
+                            Log into Google Search Console, add <strong>https://netventures.online/</strong> as your property, and select <strong>HTML Tag</strong> verification.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <div className="h-6 w-6 rounded-full bg-zinc-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 flex items-center justify-center font-bold flex-shrink-0">2</div>
+                        <div className="space-y-1 mt-0.5">
+                          <p className="font-bold text-gray-900 dark:text-white">Save in your CMS Panel</p>
+                          <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
+                            Paste the full line or the token code in the input on the right side. Our platform automatically processes and injects it into public headers.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <div className="h-6 w-6 rounded-full bg-zinc-100 dark:bg-zinc-800 text-gray-700 dark:text-gray-300 flex items-center justify-center font-bold flex-shrink-0">3</div>
+                        <div className="space-y-1 mt-0.5">
+                          <p className="font-bold text-gray-900 dark:text-white">Verify Ownership</p>
+                          <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
+                            Return to Search Console and click the <strong>Verify</strong> button. Google will read your netventures.online home page and grant full access.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-gray-100 dark:bg-zinc-800" />
+
+                    {/* Sitemaps & Feeds */}
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white">SEO Index URLs</h4>
+                        <p className="text-xs text-gray-400 mt-1">Submit these in Google Search Console under the 'Sitemaps' tab.</p>
+                      </div>
+
+                      <div className="space-y-3">
+                        {/* Sitemap Copy box */}
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sitemap XML</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              readOnly
+                              value={`${window.location.origin}/sitemap.xml`}
+                              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-500 text-xs font-mono select-all focus:outline-hidden"
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/sitemap.xml`);
+                                alert('Sitemap URL copied!');
+                              }}
+                              className="p-2 border border-gray-200 dark:border-zinc-800 hover:border-gold-500/50 rounded-lg hover:text-gold-500 transition-colors cursor-pointer"
+                              title="Copy URL"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* RSS Feed Copy box */}
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">RSS feed</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              readOnly
+                              value={`${window.location.origin}/feed.xml`}
+                              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-500 text-xs font-mono select-all focus:outline-hidden"
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(`${window.location.origin}/feed.xml`);
+                                alert('RSS Feed URL copied!');
+                              }}
+                              className="p-2 border border-gray-200 dark:border-zinc-800 hover:border-gold-500/50 rounded-lg hover:text-gold-500 transition-colors cursor-pointer"
+                              title="Copy URL"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Edit Form */}
+                  <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-xs space-y-6">
+                    <div>
+                      <h3 className="font-display font-bold text-lg text-gray-900 dark:text-white">GSC Settings</h3>
+                      <p className="text-xs text-gray-400 mt-1">Update your verification credentials in real-time.</p>
+                    </div>
+
+                    <form onSubmit={handleSaveSettings} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
+                          Verification Content or Meta Tag
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={siteSettings.googleSearchConsoleVerification || ''}
+                          onChange={(e) => {
+                            let val = e.target.value.trim();
+                            // If they pasted a whole HTML tag, let's extract the token for a flawless UX!
+                            if (val.includes('content=')) {
+                              const match = val.match(/content="([^"]+)"/) || val.match(/content='([^']+)'/);
+                              if (match) {
+                                val = match[1];
+                              }
+                            }
+                            setSiteSettings({ ...siteSettings, googleSearchConsoleVerification: val });
+                          }}
+                          placeholder={`Paste full tag like:\n<meta name="google-site-verification" content="2zinRBxabCJQyBF..." />\n\nOr just the token:\n2zinRBxabCJQyBF...`}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-xs font-mono focus:outline-hidden focus:ring-1 focus:ring-gold-500"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1.5 leading-relaxed">
+                          💡 Tip: You can paste the entire code line provided by Google. Our smart CMS will cleanly parse and save only the valid token.
+                        </p>
+                      </div>
+
+                      {settingsSuccess && (
+                        <div className="flex items-center gap-2 p-3 rounded-xl border border-emerald-500/10 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 text-xs">
+                          <CheckCircle2 className="h-4.5 w-4.5" />
+                          <span>Google verification token updated successfully!</span>
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <Save className="h-4 w-4" /> Save Configuration
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
             )}
 
             {/* 5. PASSWORD CHANGE VIEW */}
