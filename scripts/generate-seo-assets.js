@@ -36,6 +36,7 @@ const SITE_BASE_URL = process.env.APP_URL || 'https://netventures.com';
 const DEFAULT_SETTINGS = {
   siteName: 'NetVentures',
   siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.',
+  googleSearchConsoleVerification: '',
 };
 
 const DEFAULT_ARTICLES = [
@@ -84,6 +85,7 @@ async function run() {
           const dbSet = settingsData[0];
           settings.siteName = dbSet.site_name || settings.siteName;
           settings.siteDescription = dbSet.site_description || settings.siteDescription;
+          settings.googleSearchConsoleVerification = dbSet.google_search_console_verification || '';
           console.log(`✅ Loaded live settings for: ${settings.siteName}`);
         }
       }
@@ -311,6 +313,47 @@ Sitemap: ${baseDomain}/sitemap.xml
     fs.writeFileSync(path.join(publicDir, 'rss.xml'), rssXml);
   }
   console.log('📡 Generated /rss.xml syndication feed successfully.');
+
+  // ----------------------------------------
+  // 4. INJECT GOOGLE SITE VERIFICATION INTO INDEX.HTML (For GSC ownership validation)
+  // ----------------------------------------
+  try {
+    const distIndexPath = path.resolve(process.cwd(), 'dist', 'index.html');
+    if (fs.existsSync(distIndexPath)) {
+      console.log('✏️ Injecting live GSC verification token into build HTML header...');
+      let indexHtml = fs.readFileSync(distIndexPath, 'utf-8');
+      
+      const rawToken = settings.googleSearchConsoleVerification || process.env.VITE_GOOGLE_SEARCH_CONSOLE_VERIFICATION || '';
+      if (rawToken) {
+        let token = rawToken.trim();
+        if (token.includes('content=')) {
+          const match = token.match(/content="([^"]+)"/) || token.match(/content='([^']+)'/);
+          if (match) token = match[1];
+        }
+        
+        // Remove any existing tag to avoid duplicates
+        indexHtml = indexHtml.replace(/<meta name="google-site-verification" [^>]*>/gi, '');
+        
+        // Create clean meta tag
+        const metaTag = `\n    <meta name="google-site-verification" content="${token}" />`;
+        
+        if (indexHtml.includes('</head>')) {
+          indexHtml = indexHtml.replace('</head>', `${metaTag}\n  </head>`);
+          fs.writeFileSync(distIndexPath, indexHtml, 'utf-8');
+          console.log(`✅ Statically injected google-site-verification meta tag with token: ${token}`);
+        } else {
+          console.warn('⚠️ Could not find </head> tag in dist/index.html');
+        }
+      } else {
+        console.log('ℹ️ No active googleSearchConsoleVerification found in DB or env; skipping injection.');
+      }
+    } else {
+      console.warn('⚠️ dist/index.html does not exist yet. Ensure Vite build runs before this script.');
+    }
+  } catch (err) {
+    console.error('❌ Error injecting GSC meta tag:', err.message);
+  }
+
   console.log('🎉 Static SEO asset pipeline runs successfully!');
 }
 
