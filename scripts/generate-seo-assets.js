@@ -31,7 +31,7 @@ loadEnvFile();
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
 // Base URL for links. Default to NetVentures primary URL.
-const SITE_BASE_URL = process.env.APP_URL || 'https://netventures.com';
+const SITE_BASE_URL = process.env.APP_URL || 'https://netventures.online';
 
 const DEFAULT_SETTINGS = {
   siteName: 'NetVentures',

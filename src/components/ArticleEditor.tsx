@@ -90,7 +90,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
         .replace(/(^-|-$)/g, '');
       setSlug(generated);
       setSeoTitle(`${val} - NetVentures`);
-      setCanonicalUrl(`https://netventures.com/blog/${generated}`);
+      setCanonicalUrl(`https://netventures.online/blog/${generated}`);
     }
   };
 
@@ -134,7 +134,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
       author,
       seoTitle: seoTitle || `${title} - NetVentures`,
       seoDescription: seoDescription || shortDescription,
-      canonicalUrl: canonicalUrl || `https://netventures.com/blog/${slug}`,
+      canonicalUrl: canonicalUrl || `https://netventures.online/blog/${slug}`,
       faq,
     };
 
@@ -504,7 +504,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                   type="url"
                   value={canonicalUrl}
                   onChange={(e) => setCanonicalUrl(e.target.value)}
-                  placeholder="https://netventures.com/blog/..."
+                  placeholder="https://netventures.online/blog/..."
                   className="w-full px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-gray-750 dark:text-gray-300 focus:ring-1 focus:ring-gold-500"
                 />
               </div>
@@ -590,7 +590,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                 </div>
                 <div>
                   <p className="text-gray-400">Canonical Location:</p>
-                  <p className="text-gray-500 font-mono mt-0.5 break-all">{canonicalUrl || `https://netventures.com/blog/${slug}`}</p>
+                  <p className="text-gray-500 font-mono mt-0.5 break-all">{canonicalUrl || `https://netventures.online/blog/${slug}`}</p>
                 </div>
               </div>
             </div>
