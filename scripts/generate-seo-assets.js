@@ -67,6 +67,8 @@ async function run() {
   let settings = { ...DEFAULT_SETTINGS };
 
   // Attempt to fetch fresh data from live Supabase database
+  let loadedFromLiveDb = false;
+
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
       console.log('🔗 Connecting to Supabase database to fetch published columns...');
@@ -125,6 +127,7 @@ async function run() {
             categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial',
             content: art.content || ''
           }));
+          loadedFromLiveDb = true;
           console.log(`✅ Retrieved ${articles.length} published articles from Supabase.`);
         }
       } else {
@@ -132,10 +135,49 @@ async function run() {
       }
     } catch (err) {
       console.warn('⚠️ Network or authentication error reading from Supabase database:', err.message);
-      console.log('ℹ️ Falling back to default static database simulation for SEO files.');
     }
-  } else {
-    console.log('ℹ️ Supabase credentials not found in build environment. Utilizing fallback defaults.');
+  }
+
+  // Fallback to local file-based database if not loaded from Supabase
+  if (!loadedFromLiveDb) {
+    const localArticlesPath = path.resolve(process.cwd(), 'src', 'data', 'local_articles.json');
+    const localCategoriesPath = path.resolve(process.cwd(), 'src', 'data', 'local_categories.json');
+    if (fs.existsSync(localArticlesPath)) {
+      try {
+        console.log('📂 Loading articles from local JSON database file for SEO generation...');
+        const localArticles = JSON.parse(fs.readFileSync(localArticlesPath, 'utf-8'));
+        const localCategories = fs.existsSync(localCategoriesPath) 
+          ? JSON.parse(fs.readFileSync(localCategoriesPath, 'utf-8'))
+          : [];
+        
+        const categoriesMap = {};
+        localCategories.forEach(c => {
+          categoriesMap[c.id] = c.name;
+          categoriesMap[c.slug] = c.name;
+        });
+
+        // Filter for published articles
+        const publishedArticles = localArticles.filter(art => art.status === 'published');
+        if (publishedArticles.length > 0) {
+          articles = publishedArticles.map(art => ({
+            title: art.title,
+            slug: art.slug,
+            shortDescription: art.shortDescription || art.title,
+            publishedAt: art.publishedAt || new Date().toISOString(),
+            author: art.author || 'Elena Rostova',
+            categoryName: categoriesMap[art.categoryId] || 'Editorial',
+            content: art.content || ''
+          }));
+          console.log(`✅ Loaded ${articles.length} published articles from local file database.`);
+        } else {
+          console.log('ℹ️ No published articles found in local database. Using default fallback articles.');
+        }
+      } catch (err) {
+        console.warn('⚠️ Error loading local JSON database for SEO generation:', err.message);
+      }
+    } else {
+      console.log('ℹ️ Supabase credentials not found and local files do not exist. Utilizing fallback defaults.');
+    }
   }
 
   // Ensure sitemap targets the public build folder or current assets directory
