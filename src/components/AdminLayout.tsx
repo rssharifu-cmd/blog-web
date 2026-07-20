@@ -60,6 +60,10 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const [passwordError, setPasswordError] = useState('');
 
   const [settingsSuccess, setSettingsSuccess] = useState(false);
+  const [copiedSitemapRel, setCopiedSitemapRel] = useState(false);
+  const [copiedFeedRel, setCopiedFeedRel] = useState(false);
+  const [copiedSitemapFull, setCopiedSitemapFull] = useState(false);
+  const [copiedFeedFull, setCopiedFeedFull] = useState(false);
   const [categorySuccess, setCategorySuccess] = useState(false);
   const [tagSuccess, setTagSuccess] = useState(false);
 
@@ -1040,56 +1044,155 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                     <div className="h-px bg-gray-100 dark:bg-zinc-800" />
 
                     {/* Sitemaps & Feeds */}
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       <div>
-                        <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white">SEO Index URLs</h4>
-                        <p className="text-xs text-gray-400 mt-1">Submit these in Google Search Console under the 'Sitemaps' tab.</p>
+                        <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white">SEO Index Submission</h4>
+                        <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                          ⚠️ <strong>Important:</strong> Google Search Console already pre-fills <code>https://netventures.online/</code>. 
+                          You must submit <strong>only the relative file path</strong> below!
+                        </p>
                       </div>
 
-                      <div className="space-y-3">
-                        {/* Sitemap Copy box */}
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sitemap XML</span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              readOnly
-                              value={`${window.location.origin}/sitemap.xml`}
-                              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-500 text-xs font-mono select-all focus:outline-hidden"
-                            />
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${window.location.origin}/sitemap.xml`);
-                                alert('Sitemap URL copied!');
-                              }}
-                              className="p-2 border border-gray-200 dark:border-zinc-800 hover:border-gold-500/50 rounded-lg hover:text-gold-500 transition-colors cursor-pointer"
-                              title="Copy URL"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </button>
+                      <div className="space-y-4">
+                        {/* Sitemap submission */}
+                        <div className="p-4 rounded-xl border border-gray-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40 space-y-3.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-gray-700 dark:text-zinc-300">1. Sitemap XML</span>
+                            <span className="text-[10px] bg-gold-500/10 text-gold-500 dark:text-gold-400 font-semibold px-2 py-0.5 rounded-md">Primary</span>
+                          </div>
+                          
+                          <div className="space-y-2.5">
+                            {/* Relative submission copy block */}
+                            <div>
+                              <span className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                Relative Path (Submit to Google Search Console)
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value="sitemap.xml"
+                                  className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white text-xs font-mono select-all focus:outline-hidden"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText("sitemap.xml");
+                                    setCopiedSitemapRel(true);
+                                    setTimeout(() => setCopiedSitemapRel(false), 2000);
+                                  }}
+                                  className="py-1.5 px-3 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1 flex-shrink-0"
+                                >
+                                  {copiedSitemapRel ? (
+                                    <>
+                                      <Check className="h-3.5 w-3.5 text-emerald-500" /> Copied!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="h-3.5 w-3.5" /> Copy Path
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Full URL copy block */}
+                            <div>
+                              <span className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                Full Index URL (For Reference)
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value="https://netventures.online/sitemap.xml"
+                                  className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/40 text-gray-400 text-xs font-mono select-all focus:outline-hidden"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText("https://netventures.online/sitemap.xml");
+                                    setCopiedSitemapFull(true);
+                                    setTimeout(() => setCopiedSitemapFull(false), 2000);
+                                  }}
+                                  className="p-1.5 border border-gray-200 dark:border-zinc-800 hover:border-gold-500/50 rounded-lg text-gray-400 hover:text-gold-500 transition-colors cursor-pointer flex-shrink-0"
+                                  title="Copy Full URL"
+                                >
+                                  {copiedSitemapFull ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
 
-                        {/* RSS Feed Copy box */}
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">RSS feed</span>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              readOnly
-                              value={`${window.location.origin}/feed.xml`}
-                              className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-500 text-xs font-mono select-all focus:outline-hidden"
-                            />
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(`${window.location.origin}/feed.xml`);
-                                alert('RSS Feed URL copied!');
-                              }}
-                              className="p-2 border border-gray-200 dark:border-zinc-800 hover:border-gold-500/50 rounded-lg hover:text-gold-500 transition-colors cursor-pointer"
-                              title="Copy URL"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </button>
+                        {/* RSS Feed submission */}
+                        <div className="p-4 rounded-xl border border-gray-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40 space-y-3.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-gray-700 dark:text-zinc-300">2. RSS Feed XML</span>
+                            <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800 text-gray-500 dark:text-gray-400 font-semibold px-2 py-0.5 rounded-md">Syndication</span>
+                          </div>
+
+                          <div className="space-y-2.5">
+                            {/* Relative submission copy block */}
+                            <div>
+                              <span className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                Relative Path (Submit to Google Search Console)
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value="rss.xml"
+                                  className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white text-xs font-mono select-all focus:outline-hidden"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText("rss.xml");
+                                    setCopiedFeedRel(true);
+                                    setTimeout(() => setCopiedFeedRel(false), 2000);
+                                  }}
+                                  className="py-1.5 px-3 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1 flex-shrink-0"
+                                >
+                                  {copiedFeedRel ? (
+                                    <>
+                                      <Check className="h-3.5 w-3.5 text-emerald-500" /> Copied!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="h-3.5 w-3.5" /> Copy Path
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Full URL copy block */}
+                            <div>
+                              <span className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                                Full Index URL (For Reference)
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value="https://netventures.online/rss.xml"
+                                  className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/40 text-gray-400 text-xs font-mono select-all focus:outline-hidden"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText("https://netventures.online/rss.xml");
+                                    setCopiedFeedFull(true);
+                                    setTimeout(() => setCopiedFeedFull(false), 2000);
+                                  }}
+                                  className="p-1.5 border border-gray-200 dark:border-zinc-800 hover:border-gold-500/50 rounded-lg text-gray-400 hover:text-gold-500 transition-colors cursor-pointer flex-shrink-0"
+                                  title="Copy Full URL"
+                                >
+                                  {copiedFeedFull ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
