@@ -49,6 +49,7 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const [apiKeyError, setApiKeyError] = useState('');
   const [copiedApiKey, setCopiedApiKey] = useState(false);
   const [copiedEndpointUrl, setCopiedEndpointUrl] = useState(false);
+  const [isStaticDeployment, setIsStaticDeployment] = useState(false);
 
   // Settings edit states
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
@@ -80,6 +81,7 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const fetchApiKey = async () => {
     setApiKeyLoading(true);
     setApiKeyError('');
+    setIsStaticDeployment(false);
     try {
       const token = getToken();
       const response = await fetch('/api/v1/agent-api-key', {
@@ -87,6 +89,16 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
           'x-admin-token': token
         }
       });
+      
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('text/html') || (!response.ok && response.status === 404)) {
+        // This is a static host like Vercel returning index.html for unknown /api route
+        setIsStaticDeployment(true);
+        const fallbackKey = import.meta.env.VITE_AI_AGENT_API_KEY || 'netventures-agent-key-2026';
+        setAgentApiKey(fallbackKey);
+        return;
+      }
+
       const data = await response.json();
       if (response.ok && data.success) {
         setAgentApiKey(data.apiKey);
@@ -94,7 +106,14 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
         setApiKeyError(data.message || 'Failed to fetch agent API key.');
       }
     } catch (err: any) {
-      setApiKeyError(err.message || 'Error loading API key from server.');
+      // If parsing JSON failed or network error occurred, check if we're on a static host
+      if (err.message && (err.message.includes('Unexpected token') || err.message.includes('JSON') || err.message.includes('is not valid JSON'))) {
+        setIsStaticDeployment(true);
+        const fallbackKey = import.meta.env.VITE_AI_AGENT_API_KEY || 'netventures-agent-key-2026';
+        setAgentApiKey(fallbackKey);
+      } else {
+        setApiKeyError(err.message || 'Error loading API key from server.');
+      }
     } finally {
       setApiKeyLoading(false);
     }
@@ -1355,6 +1374,25 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                     <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">AI Agent REST API Connection</h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure and connect your autonomous AI agents or local writing scripts with the NetVentures Publishing Engine.</p>
                   </div>
+
+                  {isStaticDeployment && (
+                    <div className="p-5 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-600 dark:text-amber-400 text-xs flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0 text-amber-500" />
+                      <div>
+                        <p className="font-bold text-sm">Vercel Static Hosting Mode Detected</p>
+                        <p className="mt-1 text-gray-500 dark:text-gray-400 leading-relaxed text-[11px]">
+                          Because this site is currently running on Vercel as a static client-side application, the server-side REST API publishing endpoints (like <code>/api/v1/articles</code>) are not active.
+                        </p>
+                        <p className="mt-1.5 text-gray-500 dark:text-gray-400 leading-relaxed text-[11px]">
+                          <strong>How to handle this:</strong> 
+                          <br />
+                          1. Your AI Agent can connect and publish <strong>directly to your database</strong> using your Supabase credentials (which you can manage in <em>Site Configuration</em>).
+                          <br />
+                          2. Alternatively, if you deploy this full-stack publishing engine onto <strong>Cloud Run</strong> or any active Node.js server container, the full REST API endpoint below will automatically activate and secure itself using the API key shown below.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {apiKeyLoading ? (
                     <div className="py-12 text-center text-gray-400">
