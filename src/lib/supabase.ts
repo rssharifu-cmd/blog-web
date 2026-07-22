@@ -438,10 +438,59 @@ export const saveSettings = async (settings: SiteSettings): Promise<boolean> => 
   }
 };
 
+export const verifyArticlePublication = async (slug: string): Promise<boolean> => {
+  const expectedPath = `/blog/${slug}`;
+  const errors: string[] = [];
+
+  // 1. Verify public website
+  try {
+    const article = await getArticleBySlug(slug);
+    if (!article) {
+      errors.push(`Article with slug "${slug}" not found on public website.`);
+    } else if (article.status === 'draft') {
+      errors.push(`Article with slug "${slug}" has draft status on public website.`);
+    }
+  } catch (err: any) {
+    errors.push(`Public website verification failed: ${err.message}`);
+  }
+
+  // 2. Verify /sitemap.xml
+  try {
+    const sitemapRes = await fetch('/sitemap.xml');
+    const sitemapXml = await sitemapRes.text();
+    if (!sitemapXml.includes(expectedPath)) {
+      errors.push(`URL "${expectedPath}" is missing from /sitemap.xml.`);
+    }
+  } catch (err: any) {
+    errors.push(`Failed to fetch /sitemap.xml: ${err.message}`);
+  }
+
+  // 3. Verify /rss.xml
+  try {
+    const rssRes = await fetch('/rss.xml');
+    const rssXml = await rssRes.text();
+    if (!rssXml.includes(expectedPath)) {
+      errors.push(`Link "${expectedPath}" is missing from /rss.xml.`);
+    }
+  } catch (err: any) {
+    errors.push(`Failed to fetch /rss.xml: ${err.message}`);
+  }
+
+  if (errors.length > 0) {
+    console.error(`❌ Self-check publication verification failed for article "${slug}":\n` + errors.map(e => `  - ${e}`).join('\n'));
+    return false;
+  }
+
+  console.log(`✅ Self-check publication verification passed for article "${slug}": Verified in Public Website, /sitemap.xml, and /rss.xml.`);
+  return true;
+};
+
 export const saveArticle = async (input: ArticleInput & { id?: string }): Promise<Article | null> => {
   // Estimate reading time: roughly 200 words per minute
   const wordCount = (input.content || '').trim().split(/\s+/).length;
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
+
+  let savedArticle: Article | null = null;
 
   if (isSupabaseConfigured && supabase) {
     const schema = await detectSchema();
@@ -452,14 +501,14 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
       
       const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', input.id).select().single();
       if (error) throw new Error(error.message);
-      return mapArticleFromDb(data);
+      savedArticle = mapArticleFromDb(data);
     } else {
       // Insert
       const dbPayload: any = mapArticleToDbForInsert(input, schema);
       
       const { data, error } = await supabase.from('articles').insert([dbPayload]).select().single();
       if (error) throw new Error(error.message);
-      return mapArticleFromDb(data);
+      savedArticle = mapArticleFromDb(data);
     }
   } else {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
@@ -477,9 +526,8 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
         };
         list[idx] = updated;
         saveLocalData('net_articles', list);
-        return updated;
+        savedArticle = updated;
       }
-      return null;
     } else {
       const newArt: Article = {
         ...input,
@@ -490,9 +538,18 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
       };
       list.unshift(newArt);
       saveLocalData('net_articles', list);
-      return newArt;
+      savedArticle = newArt;
     }
   }
+
+  if (savedArticle && savedArticle.status !== 'draft') {
+    const isVerified = await verifyArticlePublication(savedArticle.slug);
+    if (!isVerified) {
+      throw new Error(`Article publication self-check failed for "${savedArticle.slug}". The published article could not be verified in the public website, /sitemap.xml, or /rss.xml.`);
+    }
+  }
+
+  return savedArticle;
 };
 
 export const deleteArticle = async (id: string): Promise<boolean> => {

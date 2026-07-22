@@ -302,6 +302,264 @@ async function start() {
   };
 
   // ==========================================
+  // DYNAMIC SITEMAP & RSS GENERATORS & SELF-CHECK
+  // ==========================================
+
+  const generateSitemapXml = async (): Promise<string> => {
+    let articles: any[] = [];
+    const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
+    const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+
+    if (isSupabaseConfigured && supabaseClient) {
+      const { data: dbArticles, error } = await supabaseClient
+        .from('articles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && dbArticles) {
+        articles = dbArticles
+          .filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft')
+          .map(art => mapArticleFromDb(art));
+      }
+    } else {
+      const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+      articles = articlesList.filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft');
+    }
+
+    const currentDate = new Date().toISOString().split('T')[0];
+    let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <!-- Core Static Pages -->
+  <url>
+    <loc>${baseDomain}/</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/blog</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/about</loc>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/contact</loc>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/privacy</loc>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/terms</loc>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/disclosure</loc>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+`;
+
+    articles.forEach((art: any) => {
+      const artDate = art.publishedAt ? new Date(art.publishedAt).toISOString().split('T')[0] : currentDate;
+      sitemapXml += `  <url>
+    <loc>${baseDomain}/blog/${art.slug}</loc>
+    <lastmod>${artDate}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>\n`;
+    });
+
+    sitemapXml += `</urlset>`;
+    return sitemapXml;
+  };
+
+  const generateRssXml = async (): Promise<string> => {
+    let articles: any[] = [];
+    let settings = {
+      siteName: 'NetVentures',
+      siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.'
+    };
+    const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
+    const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+
+    if (isSupabaseConfigured && supabaseClient) {
+      const { data: settingsData } = await supabaseClient
+        .from('site_settings')
+        .select('*')
+        .eq('id', 'global')
+        .maybeSingle();
+
+      if (settingsData) {
+        settings.siteName = settingsData.site_name || settings.siteName;
+        settings.siteDescription = settingsData.site_description || settings.siteDescription;
+      }
+
+      const { data: categories } = await supabaseClient.from('categories').select('*');
+      const categoriesMap: any = {};
+      (categories || []).forEach(c => {
+        categoriesMap[c.id] = c.name;
+      });
+
+      const { data: dbArticles, error } = await supabaseClient
+        .from('articles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && dbArticles) {
+        articles = dbArticles
+          .filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft')
+          .map(art => {
+            const mapped: any = mapArticleFromDb(art);
+            return {
+              ...mapped,
+              categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial'
+            };
+          });
+      }
+    } else {
+      const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+      const categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
+      const categoriesMap: any = {};
+      categories.forEach((c: any) => {
+        categoriesMap[c.id] = c.name;
+      });
+
+      articles = articlesList
+        .filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft')
+        .map((art: any) => ({
+          ...art,
+          categoryName: categoriesMap[art.categoryId] || 'Editorial'
+        }));
+    }
+
+    const escapeXml = (unsafe: string) => {
+      if (!unsafe) return '';
+      return unsafe
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
+
+    let rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+  <title>${escapeXml(settings.siteName)}</title>
+  <link>${baseDomain}</link>
+  <description>${escapeXml(settings.siteDescription)}</description>
+  <language>en-us</language>
+  <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+  <atom:link href="${baseDomain}/rss.xml" rel="self" type="application/rss+xml" />
+`;
+
+    articles.forEach(art => {
+      const pubDateFormatted = new Date(art.publishedAt || new Date()).toUTCString();
+      rssXml += `  <item>
+    <title>${escapeXml(art.title)}</title>
+    <link>${baseDomain}/blog/${art.slug}</link>
+    <description>${escapeXml(art.shortDescription)}</description>
+    <author>${escapeXml(art.author)}</author>
+    <category>${escapeXml(art.categoryName)}</category>
+    <pubDate>${pubDateFormatted}</pubDate>
+    <guid isPermaLink="true">${baseDomain}/blog/${art.slug}</guid>
+  </item>\n`;
+    });
+
+    rssXml += `</channel>
+</rss>`;
+
+    return rssXml;
+  };
+
+  const verifyPublishedArticle = async (slug: string): Promise<{ success: boolean; errors: string[] }> => {
+    const errors: string[] = [];
+    const expectedUrlPath = `/blog/${slug}`;
+
+    // 1. Verify Public Website
+    try {
+      if (isSupabaseConfigured && supabaseClient) {
+        const { data, error } = await supabaseClient
+          .from('articles')
+          .select('*')
+          .eq('slug', slug)
+          .maybeSingle();
+
+        if (error) {
+          errors.push(`Public website check failed: Database query error for slug "${slug}": ${error.message}`);
+        } else if (!data) {
+          errors.push(`Public website check failed: Article with slug "${slug}" not found in database.`);
+        } else if ((data.status || 'published').toString().toLowerCase() === 'draft') {
+          errors.push(`Public website check failed: Article with slug "${slug}" has status "draft" in database.`);
+        }
+      } else {
+        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+        const match = articlesList.find((a: any) => a.slug === slug);
+        if (!match) {
+          errors.push(`Public website check failed: Article with slug "${slug}" not found in local storage.`);
+        } else if ((match.status || 'published').toString().toLowerCase() === 'draft') {
+          errors.push(`Public website check failed: Article with slug "${slug}" has status "draft" in local storage.`);
+        }
+      }
+    } catch (err: any) {
+      errors.push(`Public website check failed: ${err.message}`);
+    }
+
+    // Trigger static SEO generation script so file assets on disk stay updated
+    await new Promise<void>((resolve) => {
+      exec('node scripts/generate-seo-assets.js', (err, stdout, stderr) => {
+        if (err) console.error('Error running generate-seo-assets.js during self-check:', err);
+        resolve();
+      });
+    });
+
+    // 2. Verify /sitemap.xml
+    try {
+      const sitemapContent = await generateSitemapXml();
+      if (!sitemapContent.includes(expectedUrlPath)) {
+        errors.push(`Sitemap check failed: URL "${expectedUrlPath}" is missing from /sitemap.xml.`);
+      }
+    } catch (err: any) {
+      errors.push(`Sitemap check failed: ${err.message}`);
+    }
+
+    // 3. Verify /rss.xml
+    try {
+      const rssContent = await generateRssXml();
+      if (!rssContent.includes(expectedUrlPath)) {
+        errors.push(`RSS feed check failed: Link "${expectedUrlPath}" is missing from /rss.xml.`);
+      }
+    } catch (err: any) {
+      errors.push(`RSS feed check failed: ${err.message}`);
+    }
+
+    if (errors.length > 0) {
+      console.error(`❌ Article Publication Self-Check FAILED for slug "${slug}":\n` + errors.map(e => `  - ${e}`).join('\n'));
+      return { success: false, errors };
+    }
+
+    console.log(`✅ Article Publication Self-Check PASSED for slug "${slug}": Verified in Public Website, /sitemap.xml, and /rss.xml.`);
+    return { success: true, errors: [] };
+  };
+
+  // ==========================================
   // MIDDLEWARES (LOGGER, LIMITER, AUTH, VALIDATION)
   // ==========================================
 
@@ -1065,8 +1323,21 @@ async function start() {
         resultArticle = fallbackItem;
       }
 
-      // Generate SEO sitemap/RSS files asynchronously
-      triggerSeoRegeneration();
+      // Generate SEO sitemap/RSS files asynchronously & run self-check if published
+      if (articlePayload.status !== 'draft') {
+        const checkResult = await verifyPublishedArticle(resultArticle.slug);
+        if (!checkResult.success) {
+          console.error(`❌ Self-check verification failed for newly published article "${resultArticle.slug}":`, checkResult.errors);
+          return res.status(500).json({
+            success: false,
+            error: 'Self-check verification failed',
+            message: 'Newly published article failed automated verification across public website, /sitemap.xml, or /rss.xml.',
+            details: checkResult.errors
+          });
+        }
+      } else {
+        triggerSeoRegeneration();
+      }
 
       // Return augmented article with real-time SEO OpenGraph and JSON-LD metadata fields
       const responseArticle = {
@@ -1078,7 +1349,7 @@ async function start() {
       return res.status(201).json({
         success: true,
         article: responseArticle,
-        message: 'Article created and published successfully with auto-generated SEO metadata!'
+        message: 'Article created and published successfully with auto-generated SEO metadata and verified sitemap/RSS syndication!'
       });
 
     } catch (err: any) {
@@ -1198,8 +1469,21 @@ async function start() {
         updatedArticle = updatedItem;
       }
 
-      // Generate SEO sitemap/RSS files asynchronously
-      triggerSeoRegeneration();
+      // Generate SEO sitemap/RSS files asynchronously & run self-check if published
+      if (updatedArticle.status !== 'draft') {
+        const checkResult = await verifyPublishedArticle(updatedArticle.slug);
+        if (!checkResult.success) {
+          console.error(`❌ Self-check verification failed for updated article "${updatedArticle.slug}":`, checkResult.errors);
+          return res.status(500).json({
+            success: false,
+            error: 'Self-check verification failed',
+            message: 'Updated article failed automated verification across public website, /sitemap.xml, or /rss.xml.',
+            details: checkResult.errors
+          });
+        }
+      } else {
+        triggerSeoRegeneration();
+      }
 
       const responseArticle = {
         ...updatedArticle,
@@ -1210,7 +1494,7 @@ async function start() {
       return res.json({
         success: true,
         article: responseArticle,
-        message: 'Article updated successfully with dynamic SEO indexing!'
+        message: 'Article updated successfully with verified SEO indexing!'
       });
 
     } catch (err: any) {
@@ -1235,88 +1519,9 @@ async function start() {
 
   app.get('/sitemap.xml', async (req, res) => {
     try {
-      let articles: any[] = [];
-      const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
-      const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
-
-      if (isSupabaseConfigured && supabaseClient) {
-        const { data: dbArticles, error } = await supabaseClient
-          .from('articles')
-          .select('*')
-          .eq('status', 'published')
-          .order('created_at', { ascending: false });
-
-        if (!error && dbArticles) {
-          articles = dbArticles.map(art => mapArticleFromDb(art));
-        }
-      } else {
-        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        articles = articlesList.filter((a: any) => a.status === 'published');
-      }
-
-      const currentDate = new Date().toISOString().split('T')[0];
-      let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-  <!-- Core Static Pages -->
-  <url>
-    <loc>${baseDomain}/</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/blog</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/about</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/contact</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/privacy</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/terms</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/disclosure</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-`;
-
-      articles.forEach((art: any) => {
-        const artDate = art.publishedAt ? new Date(art.publishedAt).toISOString().split('T')[0] : currentDate;
-        sitemapXml += `  <url>
-    <loc>${baseDomain}/blog/${art.slug}</loc>
-    <lastmod>${artDate}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>\n`;
-      });
-
-      sitemapXml += `</urlset>`;
-
+      const sitemapXml = await generateSitemapXml();
       res.header('Content-Type', 'application/xml; charset=utf-8');
+      res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.send(sitemapXml);
     } catch (err: any) {
       console.error('Error generating sitemap dynamically:', err);
@@ -1326,104 +1531,9 @@ async function start() {
 
   app.get('/rss.xml', async (req, res) => {
     try {
-      let articles: any[] = [];
-      let settings = {
-        siteName: 'NetVentures',
-        siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.'
-      };
-      const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
-      const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
-
-      if (isSupabaseConfigured && supabaseClient) {
-        // Fetch site settings
-        const { data: settingsData } = await supabaseClient
-          .from('site_settings')
-          .select('*')
-          .eq('id', 'global')
-          .maybeSingle();
-
-        if (settingsData) {
-          settings.siteName = settingsData.site_name || settings.siteName;
-          settings.siteDescription = settingsData.site_description || settings.siteDescription;
-        }
-
-        // Fetch categories map
-        const { data: categories } = await supabaseClient.from('categories').select('*');
-        const categoriesMap: any = {};
-        (categories || []).forEach(c => {
-          categoriesMap[c.id] = c.name;
-        });
-
-        // Fetch articles
-        const { data: dbArticles, error } = await supabaseClient
-          .from('articles')
-          .select('*')
-          .eq('status', 'published')
-          .order('created_at', { ascending: false });
-
-        if (!error && dbArticles) {
-          articles = dbArticles.map(art => {
-            const mapped: any = mapArticleFromDb(art);
-            return {
-              ...mapped,
-              categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial'
-            };
-          });
-        }
-      } else {
-        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        const categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
-        const categoriesMap: any = {};
-        categories.forEach((c: any) => {
-          categoriesMap[c.id] = c.name;
-        });
-
-        articles = articlesList
-          .filter((a: any) => a.status === 'published')
-          .map((art: any) => ({
-            ...art,
-            categoryName: categoriesMap[art.categoryId] || 'Editorial'
-          }));
-      }
-
-      const escapeXml = (unsafe: string) => {
-        if (!unsafe) return '';
-        return unsafe
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&apos;');
-      };
-
-      let rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-<channel>
-  <title>${escapeXml(settings.siteName)}</title>
-  <link>${baseDomain}</link>
-  <description>${escapeXml(settings.siteDescription)}</description>
-  <language>en-us</language>
-  <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-  <atom:link href="${baseDomain}/rss.xml" rel="self" type="application/rss+xml" />
-`;
-
-      articles.forEach(art => {
-        const pubDateFormatted = new Date(art.publishedAt || new Date()).toUTCString();
-        rssXml += `  <item>
-    <title>${escapeXml(art.title)}</title>
-    <link>${baseDomain}/blog/${art.slug}</link>
-    <description>${escapeXml(art.shortDescription)}</description>
-    <author>${escapeXml(art.author)}</author>
-    <category>${escapeXml(art.categoryName)}</category>
-    <pubDate>${pubDateFormatted}</pubDate>
-    <guid isPermaLink="true">${baseDomain}/blog/${art.slug}</guid>
-  </item>\n`;
-      });
-
-      rssXml += `</channel>
-</rss>`;
-
+      const rssXml = await generateRssXml();
       res.header('Content-Type', 'application/xml; charset=utf-8');
+      res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.send(rssXml);
     } catch (err: any) {
       console.error('Error generating rss dynamically:', err);
