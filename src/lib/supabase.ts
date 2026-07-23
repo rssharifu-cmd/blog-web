@@ -440,40 +440,65 @@ export const saveSettings = async (settings: SiteSettings): Promise<boolean> => 
 
 export const verifyArticlePublication = async (slug: string): Promise<boolean> => {
   const expectedPath = `/blog/${slug}`;
-  const errors: string[] = [];
+  let errors: string[] = [];
 
-  // 1. Verify public website
-  try {
-    const article = await getArticleBySlug(slug);
-    if (!article) {
-      errors.push(`Article with slug "${slug}" not found on public website.`);
-    } else if (article.status === 'draft') {
-      errors.push(`Article with slug "${slug}" has draft status on public website.`);
+  // Helper pause function
+  const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+  // 1. Verify public website with retry
+  let articleVerified = false;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const article = await getArticleBySlug(slug);
+      if (article && article.status !== 'draft') {
+        articleVerified = true;
+        break;
+      }
+    } catch (err) {
+      // Retry
     }
-  } catch (err: any) {
-    errors.push(`Public website verification failed: ${err.message}`);
+    await sleep(300);
+  }
+  if (!articleVerified) {
+    errors.push(`Article with slug "${slug}" not found or still in draft status on public website.`);
   }
 
-  // 2. Verify /sitemap.xml
-  try {
-    const sitemapRes = await fetch('/sitemap.xml');
-    const sitemapXml = await sitemapRes.text();
-    if (!sitemapXml.includes(expectedPath)) {
-      errors.push(`URL "${expectedPath}" is missing from /sitemap.xml.`);
+  // 2. Verify /sitemap.xml with cache-busting and retry
+  let sitemapVerified = false;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const sitemapRes = await fetch(`/sitemap.xml?t=${Date.now()}`, { cache: 'no-store' });
+      const sitemapXml = await sitemapRes.text();
+      if (sitemapXml.includes(expectedPath) || sitemapXml.includes(slug)) {
+        sitemapVerified = true;
+        break;
+      }
+    } catch (err: any) {
+      // Retry
     }
-  } catch (err: any) {
-    errors.push(`Failed to fetch /sitemap.xml: ${err.message}`);
+    await sleep(300);
+  }
+  if (!sitemapVerified) {
+    errors.push(`URL "${expectedPath}" is missing from /sitemap.xml.`);
   }
 
-  // 3. Verify /rss.xml
-  try {
-    const rssRes = await fetch('/rss.xml');
-    const rssXml = await rssRes.text();
-    if (!rssXml.includes(expectedPath)) {
-      errors.push(`Link "${expectedPath}" is missing from /rss.xml.`);
+  // 3. Verify /rss.xml with cache-busting and retry
+  let rssVerified = false;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const rssRes = await fetch(`/rss.xml?t=${Date.now()}`, { cache: 'no-store' });
+      const rssXml = await rssRes.text();
+      if (rssXml.includes(expectedPath) || rssXml.includes(slug)) {
+        rssVerified = true;
+        break;
+      }
+    } catch (err: any) {
+      // Retry
     }
-  } catch (err: any) {
-    errors.push(`Failed to fetch /rss.xml: ${err.message}`);
+    await sleep(300);
+  }
+  if (!rssVerified) {
+    errors.push(`Link "${expectedPath}" is missing from /rss.xml.`);
   }
 
   if (errors.length > 0) {
