@@ -326,13 +326,21 @@ async function start() {
     let articles: any[] = [];
     if (isSupabaseConfigured && supabaseClient) {
       try {
-        const { data: dbArticles, error } = await supabaseClient
+        const supabaseQuery = supabaseClient
           .from('articles')
           .select('*')
           .order('created_at', { ascending: false });
 
+        const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: new Error('Supabase request timeout') }), 3500)
+        );
+
+        const res: any = await Promise.race([supabaseQuery, timeoutPromise]);
+        const dbArticles = res.data;
+        const error = res.error;
+
         if (!error && dbArticles && dbArticles.length > 0) {
-          articles = dbArticles.map(art => mapArticleFromDb(art));
+          articles = dbArticles.map((art: any) => mapArticleFromDb(art));
         }
       } catch (err) {
         console.warn('Supabase fetch error in repository:', err);
@@ -363,8 +371,8 @@ async function start() {
   // DYNAMIC SITEMAP & RSS GENERATORS & SELF-CHECK
   // ==========================================
 
-  const generateSitemapXml = async (): Promise<string> => {
-    const articles = await getPublishedArticlesFromRepository();
+  const generateSitemapXml = async (overrideArticles?: any[]): Promise<string> => {
+    const articles = overrideArticles || (await getPublishedArticlesFromRepository());
     const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
     const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
 
@@ -432,7 +440,7 @@ async function start() {
     return sitemapXml;
   };
 
-  const generateRssXml = async (): Promise<string> => {
+  const generateRssXml = async (overrideArticles?: any[]): Promise<string> => {
     let settings = {
       siteName: 'NetVentures',
       siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.'
@@ -441,22 +449,29 @@ async function start() {
     const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
 
     if (isSupabaseConfigured && supabaseClient) {
-      const { data: settingsData } = await supabaseClient
-        .from('site_settings')
-        .select('*')
-        .eq('id', 'global')
-        .maybeSingle();
+      try {
+        const settingsQuery = supabaseClient
+          .from('site_settings')
+          .select('*')
+          .eq('id', 'global')
+          .maybeSingle();
 
-      if (settingsData) {
-        settings.siteName = settingsData.site_name || settings.siteName;
-        settings.siteDescription = settingsData.site_description || settings.siteDescription;
+        const timeoutPromise = new Promise<{ data: null }>((resolve) =>
+          setTimeout(() => resolve({ data: null }), 2000)
+        );
+
+        const res: any = await Promise.race([settingsQuery, timeoutPromise]);
+        if (res && res.data) {
+          settings.siteName = res.data.site_name || settings.siteName;
+          settings.siteDescription = res.data.site_description || settings.siteDescription;
+        }
+      } catch (e) {
+        // use default settings
       }
     }
 
-    const rawArticles = await getPublishedArticlesFromRepository();
-    const categories = isSupabaseConfigured && supabaseClient
-      ? (await supabaseClient.from('categories').select('*')).data || []
-      : loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
+    const rawArticles = overrideArticles || (await getPublishedArticlesFromRepository());
+    const categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
 
     const categoriesMap: any = {};
     categories.forEach((c: any) => {
@@ -513,8 +528,9 @@ async function start() {
     const expectedUrlPath = `/blog/${slug}`;
 
     // 1. Verify Article in Unified Repository (used by Public Website)
+    let publishedArticles: any[] = [];
     try {
-      const publishedArticles = await getPublishedArticlesFromRepository();
+      publishedArticles = await getPublishedArticlesFromRepository();
       const match = publishedArticles.find((a: any) => a.slug === slug);
       if (!match) {
         errors.push(`Public website check failed: Article with slug "${slug}" not found in published articles repository.`);
@@ -530,7 +546,7 @@ async function start() {
 
     // 2. Verify /sitemap.xml
     try {
-      const sitemapContent = await generateSitemapXml();
+      const sitemapContent = await generateSitemapXml(publishedArticles);
       if (!sitemapContent.includes(expectedUrlPath)) {
         errors.push(`Sitemap check failed: URL "${expectedUrlPath}" is missing from /sitemap.xml.`);
       }
@@ -540,7 +556,7 @@ async function start() {
 
     // 3. Verify /rss.xml
     try {
-      const rssContent = await generateRssXml();
+      const rssContent = await generateRssXml(publishedArticles);
       if (!rssContent.includes(expectedUrlPath)) {
         errors.push(`RSS feed check failed: Link "${expectedUrlPath}" is missing from /rss.xml.`);
       }
