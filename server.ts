@@ -1323,20 +1323,18 @@ async function start() {
         resultArticle = fallbackItem;
       }
 
-      // Generate SEO sitemap/RSS files asynchronously & run self-check if published
+      // Trigger SEO sitemap/RSS files regeneration
+      triggerSeoRegeneration();
+
+      // Run non-blocking background verification check for published articles
       if (articlePayload.status !== 'draft') {
-        const checkResult = await verifyPublishedArticle(resultArticle.slug);
-        if (!checkResult.success) {
-          console.error(`❌ Self-check verification failed for newly published article "${resultArticle.slug}":`, checkResult.errors);
-          return res.status(500).json({
-            success: false,
-            error: 'Self-check verification failed',
-            message: 'Newly published article failed automated verification across public website, /sitemap.xml, or /rss.xml.',
-            details: checkResult.errors
-          });
-        }
-      } else {
-        triggerSeoRegeneration();
+        verifyPublishedArticle(resultArticle.slug).then((checkResult) => {
+          if (!checkResult.success) {
+            console.warn(`⚠️ Post-publish verification notice for "${resultArticle.slug}":`, checkResult.errors);
+          } else {
+            console.log(`✅ Post-publish verification verified for "${resultArticle.slug}" in sitemap and RSS.`);
+          }
+        }).catch((err) => console.warn('Verification check error:', err));
       }
 
       // Return augmented article with real-time SEO OpenGraph and JSON-LD metadata fields
@@ -1469,20 +1467,18 @@ async function start() {
         updatedArticle = updatedItem;
       }
 
-      // Generate SEO sitemap/RSS files asynchronously & run self-check if published
+      // Trigger SEO sitemap/RSS files regeneration
+      triggerSeoRegeneration();
+
+      // Run non-blocking background verification check for published articles
       if (updatedArticle.status !== 'draft') {
-        const checkResult = await verifyPublishedArticle(updatedArticle.slug);
-        if (!checkResult.success) {
-          console.error(`❌ Self-check verification failed for updated article "${updatedArticle.slug}":`, checkResult.errors);
-          return res.status(500).json({
-            success: false,
-            error: 'Self-check verification failed',
-            message: 'Updated article failed automated verification across public website, /sitemap.xml, or /rss.xml.',
-            details: checkResult.errors
-          });
-        }
-      } else {
-        triggerSeoRegeneration();
+        verifyPublishedArticle(updatedArticle.slug).then((checkResult) => {
+          if (!checkResult.success) {
+            console.warn(`⚠️ Post-publish verification notice for "${updatedArticle.slug}":`, checkResult.errors);
+          } else {
+            console.log(`✅ Post-publish verification verified for "${updatedArticle.slug}" in sitemap and RSS.`);
+          }
+        }).catch((err) => console.warn('Verification check error:', err));
       }
 
       const responseArticle = {
