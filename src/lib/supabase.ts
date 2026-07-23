@@ -27,7 +27,11 @@ export const isSupabaseConfigured = Boolean(
 const initSupabase = () => {
   if (!isSupabaseConfigured) return null;
   try {
-    return createClient(supabaseUrl, supabaseAnonKey);
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        fetch: (url, init) => fetch(url, init),
+      },
+    });
   } catch (err) {
     console.error('Failed to initialize Supabase client:', err);
     return null;

@@ -141,45 +141,47 @@ async function run() {
     }
   }
 
-  // Fallback to local file-based database if not loaded from Supabase
-  if (!loadedFromLiveDb) {
-    const localArticlesPath = path.resolve(process.cwd(), 'src', 'data', 'local_articles.json');
-    const localCategoriesPath = path.resolve(process.cwd(), 'src', 'data', 'local_categories.json');
-    if (fs.existsSync(localArticlesPath)) {
-      try {
-        console.log('📂 Loading articles from local JSON database file for SEO generation...');
-        const localArticles = JSON.parse(fs.readFileSync(localArticlesPath, 'utf-8'));
-        const localCategories = fs.existsSync(localCategoriesPath) 
-          ? JSON.parse(fs.readFileSync(localCategoriesPath, 'utf-8'))
-          : [];
-        
-        const categoriesMap = {};
-        localCategories.forEach(c => {
-          categoriesMap[c.id] = c.name;
-          categoriesMap[c.slug] = c.name;
-        });
+  // Always merge published articles from local JSON database file to ensure full coverage
+  const localArticlesPath = path.resolve(process.cwd(), 'src', 'data', 'local_articles.json');
+  const localCategoriesPath = path.resolve(process.cwd(), 'src', 'data', 'local_categories.json');
+  if (fs.existsSync(localArticlesPath)) {
+    try {
+      console.log('📂 Syncing published articles from local JSON database file for SEO generation...');
+      const localArticles = JSON.parse(fs.readFileSync(localArticlesPath, 'utf-8'));
+      const localCategories = fs.existsSync(localCategoriesPath) 
+        ? JSON.parse(fs.readFileSync(localCategoriesPath, 'utf-8'))
+        : [];
+      
+      const categoriesMap = {};
+      localCategories.forEach(c => {
+        categoriesMap[c.id] = c.name;
+        categoriesMap[c.slug] = c.name;
+      });
 
-        // Filter for published articles
-        const publishedArticles = localArticles.filter(art => art.status === 'published');
-        if (publishedArticles.length > 0) {
-          articles = publishedArticles.map(art => ({
+      const publishedLocal = localArticles.filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft');
+      const existingSlugs = new Set(articles.map(a => a.slug));
+
+      if (!loadedFromLiveDb && publishedLocal.length > 0) {
+        articles = [];
+      }
+
+      publishedLocal.forEach(art => {
+        if (!existingSlugs.has(art.slug)) {
+          articles.push({
             title: art.title,
             slug: art.slug,
             shortDescription: art.shortDescription || art.title,
-            publishedAt: art.publishedAt || new Date().toISOString(),
+            publishedAt: art.publishedAt || art.createdAt || new Date().toISOString(),
             author: art.author || 'Elena Rostova',
             categoryName: categoriesMap[art.categoryId] || 'Editorial',
             content: art.content || ''
-          }));
-          console.log(`✅ Loaded ${articles.length} published articles from local file database.`);
-        } else {
-          console.log('ℹ️ No published articles found in local database. Using default fallback articles.');
+          });
+          existingSlugs.add(art.slug);
         }
-      } catch (err) {
-        console.warn('⚠️ Error loading local JSON database for SEO generation:', err.message);
-      }
-    } else {
-      console.log('ℹ️ Supabase credentials not found and local files do not exist. Utilizing fallback defaults.');
+      });
+      console.log(`✅ Total ${articles.length} published articles prepared for SEO assets.`);
+    } catch (err) {
+      console.warn('⚠️ Error reading local JSON database for SEO generation:', err.message);
     }
   }
 
