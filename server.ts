@@ -302,14 +302,10 @@ async function start() {
   };
 
   // ==========================================
-  // DYNAMIC SITEMAP & RSS GENERATORS & SELF-CHECK
+  // UNIFIED ARTICLE REPOSITORY (SINGLE SOURCE OF TRUTH)
   // ==========================================
 
-  const generateSitemapXml = async (): Promise<string> => {
-    let articles: any[] = [];
-    const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
-    const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
-
+  const getAllArticlesFromRepository = async (): Promise<any[]> => {
     if (isSupabaseConfigured && supabaseClient) {
       const { data: dbArticles, error } = await supabaseClient
         .from('articles')
@@ -317,14 +313,25 @@ async function start() {
         .order('created_at', { ascending: false });
 
       if (!error && dbArticles) {
-        articles = dbArticles
-          .filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft')
-          .map(art => mapArticleFromDb(art));
+        return dbArticles.map(art => mapArticleFromDb(art));
       }
-    } else {
-      const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-      articles = articlesList.filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft');
     }
+    return loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+  };
+
+  const getPublishedArticlesFromRepository = async (): Promise<any[]> => {
+    const all = await getAllArticlesFromRepository();
+    return all.filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft');
+  };
+
+  // ==========================================
+  // DYNAMIC SITEMAP & RSS GENERATORS & SELF-CHECK
+  // ==========================================
+
+  const generateSitemapXml = async (): Promise<string> => {
+    const articles = await getPublishedArticlesFromRepository();
+    const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
+    const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
 
     const currentDate = new Date().toISOString().split('T')[0];
     let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -391,7 +398,6 @@ async function start() {
   };
 
   const generateRssXml = async (): Promise<string> => {
-    let articles: any[] = [];
     let settings = {
       siteName: 'NetVentures',
       siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.'
@@ -410,44 +416,22 @@ async function start() {
         settings.siteName = settingsData.site_name || settings.siteName;
         settings.siteDescription = settingsData.site_description || settings.siteDescription;
       }
-
-      const { data: categories } = await supabaseClient.from('categories').select('*');
-      const categoriesMap: any = {};
-      (categories || []).forEach(c => {
-        categoriesMap[c.id] = c.name;
-      });
-
-      const { data: dbArticles, error } = await supabaseClient
-        .from('articles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && dbArticles) {
-        articles = dbArticles
-          .filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft')
-          .map(art => {
-            const mapped: any = mapArticleFromDb(art);
-            return {
-              ...mapped,
-              categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial'
-            };
-          });
-      }
-    } else {
-      const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-      const categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
-      const categoriesMap: any = {};
-      categories.forEach((c: any) => {
-        categoriesMap[c.id] = c.name;
-      });
-
-      articles = articlesList
-        .filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft')
-        .map((art: any) => ({
-          ...art,
-          categoryName: categoriesMap[art.categoryId] || 'Editorial'
-        }));
     }
+
+    const rawArticles = await getPublishedArticlesFromRepository();
+    const categories = isSupabaseConfigured && supabaseClient
+      ? (await supabaseClient.from('categories').select('*')).data || []
+      : loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
+
+    const categoriesMap: any = {};
+    categories.forEach((c: any) => {
+      categoriesMap[c.id] = c.name;
+    });
+
+    const articles = rawArticles.map((art: any) => ({
+      ...art,
+      categoryName: categoriesMap[art.categoryId || art.category] || 'Editorial'
+    }));
 
     const escapeXml = (unsafe: string) => {
       if (!unsafe) return '';
@@ -493,30 +477,12 @@ async function start() {
     const errors: string[] = [];
     const expectedUrlPath = `/blog/${slug}`;
 
-    // 1. Verify Public Website
+    // 1. Verify Article in Unified Repository (used by Public Website)
     try {
-      if (isSupabaseConfigured && supabaseClient) {
-        const { data, error } = await supabaseClient
-          .from('articles')
-          .select('*')
-          .eq('slug', slug)
-          .maybeSingle();
-
-        if (error) {
-          errors.push(`Public website check failed: Database query error for slug "${slug}": ${error.message}`);
-        } else if (!data) {
-          errors.push(`Public website check failed: Article with slug "${slug}" not found in database.`);
-        } else if ((data.status || 'published').toString().toLowerCase() === 'draft') {
-          errors.push(`Public website check failed: Article with slug "${slug}" has status "draft" in database.`);
-        }
-      } else {
-        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        const match = articlesList.find((a: any) => a.slug === slug);
-        if (!match) {
-          errors.push(`Public website check failed: Article with slug "${slug}" not found in local storage.`);
-        } else if ((match.status || 'published').toString().toLowerCase() === 'draft') {
-          errors.push(`Public website check failed: Article with slug "${slug}" has status "draft" in local storage.`);
-        }
+      const publishedArticles = await getPublishedArticlesFromRepository();
+      const match = publishedArticles.find((a: any) => a.slug === slug);
+      if (!match) {
+        errors.push(`Public website check failed: Article with slug "${slug}" not found in published articles repository.`);
       }
     } catch (err: any) {
       errors.push(`Public website check failed: ${err.message}`);
@@ -1193,6 +1159,38 @@ async function start() {
     });
   });
 
+  // GET /articles -> Fetch all articles from repository (supports ?status=published)
+  apiRouter.get('/articles', async (req, res) => {
+    try {
+      const statusFilter = req.query.status as string;
+      const articles = statusFilter === 'published'
+        ? await getPublishedArticlesFromRepository()
+        : await getAllArticlesFromRepository();
+
+      return res.json(articles);
+    } catch (err: any) {
+      console.error('Error fetching articles from repository:', err);
+      return res.status(500).json({ error: 'Database error', message: err.message });
+    }
+  });
+
+  // GET /articles/:idOrSlug -> Fetch single article from repository by ID or Slug
+  apiRouter.get('/articles/:idOrSlug', async (req, res) => {
+    try {
+      const { idOrSlug } = req.params;
+      const allArticles = await getAllArticlesFromRepository();
+      const article = allArticles.find((a: any) => a.id === idOrSlug || a.slug === idOrSlug);
+
+      if (!article) {
+        return res.status(404).json({ error: 'Not found', message: `Article matching "${idOrSlug}" not found in repository.` });
+      }
+      return res.json(article);
+    } catch (err: any) {
+      console.error('Error fetching article from repository:', err);
+      return res.status(500).json({ error: 'Database error', message: err.message });
+    }
+  });
+
   // POST /articles -> Create and publish new article
   apiRouter.post('/articles', authenticateAgent, validateBody(articleCreateSchema), async (req, res) => {
     const {
@@ -1326,15 +1324,17 @@ async function start() {
       // Trigger SEO sitemap/RSS files regeneration
       triggerSeoRegeneration();
 
-      // Run non-blocking background verification check for published articles
+      // Run verification check for published articles
       if (articlePayload.status !== 'draft') {
-        verifyPublishedArticle(resultArticle.slug).then((checkResult) => {
-          if (!checkResult.success) {
-            console.warn(`⚠️ Post-publish verification notice for "${resultArticle.slug}":`, checkResult.errors);
-          } else {
-            console.log(`✅ Post-publish verification verified for "${resultArticle.slug}" in sitemap and RSS.`);
-          }
-        }).catch((err) => console.warn('Verification check error:', err));
+        const checkResult = await verifyPublishedArticle(resultArticle.slug);
+        if (!checkResult.success) {
+          console.error(`❌ Self-check verification failed for published article "${resultArticle.slug}":`, checkResult.errors);
+          return res.status(500).json({
+            error: 'Publication verification failed',
+            message: `Article publication self-check failed for "${resultArticle.slug}".`,
+            details: checkResult.errors
+          });
+        }
       }
 
       // Return augmented article with real-time SEO OpenGraph and JSON-LD metadata fields
@@ -1470,15 +1470,17 @@ async function start() {
       // Trigger SEO sitemap/RSS files regeneration
       triggerSeoRegeneration();
 
-      // Run non-blocking background verification check for published articles
+      // Run verification check for published articles
       if (updatedArticle.status !== 'draft') {
-        verifyPublishedArticle(updatedArticle.slug).then((checkResult) => {
-          if (!checkResult.success) {
-            console.warn(`⚠️ Post-publish verification notice for "${updatedArticle.slug}":`, checkResult.errors);
-          } else {
-            console.log(`✅ Post-publish verification verified for "${updatedArticle.slug}" in sitemap and RSS.`);
-          }
-        }).catch((err) => console.warn('Verification check error:', err));
+        const checkResult = await verifyPublishedArticle(updatedArticle.slug);
+        if (!checkResult.success) {
+          console.error(`❌ Self-check verification failed for published article "${updatedArticle.slug}":`, checkResult.errors);
+          return res.status(500).json({
+            error: 'Publication verification failed',
+            message: `Article publication self-check failed for "${updatedArticle.slug}".`,
+            details: checkResult.errors
+          });
+        }
       }
 
       const responseArticle = {

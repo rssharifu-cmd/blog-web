@@ -289,6 +289,19 @@ const mapSettingsToDb = (set: SiteSettings) => ({
 // ==========================================
 
 export const getArticles = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
+  try {
+    const statusQuery = options?.status ? `?status=${options.status}` : '';
+    const res = await fetch(`/api/articles${statusQuery}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend API fetch notice, checking fallback stores:', err);
+  }
+
   if (isSupabaseConfigured && supabase) {
     let query = supabase.from('articles').select('*').order('created_at', { ascending: false });
     if (options?.status) {
@@ -310,6 +323,18 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
 };
 
 export const getArticleBySlug = async (slug: string): Promise<Article | null> => {
+  try {
+    const res = await fetch(`/api/articles/${encodeURIComponent(slug)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.slug) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend API fetch notice, checking fallback stores:', err);
+  }
+
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('articles').select('*').eq('slug', slug).maybeSingle();
     if (error) {
@@ -324,6 +349,18 @@ export const getArticleBySlug = async (slug: string): Promise<Article | null> =>
 };
 
 export const getArticleById = async (id: string): Promise<Article | null> => {
+  try {
+    const res = await fetch(`/api/articles/${encodeURIComponent(id)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.id) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend API fetch notice, checking fallback stores:', err);
+  }
+
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('articles').select('*').eq('id', id).maybeSingle();
     if (error) {
@@ -517,13 +554,13 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
 
   let savedArticle: Article | null = null;
 
-  // 1. Try syncing via Express backend API to ensure server-side persistence,
-  // dynamic sitemap generation, and RSS feed updates.
-  try {
-    const isUpdate = Boolean(input.id);
-    const url = isUpdate ? `/api/articles/${input.id}` : '/api/articles';
-    const method = isUpdate ? 'PUT' : 'POST';
+  // 1. Persist via Express backend API to ensure server-side persistence,
+  // unified repository update, dynamic sitemap generation, and RSS feed updates.
+  const isUpdate = Boolean(input.id);
+  const url = isUpdate ? `/api/articles/${input.id}` : '/api/articles';
+  const method = isUpdate ? 'PUT' : 'POST';
 
+  try {
     const apiRes = await fetch(url, {
       method,
       headers: {
@@ -533,89 +570,36 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
       body: JSON.stringify(input)
     });
 
-    if (apiRes.ok) {
-      const data = await apiRes.json();
-      if (data.article) {
-        savedArticle = data.article;
-      }
-    } else {
-      console.warn(`Backend server API save returned status ${apiRes.status}, falling back to client storage.`);
+    const resData = await apiRes.json().catch(() => ({}));
+
+    if (!apiRes.ok) {
+      const errMsg = resData.message || resData.error || `Server API save error (${apiRes.status})`;
+      console.error('Backend server API save failed:', errMsg, resData.details);
+      throw new Error(errMsg);
     }
-  } catch (apiErr) {
-    console.warn('Backend server API sync notice:', apiErr);
+
+    if (resData.article) {
+      savedArticle = resData.article;
+    }
+  } catch (apiErr: any) {
+    console.error('Backend server API sync error during article save:', apiErr);
+    // Re-throw so the UI does not falsely report success if backend sync or verification failed
+    if (apiErr && apiErr.message) {
+      throw apiErr;
+    }
+    throw new Error('Failed to save article to backend repository.');
   }
 
-  // 2. Direct client-side save (Supabase or LocalStorage)
-  if (!savedArticle) {
-    if (isSupabaseConfigured && supabase) {
-      const schema = await detectSchema();
-      if (input.id) {
-        // Update
-        const dbPayload: any = mapArticleToDbForUpdate(input, schema);
-        dbPayload.reading_time = readingTime;
-        
-        const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', input.id).select().single();
-        if (error) throw new Error(error.message);
-        savedArticle = mapArticleFromDb(data);
-      } else {
-        // Insert
-        const dbPayload: any = mapArticleToDbForInsert(input, schema);
-        
-        const { data, error } = await supabase.from('articles').insert([dbPayload]).select().single();
-        if (error) throw new Error(error.message);
-        savedArticle = mapArticleFromDb(data);
-      }
+  if (savedArticle) {
+    // Keep client-side local storage synchronized for offline compatibility
+    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+    const existingIdx = list.findIndex(a => a.id === savedArticle!.id || a.slug === savedArticle!.slug);
+    if (existingIdx !== -1) {
+      list[existingIdx] = savedArticle;
     } else {
-      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-      if (input.id) {
-        const idx = list.findIndex(a => a.id === input.id);
-        if (idx !== -1) {
-          const existing = list[idx];
-          const updated: Article = {
-            ...existing,
-            ...input,
-            id: existing.id,
-            readingTime,
-            publishedAt: existing.publishedAt,
-            views: existing.views
-          };
-          list[idx] = updated;
-          saveLocalData('net_articles', list);
-          savedArticle = updated;
-        }
-      } else {
-        const newArt: Article = {
-          ...input,
-          id: `art-${Date.now()}`,
-          readingTime,
-          publishedAt: new Date().toISOString(),
-          views: 0
-        };
-        list.unshift(newArt);
-        saveLocalData('net_articles', list);
-        savedArticle = newArt;
-      }
+      list.unshift(savedArticle);
     }
-  } else {
-    // Sync local storage if client is using local fallback alongside API
-    if (!isSupabaseConfigured) {
-      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-      const idx = list.findIndex(a => a.id === savedArticle!.id || a.slug === savedArticle!.slug);
-      if (idx !== -1) {
-        list[idx] = savedArticle;
-      } else {
-        list.unshift(savedArticle);
-      }
-      saveLocalData('net_articles', list);
-    }
-  }
-
-  // 3. Automated self-check verification for published posts
-  if (savedArticle && savedArticle.status !== 'draft') {
-    const isVerified = await verifyArticlePublication(savedArticle.slug);
-    if (!isVerified) {
-      console.warn(`⚠️ Publication self-check warning for "${savedArticle.slug}": SEO assets are updating in background.`);
-    }
+    saveLocalData('net_articles', list);
   }
 
   return savedArticle;
