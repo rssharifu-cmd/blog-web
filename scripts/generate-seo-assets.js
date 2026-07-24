@@ -28,7 +28,8 @@ const loadEnvFile = () => {
 
 loadEnvFile();
 
-const SUPABASE_URL = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim();
+const rawSupabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim();
+const SUPABASE_URL = rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
 const SUPABASE_ANON_KEY = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 // Base URL for links. Default to NetVentures primary URL.
 const SITE_BASE_URL = process.env.APP_URL || 'https://netventures.online';
@@ -39,40 +40,16 @@ const DEFAULT_SETTINGS = {
   googleSearchConsoleVerification: '',
 };
 
-const DEFAULT_ARTICLES = [
-  {
-    title: 'The AI-Powered Content Empire: Scaling to $10,000/Month in 2026',
-    slug: 'ai-powered-content-empire',
-    shortDescription: 'Discover how to leverage state-of-the-art AI systems, automated editors, and predictive search frameworks to build an organic traffic powerhouse.',
-    publishedAt: '2026-07-15T09:00:00Z',
-    author: 'Elena Rostova',
-    categoryName: 'AI Tools',
-    content: 'In 2026, the landscape of digital publishing is undergoing an unprecedented shift...'
-  },
-  {
-    title: 'SaaS Case Study: Automating Cold Outreach with Clay & Make.com',
-    slug: 'saas-case-study-clay-make-automation',
-    shortDescription: 'How we built a zero-touch pipeline that extracts leads, enriches their records via AI, and schedules highly personalized sequences.',
-    publishedAt: '2026-07-16T14:30:00Z',
-    author: 'Marcus Vance',
-    categoryName: 'Automation',
-    content: 'For agencies, freelancers, and B2B SaaS founders, outbound sales is a major bottleneck...'
-  }
-];
-
 async function run() {
   console.log('🤖 Beginning SEO static assets generation (Sitemap, Robots.txt, RSS Feed)...');
   
-  let articles = [...DEFAULT_ARTICLES];
+  let articles = [];
   let settings = { ...DEFAULT_SETTINGS };
-
-  // Attempt to fetch fresh data from live Supabase database
-  let loadedFromLiveDb = false;
 
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
-      console.log('🔗 Connecting to Supabase database to fetch published columns...');
-      const cleanUrl = SUPABASE_URL.endsWith('/') ? SUPABASE_URL.slice(0, -1) : SUPABASE_URL;
+      console.log('🔗 Connecting to Supabase database to fetch published articles...');
+      const cleanUrl = SUPABASE_URL;
       
       // Fetch settings
       const settingsRes = await fetch(`${cleanUrl}/rest/v1/site_settings?id=eq.global&select=*`, {
@@ -119,69 +96,22 @@ async function run() {
         const dbArticles = await articlesRes.json();
         if (dbArticles && dbArticles.length > 0) {
           const publishedArticles = dbArticles.filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft');
-          if (publishedArticles.length > 0) {
-            articles = publishedArticles.map(art => ({
-              title: art.title,
-              slug: art.slug,
-              shortDescription: art.excerpt || art.short_description || art.title,
-              publishedAt: art.published_at || art.created_at || new Date().toISOString(),
-              author: art.author || 'Elena Rostova',
-              categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial',
-              content: art.content || ''
-            }));
-            loadedFromLiveDb = true;
-            console.log(`✅ Retrieved ${articles.length} published articles from Supabase.`);
-          }
+          articles = publishedArticles.map(art => ({
+            title: art.title,
+            slug: art.slug,
+            shortDescription: art.excerpt || art.short_description || art.title,
+            publishedAt: art.published_at || art.created_at || new Date().toISOString(),
+            author: art.author || 'Elena Rostova',
+            categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial',
+            content: art.content || ''
+          }));
+          console.log(`✅ Retrieved ${articles.length} published articles from Supabase.`);
         }
       } else {
-        console.warn(`⚠️ Supabase articles query returned status ${articlesRes.status}. Using default fallback articles.`);
+        console.warn(`⚠️ Supabase articles query returned status ${articlesRes.status}.`);
       }
     } catch (err) {
       console.warn('⚠️ Network or authentication error reading from Supabase database:', err.message);
-    }
-  }
-
-  // Always merge published articles from local JSON database file to ensure full coverage
-  const localArticlesPath = path.resolve(process.cwd(), 'src', 'data', 'local_articles.json');
-  const localCategoriesPath = path.resolve(process.cwd(), 'src', 'data', 'local_categories.json');
-  if (fs.existsSync(localArticlesPath)) {
-    try {
-      console.log('📂 Syncing published articles from local JSON database file for SEO generation...');
-      const localArticles = JSON.parse(fs.readFileSync(localArticlesPath, 'utf-8'));
-      const localCategories = fs.existsSync(localCategoriesPath) 
-        ? JSON.parse(fs.readFileSync(localCategoriesPath, 'utf-8'))
-        : [];
-      
-      const categoriesMap = {};
-      localCategories.forEach(c => {
-        categoriesMap[c.id] = c.name;
-        categoriesMap[c.slug] = c.name;
-      });
-
-      const publishedLocal = localArticles.filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft');
-      const existingSlugs = new Set(articles.map(a => a.slug));
-
-      if (!loadedFromLiveDb && publishedLocal.length > 0) {
-        articles = [];
-      }
-
-      publishedLocal.forEach(art => {
-        if (!existingSlugs.has(art.slug)) {
-          articles.push({
-            title: art.title,
-            slug: art.slug,
-            shortDescription: art.shortDescription || art.title,
-            publishedAt: art.publishedAt || art.createdAt || new Date().toISOString(),
-            author: art.author || 'Elena Rostova',
-            categoryName: categoriesMap[art.categoryId] || 'Editorial',
-            content: art.content || ''
-          });
-          existingSlugs.add(art.slug);
-        }
-      });
-      console.log(`✅ Total ${articles.length} published articles prepared for SEO assets.`);
-    } catch (err) {
-      console.warn('⚠️ Error reading local JSON database for SEO generation:', err.message);
     }
   }
 

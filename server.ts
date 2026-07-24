@@ -362,52 +362,50 @@ async function start() {
   // ==========================================
 
   const getAllArticlesFromRepository = async (): Promise<any[]> => {
-    let articles: any[] = [];
-    if (isSupabaseConfigured && supabaseClient) {
-      try {
-        const supabaseQuery = supabaseClient
-          .from('articles')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: new Error('Supabase request timeout') }), 3500)
-        );
-
-        const res: any = await Promise.race([supabaseQuery, timeoutPromise]);
-        const dbArticles = res.data;
-        const error = res.error;
-
-        if (!error && dbArticles && dbArticles.length > 0) {
-          articles = dbArticles.map((art: any) => mapArticleFromDb(art));
-        }
-      } catch (err) {
-        console.warn('Supabase fetch error in repository:', err);
-      }
+    if (!isSupabaseConfigured || !supabaseClient) {
+      return [];
     }
+    try {
+      const { data, error } = await supabaseClient
+        .from('articles')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    const localArticles = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-    if (articles.length === 0) {
-      return localArticles;
-    }
-
-    const dbSlugs = new Set(articles.map(a => a.slug));
-    localArticles.forEach((la: any) => {
-      if (la && la.slug && !dbSlugs.has(la.slug)) {
-        articles.push(la);
+      if (error) {
+        console.error('Supabase fetch error in repository:', error);
+        return [];
       }
-    });
-
-    return articles;
+      return (data || []).map((art: any) => mapArticleFromDb(art));
+    } catch (err) {
+      console.error('Supabase repository fetch exception:', err);
+      return [];
+    }
   };
 
   const getPublishedArticlesFromRepository = async (): Promise<any[]> => {
-    const all = await getAllArticlesFromRepository();
-    return all.filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft');
+    if (!isSupabaseConfigured || !supabaseClient) {
+      return [];
+    }
+    try {
+      const { data, error } = await supabaseClient
+        .from('articles')
+        .select('*')
+        .neq('status', 'draft')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Supabase fetch published error in repository:', error);
+        return [];
+      }
+      return (data || []).map((art: any) => mapArticleFromDb(art));
+    } catch (err) {
+      console.error('Supabase repository fetch published exception:', err);
+      return [];
+    }
   };
 
   // ==========================================
-  // DYNAMIC SITEMAP & RSS GENERATORS & SELF-CHECK
+  // DYNAMIC SITEMAP & RSS GENERATORS
   // ==========================================
 
   const generateSitemapXml = async (overrideArticles?: any[]): Promise<string> => {
@@ -489,20 +487,15 @@ async function start() {
 
     if (isSupabaseConfigured && supabaseClient) {
       try {
-        const settingsQuery = supabaseClient
+        const { data } = await supabaseClient
           .from('site_settings')
           .select('*')
           .eq('id', 'global')
           .maybeSingle();
 
-        const timeoutPromise = new Promise<{ data: null }>((resolve) =>
-          setTimeout(() => resolve({ data: null }), 2000)
-        );
-
-        const res: any = await Promise.race([settingsQuery, timeoutPromise]);
-        if (res && res.data) {
-          settings.siteName = res.data.site_name || settings.siteName;
-          settings.siteDescription = res.data.site_description || settings.siteDescription;
+        if (data) {
+          settings.siteName = data.site_name || settings.siteName;
+          settings.siteDescription = data.site_description || settings.siteDescription;
         }
       } catch (e) {
         // use default settings
@@ -510,12 +503,19 @@ async function start() {
     }
 
     const rawArticles = overrideArticles || (await getPublishedArticlesFromRepository());
-    const categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
 
-    const categoriesMap: any = {};
-    categories.forEach((c: any) => {
-      categoriesMap[c.id] = c.name;
-    });
+    let categoriesMap: Record<string, string> = {};
+    if (isSupabaseConfigured && supabaseClient) {
+      try {
+        const { data: cats } = await supabaseClient.from('categories').select('*');
+        (cats || []).forEach((c: any) => {
+          categoriesMap[c.id] = c.name;
+          categoriesMap[c.slug] = c.name;
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
 
     const articles = rawArticles.map((art: any) => ({
       ...art,
@@ -560,62 +560,6 @@ async function start() {
 </rss>`;
 
     return rssXml;
-  };
-
-  // SEO Trigger helper
-  const triggerSeoRegeneration = () => {
-    exec('node scripts/generate-seo-assets.js', (err) => {
-      if (err) console.error('Error running generate-seo-assets.js:', err.message);
-    });
-  };
-
-  // Article Publication Self-Check & Verification
-  const verifyPublishedArticle = async (slug: string): Promise<{ success: boolean; errors: string[] }> => {
-    const errors: string[] = [];
-    const expectedUrlPath = `/blog/${slug}`;
-
-    // 1. Verify article in repository
-    let publishedArticles: any[] = [];
-    try {
-      publishedArticles = await getPublishedArticlesFromRepository();
-      const match = publishedArticles.find((a: any) => a.slug === slug);
-      if (!match) {
-        errors.push(`Public website check notice: Article with slug "${slug}" not found in published articles repository.`);
-      }
-    } catch (err: any) {
-      errors.push(`Public website check notice: ${err.message}`);
-    }
-
-    // 2. Trigger fresh static SEO generation
-    triggerSeoRegeneration();
-
-    // 3. Verify /sitemap.xml
-    try {
-      const sitemapContent = await generateSitemapXml(publishedArticles);
-      if (!sitemapContent.includes(expectedUrlPath) && !sitemapContent.includes(slug)) {
-        errors.push(`Sitemap check notice: URL "${expectedUrlPath}" is missing from /sitemap.xml.`);
-      }
-    } catch (err: any) {
-      errors.push(`Sitemap check notice: ${err.message}`);
-    }
-
-    // 4. Verify /rss.xml
-    try {
-      const rssContent = await generateRssXml(publishedArticles);
-      if (!rssContent.includes(expectedUrlPath) && !rssContent.includes(slug)) {
-        errors.push(`RSS feed check notice: Link "${expectedUrlPath}" is missing from /rss.xml.`);
-      }
-    } catch (err: any) {
-      errors.push(`RSS feed check notice: ${err.message}`);
-    }
-
-    if (errors.length > 0) {
-      console.warn(` Article Publication Verification Notice for slug "${slug}":\n` + errors.map(e => `  - ${e}`).join('\n'));
-      return { success: false, errors };
-    }
-
-    console.log(`✅ Article Publication Verification PASSED for slug "${slug}": Verified in Public Website, /sitemap.xml, and /rss.xml.`);
-    return { success: true, errors: [] };
   };
 
   // ==========================================
@@ -1303,30 +1247,19 @@ async function start() {
     } = req.body;
 
     try {
-      // Resolve category ID
-      let finalCategoryId = categoryId || '';
-      let categories: any[] = [];
-      if (isSupabaseConfigured && supabaseClient) {
-        try {
-          const timeoutPromise = new Promise<{ data: null }>((resolve) =>
-            setTimeout(() => resolve({ data: null }), 2000)
-          );
-          const catRes: any = await Promise.race([supabaseClient.from('categories').select('*'), timeoutPromise]);
-          if (catRes && catRes.data) {
-            categories = catRes.data;
-          }
-        } catch (e: any) {
-          console.warn('Supabase categories fetch notice:', e?.message || e);
-        }
-      }
-      if (!categories || categories.length === 0) {
-        categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
+      if (!isSupabaseConfigured || !supabaseClient) {
+        return res.status(500).json({ error: 'Database unavailable', message: 'Supabase client is not configured.' });
       }
 
+      // Resolve category ID
+      let finalCategoryId = categoryId || '';
       if (categoryId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId)) {
-        const match = categories.find(c => c.slug === categoryId || c.name.toLowerCase() === categoryId.toLowerCase());
-        if (match) {
-          finalCategoryId = match.id;
+        const { data: cats } = await supabaseClient.from('categories').select('*');
+        if (cats) {
+          const match = cats.find((c: any) => c.slug === categoryId || c.name.toLowerCase() === categoryId.toLowerCase());
+          if (match) {
+            finalCategoryId = match.id;
+          }
         }
       }
 
@@ -1371,8 +1304,6 @@ async function start() {
         faq: faq || []
       };
 
-      let resultArticle;
-
       const dbPayload = {
         title: articlePayload.title,
         slug: articlePayload.slug,
@@ -1393,72 +1324,30 @@ async function start() {
         created_at: new Date().toISOString()
       };
 
-      if (isSupabaseConfigured && supabaseClient) {
-        try {
-          const { data, error } = await supabaseClient
-            .from('articles')
-            .insert([dbPayload])
-            .select()
-            .single();
+      let resultArticle: any = null;
+      let { data, error } = await supabaseClient
+        .from('articles')
+        .insert([dbPayload])
+        .select()
+        .single();
 
-          if (error) {
-            if (error.code === '23505') {
-              dbPayload.slug = `${dbPayload.slug}-${Math.round(Math.random() * 1000)}`;
-              const retryResult = await supabaseClient.from('articles').insert([dbPayload]).select().single();
-              if (!retryResult.error && retryResult.data) {
-                resultArticle = mapArticleFromDb(retryResult.data);
-              }
-            } else {
-              console.warn('Supabase insert notice, using local file store fallback:', error.message);
-            }
-          } else if (data) {
-            resultArticle = mapArticleFromDb(data);
+      if (error) {
+        if (error.code === '23505') {
+          dbPayload.slug = `${dbPayload.slug}-${Math.round(Math.random() * 1000)}`;
+          const retryResult = await supabaseClient.from('articles').insert([dbPayload]).select().single();
+          if (retryResult.error) {
+            return res.status(500).json({ error: 'Database insert failed', message: retryResult.error.message });
           }
-        } catch (dbErr: any) {
-          console.warn('Supabase insert exception, using local file store fallback:', dbErr.message);
-        }
-      }
-
-      if (!resultArticle) {
-        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        const existsIdx = articlesList.findIndex(a => a.slug === articlePayload.slug);
-        
-        let uniqueSlug = articlePayload.slug;
-        if (existsIdx !== -1) {
-          uniqueSlug = `${articlePayload.slug}-${Date.now().toString().slice(-4)}`;
-        }
-
-        const fallbackItem = {
-          ...articlePayload,
-          id: `art-${Date.now()}`,
-          slug: uniqueSlug
-        };
-
-        articlesList.unshift(fallbackItem);
-        saveLocalFile(LOCAL_ARTICLES_FILE, articlesList);
-        resultArticle = fallbackItem;
-      }
-
-      // Always sync resultArticle to local file store as single-source-of-truth backup
-      if (resultArticle) {
-        const localArticles = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        const existingIdx = localArticles.findIndex(a => a.id === resultArticle.id || a.slug === resultArticle.slug);
-        if (existingIdx !== -1) {
-          localArticles[existingIdx] = resultArticle;
+          resultArticle = mapArticleFromDb(retryResult.data);
         } else {
-          localArticles.unshift(resultArticle);
+          return res.status(500).json({ error: 'Database insert failed', message: error.message });
         }
-        saveLocalFile(LOCAL_ARTICLES_FILE, localArticles);
+      } else {
+        resultArticle = mapArticleFromDb(data);
       }
 
       // Trigger SEO sitemap/RSS files regeneration
       triggerSeoRegeneration();
-
-      if (articlePayload.status !== 'draft' && resultArticle?.slug) {
-        verifyPublishedArticle(resultArticle.slug).catch(err => {
-          console.warn(`Background verification check notice for "${resultArticle.slug}":`, err.message);
-        });
-      }
 
       // Return augmented article with real-time SEO OpenGraph and JSON-LD metadata fields
       const responseArticle = {
@@ -1470,7 +1359,7 @@ async function start() {
       return res.status(201).json({
         success: true,
         article: responseArticle,
-        message: 'Article created and published successfully with auto-generated SEO metadata and verified sitemap/RSS syndication!'
+        message: 'Article created and published successfully to Supabase.'
       });
 
     } catch (err: any) {
@@ -1485,40 +1374,21 @@ async function start() {
     const updates = req.body;
 
     try {
-      let updatedArticle = null;
-      let existingObj: any = null;
-
-      // Locate existing record to resolve attributes
-      if (isSupabaseConfigured && supabaseClient) {
-        try {
-          let isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
-          const lookupQuery = isUuid 
-            ? supabaseClient.from('articles').select('*').eq('id', id)
-            : supabaseClient.from('articles').select('*').eq('slug', id);
-
-          const timeoutPromise = new Promise<{ data: null }>((resolve) =>
-            setTimeout(() => resolve({ data: null }), 2000)
-          );
-          const lookupRes: any = await Promise.race([lookupQuery.maybeSingle(), timeoutPromise]);
-          if (lookupRes && lookupRes.data) {
-            existingObj = mapArticleFromDb(lookupRes.data);
-          }
-        } catch (lookupErr: any) {
-          console.warn('Supabase lookup notice during PUT article:', lookupErr?.message || lookupErr);
-        }
+      if (!isSupabaseConfigured || !supabaseClient) {
+        return res.status(500).json({ error: 'Database unavailable', message: 'Supabase client is not configured.' });
       }
 
-      if (!existingObj) {
-        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        const match = articlesList.find((a: any) => a.id === id || a.slug === id);
-        if (match) {
-          existingObj = match;
-        }
+      let isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
+      const lookupQuery = isUuid 
+        ? supabaseClient.from('articles').select('*').eq('id', id).maybeSingle()
+        : supabaseClient.from('articles').select('*').eq('slug', id).maybeSingle();
+
+      const { data: dbMatch, error: lookupErr } = await lookupQuery;
+      if (lookupErr || !dbMatch) {
+        return res.status(404).json({ error: 'Not found', message: `Article with ID/Slug "${id}" not found in Supabase.` });
       }
 
-      if (!existingObj) {
-        return res.status(404).json({ error: 'Not found', message: `Article with ID/Slug "${id}" not found.` });
-      }
+      const existingObj = mapArticleFromDb(dbMatch);
 
       // Process base64 image if passed in updates
       if (updates.featuredImage) {
@@ -1534,123 +1404,49 @@ async function start() {
 
       const seoAttrs = await autoGenerateArticleAttributes(mergedPayload, existingObj);
 
-      if (isSupabaseConfigured && supabaseClient) {
-        const dbPayload: any = {
-          updated_at: new Date().toISOString()
-        };
+      const dbPayload: any = {
+        updated_at: new Date().toISOString()
+      };
 
-        if (updates.title !== undefined) dbPayload.title = updates.title;
-        dbPayload.slug = seoAttrs.slug;
-        if (updates.content !== undefined) {
-          dbPayload.content = updates.content;
-          dbPayload.reading_time = seoAttrs.readingTime;
+      if (updates.title !== undefined) dbPayload.title = updates.title;
+      dbPayload.slug = seoAttrs.slug;
+      if (updates.content !== undefined) {
+        dbPayload.content = updates.content;
+        dbPayload.reading_time = seoAttrs.readingTime;
+      }
+      if (updates.shortDescription !== undefined) dbPayload.short_description = updates.shortDescription;
+      if (updates.categoryId !== undefined) {
+        let catId = updates.categoryId;
+        if (catId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catId)) {
+          const { data: cats } = await supabaseClient.from('categories').select('*');
+          const match = (cats || []).find((c: any) => c.slug === catId || c.name.toLowerCase() === catId.toLowerCase());
+          if (match) catId = match.id;
         }
-        if (updates.shortDescription !== undefined) dbPayload.short_description = updates.shortDescription;
-        if (updates.categoryId !== undefined) {
-          let catId = updates.categoryId;
-          if (catId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catId)) {
-            let cats: any[] = [];
-            try {
-              const timeoutPromise = new Promise<{ data: null }>((resolve) =>
-                setTimeout(() => resolve({ data: null }), 2000)
-              );
-              const catRes: any = await Promise.race([supabaseClient.from('categories').select('*'), timeoutPromise]);
-              if (catRes && catRes.data) cats = catRes.data;
-            } catch (e) {
-              cats = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
-            }
-            const match = (cats || []).find(c => c.slug === catId || c.name.toLowerCase() === catId.toLowerCase());
-            if (match) catId = match.id;
-          }
-          const isCatUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(catId || ''));
-          dbPayload.category_id = isCatUuid ? catId : null;
-        }
-        if (updates.tags !== undefined) dbPayload.tags = updates.tags;
-        if (updates.status !== undefined) dbPayload.status = updates.status;
-        if (updates.featuredImage !== undefined) dbPayload.featured_image = updates.featuredImage;
-        if (updates.seoTitle !== undefined) dbPayload.seo_title = updates.seoTitle;
-        if (updates.seoDescription !== undefined) dbPayload.seo_description = updates.seoDescription;
-        dbPayload.canonical_url = seoAttrs.canonicalUrl;
-        if (updates.author !== undefined) dbPayload.author = updates.author;
-        if (updates.faq !== undefined) dbPayload.faq = updates.faq;
+        const isCatUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(catId || ''));
+        dbPayload.category_id = isCatUuid ? catId : null;
+      }
+      if (updates.tags !== undefined) dbPayload.tags = updates.tags;
+      if (updates.status !== undefined) dbPayload.status = updates.status;
+      if (updates.featuredImage !== undefined) dbPayload.featured_image = updates.featuredImage;
+      if (updates.seoTitle !== undefined) dbPayload.seo_title = updates.seoTitle;
+      if (updates.seoDescription !== undefined) dbPayload.seo_description = updates.seoDescription;
+      dbPayload.canonical_url = seoAttrs.canonicalUrl;
+      if (updates.author !== undefined) dbPayload.author = updates.author;
+      if (updates.faq !== undefined) dbPayload.faq = updates.faq;
 
-        try {
-          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(existingObj.id || ''));
-          let updateQuery = isUuid 
-            ? supabaseClient.from('articles').update(dbPayload).eq('id', existingObj.id)
-            : supabaseClient.from('articles').update(dbPayload).eq('slug', existingObj.slug);
+      let updateQuery = isUuid 
+        ? supabaseClient.from('articles').update(dbPayload).eq('id', existingObj.id).select().single()
+        : supabaseClient.from('articles').update(dbPayload).eq('slug', existingObj.slug).select().single();
 
-          const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-            setTimeout(() => resolve({ data: null, error: new Error('Supabase update timeout') }), 3000)
-          );
-          const updateRes: any = await Promise.race([updateQuery.select().single(), timeoutPromise]);
-
-          if (updateRes && !updateRes.error && updateRes.data) {
-            updatedArticle = mapArticleFromDb(updateRes.data);
-          } else if (updateRes && updateRes.error) {
-            console.warn('Supabase update notice, using local file fallback:', updateRes.error.message);
-          }
-        } catch (dbErr: any) {
-          console.warn('Supabase update exception, using local file fallback:', dbErr?.message || dbErr);
-        }
+      const { data: updatedData, error: updateErr } = await updateQuery;
+      if (updateErr) {
+        return res.status(500).json({ error: 'Database update failed', message: updateErr.message });
       }
 
-      if (!updatedArticle) {
-        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        const idx = articlesList.findIndex(a => a.id === existingObj.id || a.slug === existingObj.slug);
-
-        const updatedItem = {
-          ...existingObj,
-          ...updates,
-          id: existingObj.id,
-          slug: seoAttrs.slug,
-          readingTime: seoAttrs.readingTime,
-          canonicalUrl: seoAttrs.canonicalUrl,
-          updatedAt: new Date().toISOString()
-        };
-
-        if (updates.shortDescription !== undefined) updatedItem.shortDescription = updates.shortDescription;
-        if (updates.categoryId !== undefined) {
-          let catId = updates.categoryId;
-          const categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
-          if (catId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catId)) {
-            const match = categories.find(c => c.slug === catId || c.name.toLowerCase() === catId.toLowerCase());
-            if (match) catId = match.id;
-          }
-          updatedItem.categoryId = catId;
-        }
-        if (updates.seoDescription !== undefined) updatedItem.seoDescription = updates.seoDescription;
-        if (updates.featuredImage !== undefined) updatedItem.featuredImage = updates.featuredImage;
-
-        if (idx !== -1) {
-          articlesList[idx] = updatedItem;
-        } else {
-          articlesList.unshift(updatedItem);
-        }
-        saveLocalFile(LOCAL_ARTICLES_FILE, articlesList);
-        updatedArticle = updatedItem;
-      }
-
-      // Always sync updatedArticle to local file store as single-source-of-truth backup
-      if (updatedArticle) {
-        const localArticles = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        const existingIdx = localArticles.findIndex(a => a.id === updatedArticle.id || a.slug === updatedArticle.slug);
-        if (existingIdx !== -1) {
-          localArticles[existingIdx] = updatedArticle;
-        } else {
-          localArticles.unshift(updatedArticle);
-        }
-        saveLocalFile(LOCAL_ARTICLES_FILE, localArticles);
-      }
+      const updatedArticle = mapArticleFromDb(updatedData);
 
       // Trigger SEO sitemap/RSS files regeneration
       triggerSeoRegeneration();
-
-      if (updatedArticle.status !== 'draft' && updatedArticle?.slug) {
-        verifyPublishedArticle(updatedArticle.slug).catch(err => {
-          console.warn(`Background verification check notice for "${updatedArticle.slug}":`, err.message);
-        });
-      }
 
       const responseArticle = {
         ...updatedArticle,
@@ -1661,7 +1457,7 @@ async function start() {
       return res.json({
         success: true,
         article: responseArticle,
-        message: 'Article updated successfully with verified SEO indexing!'
+        message: 'Article updated successfully in Supabase.'
       });
 
     } catch (err: any) {

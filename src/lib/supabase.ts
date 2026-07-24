@@ -296,15 +296,15 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
     const res = await fetch(`/api/articles${statusQuery}`);
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        list = data;
+      if (Array.isArray(data)) {
+        return data;
       }
     }
   } catch (err) {
-    console.warn('Backend API fetch notice, checking fallback stores:', err);
+    console.warn('Backend API fetch notice:', err);
   }
 
-  if (list.length === 0 && isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase) {
     let query = supabase.from('articles').select('*').order('created_at', { ascending: false });
     if (options?.status) {
       query = query.eq('status', options.status);
@@ -315,23 +315,6 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
     }
   }
 
-  const local = loadLocalArticles();
-  if (list.length === 0) {
-    list = local;
-  } else {
-    // Merge local articles into list if missing
-    const existingSlugs = new Set(list.map(a => a.slug));
-    local.forEach(la => {
-      if (la && la.slug && !existingSlugs.has(la.slug)) {
-        list.push(la);
-        existingSlugs.add(la.slug);
-      }
-    });
-  }
-
-  if (options?.status) {
-    return list.filter(a => a.status === options.status);
-  }
   return list;
 };
 
@@ -345,19 +328,9 @@ export const getArticleBySlug = async (slug: string): Promise<Article | null> =>
       }
     }
   } catch (err) {
-    console.warn('Backend API fetch notice, checking fallback stores:', err);
+    console.warn('Backend API fetch notice:', err);
   }
 
-  // Fallback 1: Query unified getArticles list
-  try {
-    const all = await getArticles();
-    const match = all.find(a => a.slug === slug || a.id === slug);
-    if (match) return match;
-  } catch (err) {
-    // Continue
-  }
-
-  // Fallback 2: Supabase directly
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('articles').select('*').eq('slug', slug).maybeSingle();
     if (!error && data) {
@@ -365,9 +338,7 @@ export const getArticleBySlug = async (slug: string): Promise<Article | null> =>
     }
   }
 
-  // Fallback 3: LocalStorage & JSON fallback
-  const list = loadLocalArticles();
-  return list.find(a => a.slug === slug || a.id === slug) || null;
+  return null;
 };
 
 export const getArticleById = async (id: string): Promise<Article | null> => {
@@ -380,19 +351,9 @@ export const getArticleById = async (id: string): Promise<Article | null> => {
       }
     }
   } catch (err) {
-    console.warn('Backend API fetch notice, checking fallback stores:', err);
+    console.warn('Backend API fetch notice:', err);
   }
 
-  // Fallback 1: Query unified getArticles list
-  try {
-    const all = await getArticles();
-    const match = all.find(a => a.id === id || a.slug === id);
-    if (match) return match;
-  } catch (err) {
-    // Continue
-  }
-
-  // Fallback 2: Supabase directly
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('articles').select('*').eq('id', id).maybeSingle();
     if (!error && data) {
@@ -400,9 +361,7 @@ export const getArticleById = async (id: string): Promise<Article | null> => {
     }
   }
 
-  // Fallback 3: LocalStorage & JSON fallback
-  const list = loadLocalArticles();
-  return list.find(a => a.id === id || a.slug === id) || null;
+  return null;
 };
 
 export const getCategories = async (): Promise<Category[]> => {
