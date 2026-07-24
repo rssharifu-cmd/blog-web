@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Article, Category, Tag, SiteSettings, ArticleInput } from '../types.js';
+import localArticlesData from '../data/local_articles.json';
 
 let rawSupabaseUrl = (import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_UR || '').trim();
 let rawSupabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANO || '').trim();
@@ -72,7 +73,9 @@ const DEFAULT_SETTINGS: SiteSettings = {
   googleSearchConsoleVerification: ''
 };
 
-const DEFAULT_ARTICLES: Article[] = [
+const DEFAULT_ARTICLES: Article[] = Array.isArray(localArticlesData) && localArticlesData.length > 0 
+  ? (localArticlesData as Article[]) 
+  : [
   {
     id: 'art-1',
     title: 'The AI-Powered Content Empire: Scaling to $10,000/Month in 2026',
@@ -93,31 +96,25 @@ const DEFAULT_ARTICLES: Article[] = [
       { question: 'Will AI content get penalized by Google Search?', answer: 'No. Google\'s official guidance states they reward high-quality content regardless of how it is produced. Focus on providing unique data, expert perspectives, and clear value (EEAT).' },
       { question: 'Which AI models are best for blogging?', answer: 'For structured drafting and deep research, Gemini-3.5-Flash and Claude-3.5-Sonnet offer the best balance of context, technical precision, and human-like expression.' }
     ],
-    content: `## The Era of Generative Business Publishing\n\nIn 2026, the landscape of digital publishing is undergoing an unprecedented shift. Simple, repetitive search keywords are being replaced by conversational AI responses, and readers are demanding deep, actionable insights instead of thin "SEO fluff." To survive and thrive, you must shift your perspective from simple content writing to building a sophisticated **AI-powered media engine**.\n\nBuilding a content empire does not mean spamming search engines with low-grade articles. Instead, it involves combining generative AI speeds with real human expertise, editorial oversight, and advanced digital optimization techniques.\n\n---\n\n## The 3-Step AI Publishing Flywheel\n\nSuccessfully scaling an online business magazine requires a sustainable process. The flywheel consists of three core phases:\n\n### 1. Programmatic Research & Synthesis\nInstead of spending hours searching topics manually, we use generative models to synthesize search intent. We analyze the specific questions readers are asking in forums, online discussions, and help centers. By feeding these insights into AI agents, we construct comprehensive outlines designed to answer complex search queries comprehensively.\n\n### 2. Expert-Guided AI Drafting\nWhen generating drafts, avoid using single-sentence prompts. Use structured prompts that provide:\n* **Brand Persona:** Establish a clear, professional, and authoritative editorial voice.\n* **Contextual Data:** Provide unique case study statistics, product pricing tables, or hands-on user feedback.\n* **Structural Guidelines:** Instruct the model to avoid cliché transition words, use active verbs, and structure insights with bullet lists and comparison charts.\n\n### 3. Generative Engine Optimization (GEO)\nOptimizing for Claude, ChatGPT, and Gemini requires highly structured, clean semantic HTML. Ensure your content includes:\n* **Definition Snippets:** Direct, clear answers to common questions right at the beginning of headings.\n* **JSON-LD Schema:** Structured markup to help search crawlers easily parse authors, reviews, and facts.\n* **Authoritative Citations:** Linking directly to verified primary sources and official documentations.\n\n---\n\n## Actionable Strategy: High-Ticket Monetization\n\nTo achieve a stable $10k/month passive income stream, do not rely on low-paying display ads. Instead, focus on these three high-margin channels:\n\n1. **High-Ticket Affiliate Partnerships:** Partner with enterprise SaaS products offering 30% recurring monthly commissions.\n2. **Sponsorship Deals:** Sell premium editorial features and custom header placements directly to growing startups.\n3. **Digital Infoproducts & Premium Toolkits:** Bundle your specialized templates, automation scripts, and workflow files into highly valuable digital products.\n\nBy executing this hybrid blueprint, you leverage AI to handle the manual labor of research and drafting, while focusing your energy on high-level business strategy, partner outreach, and brand positioning.`
-  },
-  {
-    id: 'art-2',
-    title: 'SaaS Case Study: Automating Cold Outreach with Clay & Make.com',
-    slug: 'saas-case-study-clay-make-automation',
-    shortDescription: 'How we built a zero-touch pipeline that extracts leads, enriches their records via AI, and schedules highly personalized sequences.',
-    categoryId: 'cat-2',
-    tags: ['freelancing', 'productivity', 'make-money-online'],
-    status: 'published',
-    featuredImage: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&h=630&q=80',
-    seoTitle: 'B2B Lead Generation Automation Case Study - NetVentures',
-    seoDescription: 'Read our comprehensive SaaS case study demonstrating how Clay, Make.com, and Gemini API automate hyper-targeted business development.',
-    canonicalUrl: 'https://netventures.online/blog/saas-case-study-clay-make-automation',
-    author: 'Marcus Vance',
-    publishedAt: '2026-07-16T14:30:00Z',
-    readingTime: 8,
-    views: 948,
-    faq: [
-      { question: 'What is the budget required to run this lead-gen stack?', answer: 'A basic setup with Clay, Make, and API keys costs roughly $150 to $250 per month, which easily pays for itself by booking 3 to 5 high-ticket sales meetings.' },
-      { question: 'How do you prevent emails from landing in spam folders?', answer: 'Always buy secondary domains, configure SPF, DKIM, and DMARC correctly, and warm up your mailboxes for at least 14 days before launching campaigns.' }
-    ],
-    content: `## The Modern B2B Acquisition Bottleneck\n\nFor agencies, freelancers, and B2B SaaS founders, outbound sales is a major bottleneck. Doing manual research and sending personalized emails is slow, whereas sending generic blast emails ruins domain reputations and yields terrible reply rates.\n\nThis case study reviews how we built a fully automated pipeline that enriches prospects, synthesizes their recent company news using AI, and writes personalized emails that look like they took 30 minutes of careful research to compose.\n\n---\n\n## The Ultimate Automation Stack\n\nOur programmatic outreach workflow utilizes three powerful components:\n\n* **Clay:** For lead scraping, multi-source enrichment (LinkedIn, Crunchbase, Github), and database filtering.\n* **Make.com:** The workflow connector that triggers actions on specific events (e.g., when a new lead is added to our system).\n* **Gemini API:** For analyzing prospect data, extracting key pain points, and writing custom personalized intro lines.\n\n\`\`\`\n[ Lead Source ] ➔ [ Clay Enrichment ] ➔ [ Gemini Personalization ] ➔ [ Smartlead Outbound ]\n\`\`\`\n\n---\n\n## Step-by-Step Pipeline Architecture\n\n### 1. Unified Scraping & Database Construction\nInstead of copy-pasting contacts, we start with filtered searches in LinkedIn Sales Navigator or directly within Clay's database. We construct list segments targeting Series-A software founders, marketing directors, or customer support managers.\n\n### 2. Multi-Source enrichment\nWe feed the domain names or emails into multi-enrichment pathways. Clay pulls real-time data from 50+ integrated providers to find:\n* Estimated monthly cloud spends\n* Active job postings for technical writers or engineers\n* The recipient's recent LinkedIn post topic\n\n### 3. AI Persona Generation\nWe send these structured signals to the Gemini API with a robust prompt. We ask Gemini to identify the primary business problem. For instance: *"Company X is hiring customer success leads, and uses Zendesk. They likely suffer from high ticket response times."*\n\n### 4. Custom Draft Generation & Sending\nFinally, we push the enriched records through Make.com to our outbound emailing hub (Smartlead). Make.com triggers personalized emails matching our prospect's tech stacks, news mentions, and challenges. If the prospect fails to reply, an automated follow-up sequence triggers 4 days later with a personalized worksheet template.`
+    content: `## The Era of Generative Business Publishing...`
   }
 ];
+
+// Helper to get local articles merged with DEFAULT_ARTICLES (preventing stale localStorage without new json articles)
+const loadLocalArticles = (): Article[] => {
+  const stored = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+  const storedSlugs = new Set((stored || []).map(a => a.slug));
+  const merged = [...(stored || [])];
+  
+  (DEFAULT_ARTICLES || []).forEach(da => {
+    if (da && da.slug && !storedSlugs.has(da.slug)) {
+      merged.push(da);
+      storedSlugs.add(da.slug);
+    }
+  });
+
+  return merged;
+};
 
 // LocalStorage helpers
 const loadLocalData = <T>(key: string, defaultValue: T): T => {
@@ -293,37 +290,49 @@ const mapSettingsToDb = (set: SiteSettings) => ({
 // ==========================================
 
 export const getArticles = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
+  let list: Article[] = [];
   try {
     const statusQuery = options?.status ? `?status=${options.status}` : '';
     const res = await fetch(`/api/articles${statusQuery}`);
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data)) {
-        return data;
+      if (Array.isArray(data) && data.length > 0) {
+        list = data;
       }
     }
   } catch (err) {
     console.warn('Backend API fetch notice, checking fallback stores:', err);
   }
 
-  if (isSupabaseConfigured && supabase) {
+  if (list.length === 0 && isSupabaseConfigured && supabase) {
     let query = supabase.from('articles').select('*').order('created_at', { ascending: false });
     if (options?.status) {
       query = query.eq('status', options.status);
     }
     const { data, error } = await query;
-    if (error) {
-      console.error('Supabase error:', error);
-      return [];
+    if (!error && data) {
+      list = data.map(mapArticleFromDb);
     }
-    return (data || []).map(mapArticleFromDb);
-  } else {
-    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-    if (options?.status) {
-      return list.filter(a => a.status === options.status);
-    }
-    return list;
   }
+
+  const local = loadLocalArticles();
+  if (list.length === 0) {
+    list = local;
+  } else {
+    // Merge local articles into list if missing
+    const existingSlugs = new Set(list.map(a => a.slug));
+    local.forEach(la => {
+      if (la && la.slug && !existingSlugs.has(la.slug)) {
+        list.push(la);
+        existingSlugs.add(la.slug);
+      }
+    });
+  }
+
+  if (options?.status) {
+    return list.filter(a => a.status === options.status);
+  }
+  return list;
 };
 
 export const getArticleBySlug = async (slug: string): Promise<Article | null> => {
@@ -356,9 +365,9 @@ export const getArticleBySlug = async (slug: string): Promise<Article | null> =>
     }
   }
 
-  // Fallback 3: LocalStorage
-  const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-  return list.find(a => a.slug === slug) || null;
+  // Fallback 3: LocalStorage & JSON fallback
+  const list = loadLocalArticles();
+  return list.find(a => a.slug === slug || a.id === slug) || null;
 };
 
 export const getArticleById = async (id: string): Promise<Article | null> => {
@@ -391,9 +400,9 @@ export const getArticleById = async (id: string): Promise<Article | null> => {
     }
   }
 
-  // Fallback 3: LocalStorage
-  const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-  return list.find(a => a.id === id) || null;
+  // Fallback 3: LocalStorage & JSON fallback
+  const list = loadLocalArticles();
+  return list.find(a => a.id === id || a.slug === id) || null;
 };
 
 export const getCategories = async (): Promise<Category[]> => {

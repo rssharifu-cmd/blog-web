@@ -60,6 +60,7 @@ export default function App() {
   
   // Loading & Filter states
   const [loading, setLoading] = useState(true);
+  const [isFetchingSingleArticle, setIsFetchingSingleArticle] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string | null>(null);
@@ -169,6 +170,10 @@ export default function App() {
     const activeSlug = isSingle ? parts[2] : null;
     if (activeSlug) {
       incrementArticleView(activeSlug);
+      const existsLocally = articles.some(a => a.slug === activeSlug || a.id === activeSlug);
+      if (!existsLocally) {
+        setIsFetchingSingleArticle(true);
+      }
       getArticleBySlug(activeSlug).then(art => {
         if (art) {
           setArticles(prev => {
@@ -179,7 +184,11 @@ export default function App() {
             return [art, ...prev];
           });
         }
-      }).catch(err => console.error('Error fetching article by slug:', err));
+      })
+      .catch(err => console.error('Error fetching article by slug:', err))
+      .finally(() => setIsFetchingSingleArticle(false));
+    } else {
+      setIsFetchingSingleArticle(false);
     }
   }, [currentPath]);
 
@@ -601,9 +610,21 @@ export default function App() {
     // 1. ARTICLE DETAIL VIEW
     // ----------------------------------------
     if (activeArticleSlug) {
-      const article = articles.find(a => a.slug === activeArticleSlug);
+      const article = articles.find(a => a.slug === activeArticleSlug || a.id === activeArticleSlug);
 
       if (!article) {
+        if (loading || isFetchingSingleArticle) {
+          return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4">
+              <div className="p-4 bg-zinc-900 dark:bg-zinc-850 rounded-2xl shadow-xl flex items-center justify-center">
+                <Sparkles className="h-8 w-8 text-gold-500 animate-pulse" />
+              </div>
+              <span className="font-display font-bold text-lg text-gray-900 dark:text-white tracking-wide">
+                Retrieving Article...
+              </span>
+            </div>
+          );
+        }
         return render404();
       }
 
