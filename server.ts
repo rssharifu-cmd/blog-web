@@ -190,12 +190,41 @@ async function start() {
   // ==========================================
 
   // Clean slugify utility
-  const slugify = (text: string): string => {
-    return text
+  const slugify = (text: any): string => {
+    if (!text) return 'untitled';
+    return String(text)
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
+  };
+
+  // Helper to convert base64 image strings to hosted image files
+  const processFeaturedImage = (imageUrl: any, req: express.Request): string => {
+    const defaultImg = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&h=630&q=80';
+    if (!imageUrl || typeof imageUrl !== 'string') return defaultImg;
+    
+    if (imageUrl.startsWith('data:image/')) {
+      try {
+        const mimeMatch = imageUrl.match(/^data:(image\/\w+);base64,/);
+        if (mimeMatch) {
+          const ext = mimeMatch[1].split('/')[1] || 'png';
+          const dataBuffer = Buffer.from(imageUrl.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+          const fileName = `cover-${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+          
+          fs.writeFileSync(path.join(PUBLIC_UPLOADS_DIR, fileName), dataBuffer);
+          if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
+            fs.writeFileSync(path.join(DIST_UPLOADS_DIR, fileName), dataBuffer);
+          }
+          const protocol = req.protocol || 'https';
+          const host = req.get('host') || 'netventures.online';
+          return `${protocol}://${host}/uploads/${fileName}`;
+        }
+      } catch (err: any) {
+        console.warn('Failed converting base64 featuredImage to hosted file:', err?.message || err);
+      }
+    }
+    return imageUrl;
   };
 
   // Safe unique slug resolver checking Supabase or local state
@@ -292,16 +321,16 @@ async function start() {
 
   // Automatic attribute generator combining slug, reading time, and metadata calculators
   const autoGenerateArticleAttributes = async (payload: any, existingArticle?: any) => {
-    const title = payload.title || (existingArticle ? existingArticle.title : 'Untitled Article');
-    const content = payload.content || (existingArticle ? existingArticle.content : '');
+    const title = String(payload?.title || existingArticle?.title || 'Untitled Article');
+    const content = String(payload?.content || existingArticle?.content || '');
     
     // 1. Slug calculation
     let baseSlug = '';
-    if (payload.slug) {
+    if (payload?.slug) {
       baseSlug = slugify(payload.slug);
-    } else if (payload.title) {
+    } else if (payload?.title) {
       baseSlug = slugify(payload.title);
-    } else if (existingArticle) {
+    } else if (existingArticle?.slug) {
       baseSlug = existingArticle.slug;
     } else {
       baseSlug = 'untitled-article';
@@ -309,7 +338,8 @@ async function start() {
     const finalSlug = await getUniqueSlug(baseSlug, existingArticle?.id);
 
     // 2. Reading time calculation
-    const wordCount = content.trim().split(/\s+/).length;
+    const trimmedContent = content.trim();
+    const wordCount = trimmedContent ? trimmedContent.split(/\s+/).length : 0;
     const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
     // 3. SEO, Canonical, OG and Schema
@@ -1252,6 +1282,9 @@ async function start() {
         }
       }
 
+      // Process featuredImage if base64 DataURL was sent
+      const cleanFeaturedImage = processFeaturedImage(featuredImage, req);
+
       // Generate slug, reading time, canonicalUrl, OG and JSON-LD
       const rawPayload = {
         title,
@@ -1260,7 +1293,7 @@ async function start() {
         categoryId: finalCategoryId,
         tags,
         status: status || 'published',
-        featuredImage,
+        featuredImage: cleanFeaturedImage,
         seoTitle,
         seoDescription,
         canonicalUrl,
@@ -1279,7 +1312,7 @@ async function start() {
         categoryId: finalCategoryId,
         tags: tags || [],
         status: status || 'published',
-        featuredImage: featuredImage || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&h=630&q=80',
+        featuredImage: cleanFeaturedImage,
         seoTitle: seoTitle || title,
         seoDescription: seoDescription || shortDescription || '',
         canonicalUrl: seoAttrs.canonicalUrl,
@@ -1431,6 +1464,11 @@ async function start() {
 
       if (!existingObj) {
         return res.status(404).json({ error: 'Not found', message: `Article with ID/Slug "${id}" not found.` });
+      }
+
+      // Process base64 image if passed in updates
+      if (updates.featuredImage) {
+        updates.featuredImage = processFeaturedImage(updates.featuredImage, req);
       }
 
       // Resolve attributes and SEO configurations dynamically

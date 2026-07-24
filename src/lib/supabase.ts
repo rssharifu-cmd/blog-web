@@ -609,6 +609,28 @@ export const createTag = async (name: string): Promise<Tag | null> => {
 // ==========================================
 
 export const uploadFeaturedImage = async (file: File): Promise<string> => {
+  // 1. Try uploading to backend /api/upload endpoint
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+    const uploadRes = await fetch('/api/upload', {
+      method: 'POST',
+      headers: {
+        'x-api-key': 'netventures-agent-key-2026'
+      },
+      body: formData
+    });
+    if (uploadRes.ok) {
+      const uploadData = await uploadRes.json();
+      if (uploadData.url) {
+        return uploadData.url;
+      }
+    }
+  } catch (err: any) {
+    console.warn('Backend image upload endpoint notice:', err?.message || err);
+  }
+
+  // 2. Try Supabase storage if configured
   if (isSupabaseConfigured && supabase) {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -619,36 +641,22 @@ export const uploadFeaturedImage = async (file: File): Promise<string> => {
         .from('media')
         .upload(filePath, file);
 
-      if (uploadError) {
-        console.warn('Supabase storage upload failed, falling back to base64 DataURL:', uploadError.message);
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+      if (!uploadError) {
+        const { data } = supabase.storage.from('media').getPublicUrl(filePath);
+        if (data && data.publicUrl) return data.publicUrl;
       }
-
-      const { data } = supabase.storage.from('media').getPublicUrl(filePath);
-      return data.publicUrl;
     } catch (err: any) {
-      console.warn('Supabase storage upload threw error, falling back to base64 DataURL:', err);
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
+      console.warn('Supabase storage upload notice:', err?.message || err);
     }
-  } else {
-    // In fallback mode, simulate image upload by converting to DataURL or using Unsplash
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    });
   }
-};
+
+  // 3. Fallback to base64 DataURL
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.readAsDataURL(file);
+  });
+};;
 
 // ==========================================
 // AUTHENTICATION AND PASSWORD ACTIONS
