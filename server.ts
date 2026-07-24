@@ -205,17 +205,27 @@ async function start() {
     
     const isSlugTaken = async (currentSlug: string): Promise<boolean> => {
       if (isSupabaseConfigured && supabaseClient) {
-        let query = supabaseClient.from('articles').select('id, slug').eq('slug', currentSlug);
-        if (existingId) {
-          query = query.neq('id', existingId);
+        try {
+          let query = supabaseClient.from('articles').select('id, slug').eq('slug', currentSlug);
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(existingId || ''));
+          if (existingId && isUuid) {
+            query = query.neq('id', existingId);
+          } else if (existingId) {
+            query = query.neq('slug', existingId);
+          }
+          const timeoutPromise = new Promise<{ data: null }>((resolve) =>
+            setTimeout(() => resolve({ data: null }), 2000)
+          );
+          const res: any = await Promise.race([query, timeoutPromise]);
+          if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+            return true;
+          }
+        } catch (err: any) {
+          console.warn('Supabase slug check notice:', err?.message || err);
         }
-        const { data, error } = await query;
-        if (error) return false;
-        return data && data.length > 0;
-      } else {
-        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        return articlesList.some(a => a.slug === currentSlug && (!existingId || a.id !== existingId));
       }
+      const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+      return articlesList.some(a => a.slug === currentSlug && (!existingId || a.id !== existingId));
     };
 
     let uniqueSlug = slug;
@@ -1260,9 +1270,23 @@ async function start() {
     try {
       // Resolve category ID
       let finalCategoryId = categoryId || '';
-      const categories = isSupabaseConfigured && supabaseClient
-        ? (await supabaseClient.from('categories').select('*')).data || []
-        : loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
+      let categories: any[] = [];
+      if (isSupabaseConfigured && supabaseClient) {
+        try {
+          const timeoutPromise = new Promise<{ data: null }>((resolve) =>
+            setTimeout(() => resolve({ data: null }), 2000)
+          );
+          const catRes: any = await Promise.race([supabaseClient.from('categories').select('*'), timeoutPromise]);
+          if (catRes && catRes.data) {
+            categories = catRes.data;
+          }
+        } catch (e: any) {
+          console.warn('Supabase categories fetch notice:', e?.message || e);
+        }
+      }
+      if (!categories || categories.length === 0) {
+        categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
+      }
 
       if (categoryId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId)) {
         const match = categories.find(c => c.slug === categoryId || c.name.toLowerCase() === categoryId.toLowerCase());
@@ -1429,14 +1453,21 @@ async function start() {
 
       // Locate existing record to resolve attributes
       if (isSupabaseConfigured && supabaseClient) {
-        let isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
-        const lookupQuery = isUuid 
-          ? supabaseClient.from('articles').select('*').eq('id', id)
-          : supabaseClient.from('articles').select('*').eq('slug', id);
+        try {
+          let isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
+          const lookupQuery = isUuid 
+            ? supabaseClient.from('articles').select('*').eq('id', id)
+            : supabaseClient.from('articles').select('*').eq('slug', id);
 
-        const { data: existing } = await lookupQuery.maybeSingle();
-        if (existing) {
-          existingObj = mapArticleFromDb(existing);
+          const timeoutPromise = new Promise<{ data: null }>((resolve) =>
+            setTimeout(() => resolve({ data: null }), 2000)
+          );
+          const res: any = await Promise.race([lookupQuery.maybeSingle(), timeoutPromise]);
+          if (res && res.data) {
+            existingObj = mapArticleFromDb(res.data);
+          }
+        } catch (lookupErr: any) {
+          console.warn('Supabase lookup notice during PUT article:', lookupErr?.message || lookupErr);
         }
       }
 
@@ -1476,7 +1507,16 @@ async function start() {
         if (updates.categoryId !== undefined) {
           let catId = updates.categoryId;
           if (catId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catId)) {
-            const { data: cats } = await supabaseClient.from('categories').select('*');
+            let cats: any[] = [];
+            try {
+              const timeoutPromise = new Promise<{ data: null }>((resolve) =>
+                setTimeout(() => resolve({ data: null }), 2000)
+              );
+              const catRes: any = await Promise.race([supabaseClient.from('categories').select('*'), timeoutPromise]);
+              if (catRes && catRes.data) cats = catRes.data;
+            } catch (e) {
+              cats = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
+            }
             const match = (cats || []).find(c => c.slug === catId || c.name.toLowerCase() === catId.toLowerCase());
             if (match) catId = match.id;
           }
@@ -1492,20 +1532,23 @@ async function start() {
         if (updates.faq !== undefined) dbPayload.faq = updates.faq;
 
         try {
-          const { data: updatedData, error: updateError } = await supabaseClient
-            .from('articles')
-            .update(dbPayload)
-            .eq('id', existingObj.id)
-            .select()
-            .single();
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(existingObj.id || ''));
+          let updateQuery = isUuid 
+            ? supabaseClient.from('articles').update(dbPayload).eq('id', existingObj.id)
+            : supabaseClient.from('articles').update(dbPayload).eq('slug', existingObj.slug);
 
-          if (!updateError && updatedData) {
-            updatedArticle = mapArticleFromDb(updatedData);
-          } else if (updateError) {
-            console.warn('Supabase update notice, using local file fallback:', updateError.message);
+          const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+            setTimeout(() => resolve({ data: null, error: new Error('Supabase update timeout') }), 3000)
+          );
+          const res: any = await Promise.race([updateQuery.select().single(), timeoutPromise]);
+
+          if (res && !res.error && res.data) {
+            updatedArticle = mapArticleFromDb(res.data);
+          } else if (res && res.error) {
+            console.warn('Supabase update notice, using local file fallback:', res.error.message);
           }
         } catch (dbErr: any) {
-          console.warn('Supabase update exception, using local file fallback:', dbErr.message);
+          console.warn('Supabase update exception, using local file fallback:', dbErr?.message || dbErr);
         }
       }
 
