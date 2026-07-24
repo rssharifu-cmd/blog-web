@@ -108,7 +108,7 @@ async function run() {
       }
 
       // Fetch published articles
-      const articlesRes = await fetch(`${cleanUrl}/rest/v1/articles?select=*&order=created_at.desc`, {
+      const articlesRes = await fetch(`${cleanUrl}/rest/v1/articles?status=eq.published&order=created_at.desc`, {
         headers: {
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
@@ -118,20 +118,17 @@ async function run() {
       if (articlesRes.ok) {
         const dbArticles = await articlesRes.json();
         if (dbArticles && dbArticles.length > 0) {
-          const publishedArticles = dbArticles.filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft');
-          if (publishedArticles.length > 0) {
-            articles = publishedArticles.map(art => ({
-              title: art.title,
-              slug: art.slug,
-              shortDescription: art.excerpt || art.short_description || art.title,
-              publishedAt: art.published_at || art.created_at || new Date().toISOString(),
-              author: art.author || 'Elena Rostova',
-              categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial',
-              content: art.content || ''
-            }));
-            loadedFromLiveDb = true;
-            console.log(`✅ Retrieved ${articles.length} published articles from Supabase.`);
-          }
+          articles = dbArticles.map(art => ({
+            title: art.title,
+            slug: art.slug,
+            shortDescription: art.excerpt || art.short_description || art.title,
+            publishedAt: art.published_at || art.created_at || new Date().toISOString(),
+            author: art.author || 'Elena Rostova',
+            categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial',
+            content: art.content || ''
+          }));
+          loadedFromLiveDb = true;
+          console.log(`✅ Retrieved ${articles.length} published articles from Supabase.`);
         }
       } else {
         console.warn(`⚠️ Supabase articles query returned status ${articlesRes.status}. Using default fallback articles.`);

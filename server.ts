@@ -1243,16 +1243,15 @@ async function start() {
         const { data: dbArticles, error } = await supabaseClient
           .from('articles')
           .select('*')
+          .eq('status', 'published')
           .order('created_at', { ascending: false });
 
         if (!error && dbArticles) {
-          articles = dbArticles
-            .filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft')
-            .map(art => mapArticleFromDb(art));
+          articles = dbArticles.map(art => mapArticleFromDb(art));
         }
       } else {
         const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        articles = articlesList.filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft');
+        articles = articlesList.filter((a: any) => a.status === 'published');
       }
 
       const currentDate = new Date().toISOString().split('T')[0];
@@ -1318,7 +1317,6 @@ async function start() {
       sitemapXml += `</urlset>`;
 
       res.header('Content-Type', 'application/xml; charset=utf-8');
-      res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.send(sitemapXml);
     } catch (err: any) {
       console.error('Error generating sitemap dynamically:', err);
@@ -1360,18 +1358,17 @@ async function start() {
         const { data: dbArticles, error } = await supabaseClient
           .from('articles')
           .select('*')
+          .eq('status', 'published')
           .order('created_at', { ascending: false });
 
         if (!error && dbArticles) {
-          articles = dbArticles
-            .filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft')
-            .map(art => {
-              const mapped: any = mapArticleFromDb(art);
-              return {
-                ...mapped,
-                categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial'
-              };
-            });
+          articles = dbArticles.map(art => {
+            const mapped: any = mapArticleFromDb(art);
+            return {
+              ...mapped,
+              categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial'
+            };
+          });
         }
       } else {
         const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
@@ -1382,7 +1379,7 @@ async function start() {
         });
 
         articles = articlesList
-          .filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft')
+          .filter((a: any) => a.status === 'published')
           .map((art: any) => ({
             ...art,
             categoryName: categoriesMap[art.categoryId] || 'Editorial'
@@ -1427,7 +1424,6 @@ async function start() {
 </rss>`;
 
       res.header('Content-Type', 'application/xml; charset=utf-8');
-      res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.send(rssXml);
     } catch (err: any) {
       console.error('Error generating rss dynamically:', err);
