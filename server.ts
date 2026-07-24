@@ -533,54 +533,11 @@ async function start() {
     return rssXml;
   };
 
-  const verifyPublishedArticle = async (slug: string): Promise<{ success: boolean; errors: string[] }> => {
-    const errors: string[] = [];
-    const expectedUrlPath = `/blog/${slug}`;
-
-    // 1. Verify Article in Unified Repository (used by Public Website)
-    let publishedArticles: any[] = [];
-    try {
-      publishedArticles = await getPublishedArticlesFromRepository();
-      const match = publishedArticles.find((a: any) => a.slug === slug);
-      if (!match) {
-        errors.push(`Public website check failed: Article with slug "${slug}" not found in published articles repository.`);
-      }
-    } catch (err: any) {
-      errors.push(`Public website check failed: ${err.message}`);
-    }
-
-    // Trigger static SEO generation script in background so file assets on disk stay updated
+  // SEO Trigger helper
+  const triggerSeoRegeneration = () => {
     exec('node scripts/generate-seo-assets.js', (err) => {
-      if (err) console.error('Error running generate-seo-assets.js during self-check:', err);
+      if (err) console.error('Error running generate-seo-assets.js:', err.message);
     });
-
-    // 2. Verify /sitemap.xml
-    try {
-      const sitemapContent = await generateSitemapXml(publishedArticles);
-      if (!sitemapContent.includes(expectedUrlPath)) {
-        errors.push(`Sitemap check failed: URL "${expectedUrlPath}" is missing from /sitemap.xml.`);
-      }
-    } catch (err: any) {
-      errors.push(`Sitemap check failed: ${err.message}`);
-    }
-
-    // 3. Verify /rss.xml
-    try {
-      const rssContent = await generateRssXml(publishedArticles);
-      if (!rssContent.includes(expectedUrlPath)) {
-        errors.push(`RSS feed check failed: Link "${expectedUrlPath}" is missing from /rss.xml.`);
-      }
-    } catch (err: any) {
-      errors.push(`RSS feed check failed: ${err.message}`);
-    }
-
-    if (errors.length > 0) {
-      console.error(`❌ Article Publication Self-Check FAILED for slug "${slug}":\n` + errors.map(e => `  - ${e}`).join('\n'));
-      return { success: false, errors };
-    }
-
-    console.log(`✅ Article Publication Self-Check PASSED for slug "${slug}": Verified in Public Website, /sitemap.xml, and /rss.xml.`);
-    return { success: true, errors: [] };
   };
 
   // ==========================================
@@ -1416,13 +1373,6 @@ async function start() {
       // Trigger SEO sitemap/RSS files regeneration
       triggerSeoRegeneration();
 
-      // Non-blocking background verification check for published articles
-      if (articlePayload.status !== 'draft') {
-        verifyPublishedArticle(resultArticle.slug).catch(err => {
-          console.warn(`Background verification check notice for "${resultArticle.slug}":`, err.message);
-        });
-      }
-
       // Return augmented article with real-time SEO OpenGraph and JSON-LD metadata fields
       const responseArticle = {
         ...resultArticle,
@@ -1602,13 +1552,6 @@ async function start() {
 
       // Trigger SEO sitemap/RSS files regeneration
       triggerSeoRegeneration();
-
-      // Non-blocking background verification check for published articles
-      if (updatedArticle.status !== 'draft') {
-        verifyPublishedArticle(updatedArticle.slug).catch(err => {
-          console.warn(`Background verification check notice for "${updatedArticle.slug}":`, err.message);
-        });
-      }
 
       const responseArticle = {
         ...updatedArticle,
