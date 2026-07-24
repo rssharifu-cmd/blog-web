@@ -216,9 +216,11 @@ async function start() {
           if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
             fs.writeFileSync(path.join(DIST_UPLOADS_DIR, fileName), dataBuffer);
           }
-          const protocol = req.protocol || 'https';
-          const host = req.get('host') || 'netventures.online';
-          return `${protocol}://${host}/uploads/${fileName}`;
+          const baseDomain = (process.env.APP_URL || '').trim().replace(/\/$/, '');
+          if (baseDomain) {
+            return `${baseDomain}/uploads/${fileName}`;
+          }
+          return `/uploads/${fileName}`;
         }
       } catch (err: any) {
         console.warn('Failed converting base64 featuredImage to hosted file:', err?.message || err);
@@ -236,11 +238,8 @@ async function start() {
       if (isSupabaseConfigured && supabaseClient) {
         try {
           let query = supabaseClient.from('articles').select('id, slug').eq('slug', currentSlug);
-          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(existingId || ''));
-          if (existingId && isUuid) {
-            query = query.neq('id', existingId);
-          } else if (existingId) {
-            query = query.neq('slug', existingId);
+          if (existingId) {
+            query = query.neq('id', existingId).neq('slug', existingId);
           }
           const timeoutPromise = new Promise<{ data: null }>((resolve) =>
             setTimeout(() => resolve({ data: null }), 2000)
@@ -254,7 +253,7 @@ async function start() {
         }
       }
       const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-      return articlesList.some(a => a.slug === currentSlug && (!existingId || a.id !== existingId));
+      return articlesList.some(a => a.slug === currentSlug && (!existingId || (a.id !== existingId && a.slug !== existingId)));
     };
 
     let uniqueSlug = slug;
@@ -568,6 +567,55 @@ async function start() {
     exec('node scripts/generate-seo-assets.js', (err) => {
       if (err) console.error('Error running generate-seo-assets.js:', err.message);
     });
+  };
+
+  // Article Publication Self-Check & Verification
+  const verifyPublishedArticle = async (slug: string): Promise<{ success: boolean; errors: string[] }> => {
+    const errors: string[] = [];
+    const expectedUrlPath = `/blog/${slug}`;
+
+    // 1. Verify article in repository
+    let publishedArticles: any[] = [];
+    try {
+      publishedArticles = await getPublishedArticlesFromRepository();
+      const match = publishedArticles.find((a: any) => a.slug === slug);
+      if (!match) {
+        errors.push(`Public website check notice: Article with slug "${slug}" not found in published articles repository.`);
+      }
+    } catch (err: any) {
+      errors.push(`Public website check notice: ${err.message}`);
+    }
+
+    // 2. Trigger fresh static SEO generation
+    triggerSeoRegeneration();
+
+    // 3. Verify /sitemap.xml
+    try {
+      const sitemapContent = await generateSitemapXml(publishedArticles);
+      if (!sitemapContent.includes(expectedUrlPath) && !sitemapContent.includes(slug)) {
+        errors.push(`Sitemap check notice: URL "${expectedUrlPath}" is missing from /sitemap.xml.`);
+      }
+    } catch (err: any) {
+      errors.push(`Sitemap check notice: ${err.message}`);
+    }
+
+    // 4. Verify /rss.xml
+    try {
+      const rssContent = await generateRssXml(publishedArticles);
+      if (!rssContent.includes(expectedUrlPath) && !rssContent.includes(slug)) {
+        errors.push(`RSS feed check notice: Link "${expectedUrlPath}" is missing from /rss.xml.`);
+      }
+    } catch (err: any) {
+      errors.push(`RSS feed check notice: ${err.message}`);
+    }
+
+    if (errors.length > 0) {
+      console.warn(` Article Publication Verification Notice for slug "${slug}":\n` + errors.map(e => `  - ${e}`).join('\n'));
+      return { success: false, errors };
+    }
+
+    console.log(`✅ Article Publication Verification PASSED for slug "${slug}": Verified in Public Website, /sitemap.xml, and /rss.xml.`);
+    return { success: true, errors: [] };
   };
 
   // ==========================================
@@ -1406,6 +1454,12 @@ async function start() {
       // Trigger SEO sitemap/RSS files regeneration
       triggerSeoRegeneration();
 
+      if (articlePayload.status !== 'draft' && resultArticle?.slug) {
+        verifyPublishedArticle(resultArticle.slug).catch(err => {
+          console.warn(`Background verification check notice for "${resultArticle.slug}":`, err.message);
+        });
+      }
+
       // Return augmented article with real-time SEO OpenGraph and JSON-LD metadata fields
       const responseArticle = {
         ...resultArticle,
@@ -1590,6 +1644,12 @@ async function start() {
 
       // Trigger SEO sitemap/RSS files regeneration
       triggerSeoRegeneration();
+
+      if (updatedArticle.status !== 'draft' && updatedArticle?.slug) {
+        verifyPublishedArticle(updatedArticle.slug).catch(err => {
+          console.warn(`Background verification check notice for "${updatedArticle.slug}":`, err.message);
+        });
+      }
 
       const responseArticle = {
         ...updatedArticle,

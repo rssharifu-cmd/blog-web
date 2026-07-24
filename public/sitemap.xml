@@ -5,13 +5,13 @@
   <!-- Core Static Pages -->
   <url>
     <loc>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/</loc>
-    <lastmod>2026-07-23</lastmod>
+    <lastmod>2026-07-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog</loc>
-    <lastmod>2026-07-23</lastmod>
+    <lastmod>2026-07-24</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
@@ -44,6 +44,24 @@
     <lastmod>2026-07-19</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/top-10-ai-marketing-tools-for-small-businesses-in-2026</loc>
+    <lastmod>2026-07-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/5-best-free-ai-writing-assistants-in-2026</loc>
+    <lastmod>2026-07-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/10-best-free-ai-video-generator-apps-and-websites-in-2026-tested-and-ranked-7059</loc>
+    <lastmod>2026-07-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/10-best-free-ai-video-generator-apps-and-websites-in-2026-tested-and-ranked-2231</loc>
