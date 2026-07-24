@@ -1499,9 +1499,9 @@ async function start() {
           const timeoutPromise = new Promise<{ data: null }>((resolve) =>
             setTimeout(() => resolve({ data: null }), 2000)
           );
-          const res: any = await Promise.race([lookupQuery.maybeSingle(), timeoutPromise]);
-          if (res && res.data) {
-            existingObj = mapArticleFromDb(res.data);
+          const lookupRes: any = await Promise.race([lookupQuery.maybeSingle(), timeoutPromise]);
+          if (lookupRes && lookupRes.data) {
+            existingObj = mapArticleFromDb(lookupRes.data);
           }
         } catch (lookupErr: any) {
           console.warn('Supabase lookup notice during PUT article:', lookupErr?.message || lookupErr);
@@ -1562,7 +1562,8 @@ async function start() {
             const match = (cats || []).find(c => c.slug === catId || c.name.toLowerCase() === catId.toLowerCase());
             if (match) catId = match.id;
           }
-          dbPayload.category_id = catId || null;
+          const isCatUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(catId || ''));
+          dbPayload.category_id = isCatUuid ? catId : null;
         }
         if (updates.tags !== undefined) dbPayload.tags = updates.tags;
         if (updates.status !== undefined) dbPayload.status = updates.status;
@@ -1582,12 +1583,12 @@ async function start() {
           const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
             setTimeout(() => resolve({ data: null, error: new Error('Supabase update timeout') }), 3000)
           );
-          const res: any = await Promise.race([updateQuery.select().single(), timeoutPromise]);
+          const updateRes: any = await Promise.race([updateQuery.select().single(), timeoutPromise]);
 
-          if (res && !res.error && res.data) {
-            updatedArticle = mapArticleFromDb(res.data);
-          } else if (res && res.error) {
-            console.warn('Supabase update notice, using local file fallback:', res.error.message);
+          if (updateRes && !updateRes.error && updateRes.data) {
+            updatedArticle = mapArticleFromDb(updateRes.data);
+          } else if (updateRes && updateRes.error) {
+            console.warn('Supabase update notice, using local file fallback:', updateRes.error.message);
           }
         } catch (dbErr: any) {
           console.warn('Supabase update exception, using local file fallback:', dbErr?.message || dbErr);
