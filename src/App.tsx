@@ -162,13 +162,24 @@ export default function App() {
       .catch(err => console.error(err));
   };
 
-  // Increment article view count when active article slug changes (top-level hook to avoid violations)
+  // Increment article view count and fetch single article if missing when active article slug changes
   useEffect(() => {
     const parts = currentPath.split('/');
     const isSingle = parts[1] === 'blog' && parts[2];
     const activeSlug = isSingle ? parts[2] : null;
     if (activeSlug) {
       incrementArticleView(activeSlug);
+      getArticleBySlug(activeSlug).then(art => {
+        if (art) {
+          setArticles(prev => {
+            const exists = prev.some(a => a.slug === art.slug || a.id === art.id);
+            if (exists) {
+              return prev.map(a => (a.slug === art.slug || a.id === art.id) ? { ...a, ...art } : a);
+            }
+            return [art, ...prev];
+          });
+        }
+      }).catch(err => console.error('Error fetching article by slug:', err));
     }
   }, [currentPath]);
 

@@ -331,7 +331,7 @@ export const getArticleBySlug = async (slug: string): Promise<Article | null> =>
     const res = await fetch(`/api/articles/${encodeURIComponent(slug)}`);
     if (res.ok) {
       const data = await res.json();
-      if (data && data.slug) {
+      if (data && (data.slug || data.id)) {
         return data;
       }
     }
@@ -339,17 +339,26 @@ export const getArticleBySlug = async (slug: string): Promise<Article | null> =>
     console.warn('Backend API fetch notice, checking fallback stores:', err);
   }
 
+  // Fallback 1: Query unified getArticles list
+  try {
+    const all = await getArticles();
+    const match = all.find(a => a.slug === slug || a.id === slug);
+    if (match) return match;
+  } catch (err) {
+    // Continue
+  }
+
+  // Fallback 2: Supabase directly
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('articles').select('*').eq('slug', slug).maybeSingle();
-    if (error) {
-      console.error(error);
-      return null;
+    if (!error && data) {
+      return mapArticleFromDb(data);
     }
-    return data ? mapArticleFromDb(data) : null;
-  } else {
-    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-    return list.find(a => a.slug === slug) || null;
   }
+
+  // Fallback 3: LocalStorage
+  const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+  return list.find(a => a.slug === slug) || null;
 };
 
 export const getArticleById = async (id: string): Promise<Article | null> => {
@@ -357,7 +366,7 @@ export const getArticleById = async (id: string): Promise<Article | null> => {
     const res = await fetch(`/api/articles/${encodeURIComponent(id)}`);
     if (res.ok) {
       const data = await res.json();
-      if (data && data.id) {
+      if (data && (data.id || data.slug)) {
         return data;
       }
     }
@@ -365,17 +374,26 @@ export const getArticleById = async (id: string): Promise<Article | null> => {
     console.warn('Backend API fetch notice, checking fallback stores:', err);
   }
 
+  // Fallback 1: Query unified getArticles list
+  try {
+    const all = await getArticles();
+    const match = all.find(a => a.id === id || a.slug === id);
+    if (match) return match;
+  } catch (err) {
+    // Continue
+  }
+
+  // Fallback 2: Supabase directly
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('articles').select('*').eq('id', id).maybeSingle();
-    if (error) {
-      console.error(error);
-      return null;
+    if (!error && data) {
+      return mapArticleFromDb(data);
     }
-    return data ? mapArticleFromDb(data) : null;
-  } else {
-    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-    return list.find(a => a.id === id) || null;
   }
+
+  // Fallback 3: LocalStorage
+  const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+  return list.find(a => a.id === id) || null;
 };
 
 export const getCategories = async (): Promise<Category[]> => {
