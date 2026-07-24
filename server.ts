@@ -157,8 +157,9 @@ const mapArticleFromDb = (dbArt: any) => {
   };
 };
 
+export const app = express();
+
 async function start() {
-  const app = express();
 
   // Middleware
   app.use(express.json({ limit: '50mb' }));
@@ -1456,12 +1457,16 @@ async function start() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
     console.log(`📡 Full-stack server running on http://localhost:${PORT}`);
     console.log(`🔒 Secure API key: ${process.env.AI_AGENT_API_KEY ? 'Set from env' : 'Using default dev key (netventures-agent-key-2026)'}`);
-  });
+    });
+  }
 }
 
 start().catch(err => {
   console.error('Fatal server boot error:', err);
 });
+
+export default app;
