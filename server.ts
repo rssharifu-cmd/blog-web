@@ -105,8 +105,7 @@ function saveLocalFile<T>(filePath: string, data: T) {
 }
 
 // Supabase Configuration
-const rawSupabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
-const SUPABASE_URL = rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+const SUPABASE_URL = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
 const SUPABASE_ANON_KEY = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
@@ -118,11 +117,7 @@ const isSupabaseConfigured = Boolean(
 
 // Instantiate Supabase Admin/Client
 const supabaseClient = isSupabaseConfigured
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY, {
-      global: {
-        fetch: (url, init) => fetch(url, init),
-      },
-    })
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY)
   : null;
 
 // Trigger SEO static assets regeneration
@@ -162,20 +157,8 @@ const mapArticleFromDb = (dbArt: any) => {
   };
 };
 
-export const app = express();
-
 async function start() {
-
-  // CORS Middleware
-  app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
-    if (req.method === 'OPTIONS') {
-      return res.status(200).end();
-    }
-    next();
-  });
+  const app = express();
 
   // Middleware
   app.use(express.json({ limit: '50mb' }));
@@ -190,43 +173,12 @@ async function start() {
   // ==========================================
 
   // Clean slugify utility
-  const slugify = (text: any): string => {
-    if (!text) return 'untitled';
-    return String(text)
+  const slugify = (text: string): string => {
+    return text
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
-  };
-
-  // Helper to convert base64 image strings to hosted image files
-  const processFeaturedImage = (imageUrl: any, req: express.Request): string => {
-    const defaultImg = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&h=630&q=80';
-    if (!imageUrl || typeof imageUrl !== 'string') return defaultImg;
-    
-    if (imageUrl.startsWith('data:image/')) {
-      try {
-        const mimeMatch = imageUrl.match(/^data:(image\/\w+);base64,/);
-        if (mimeMatch) {
-          const ext = mimeMatch[1].split('/')[1] || 'png';
-          const dataBuffer = Buffer.from(imageUrl.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-          const fileName = `cover-${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
-          
-          fs.writeFileSync(path.join(PUBLIC_UPLOADS_DIR, fileName), dataBuffer);
-          if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
-            fs.writeFileSync(path.join(DIST_UPLOADS_DIR, fileName), dataBuffer);
-          }
-          const baseDomain = (process.env.APP_URL || '').trim().replace(/\/$/, '');
-          if (baseDomain) {
-            return `${baseDomain}/uploads/${fileName}`;
-          }
-          return `/uploads/${fileName}`;
-        }
-      } catch (err: any) {
-        console.warn('Failed converting base64 featuredImage to hosted file:', err?.message || err);
-      }
-    }
-    return imageUrl;
   };
 
   // Safe unique slug resolver checking Supabase or local state
@@ -236,24 +188,17 @@ async function start() {
     
     const isSlugTaken = async (currentSlug: string): Promise<boolean> => {
       if (isSupabaseConfigured && supabaseClient) {
-        try {
-          let query = supabaseClient.from('articles').select('id, slug').eq('slug', currentSlug);
-          if (existingId) {
-            query = query.neq('id', existingId).neq('slug', existingId);
-          }
-          const timeoutPromise = new Promise<{ data: null }>((resolve) =>
-            setTimeout(() => resolve({ data: null }), 2000)
-          );
-          const res: any = await Promise.race([query, timeoutPromise]);
-          if (res && res.data && Array.isArray(res.data) && res.data.length > 0) {
-            return true;
-          }
-        } catch (err: any) {
-          console.warn('Supabase slug check notice:', err?.message || err);
+        let query = supabaseClient.from('articles').select('id, slug').eq('slug', currentSlug);
+        if (existingId) {
+          query = query.neq('id', existingId);
         }
+        const { data, error } = await query;
+        if (error) return false;
+        return data && data.length > 0;
+      } else {
+        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+        return articlesList.some(a => a.slug === currentSlug && (!existingId || a.id !== existingId));
       }
-      const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-      return articlesList.some(a => a.slug === currentSlug && (!existingId || (a.id !== existingId && a.slug !== existingId)));
     };
 
     let uniqueSlug = slug;
@@ -320,16 +265,16 @@ async function start() {
 
   // Automatic attribute generator combining slug, reading time, and metadata calculators
   const autoGenerateArticleAttributes = async (payload: any, existingArticle?: any) => {
-    const title = String(payload?.title || existingArticle?.title || 'Untitled Article');
-    const content = String(payload?.content || existingArticle?.content || '');
+    const title = payload.title || (existingArticle ? existingArticle.title : 'Untitled Article');
+    const content = payload.content || (existingArticle ? existingArticle.content : '');
     
     // 1. Slug calculation
     let baseSlug = '';
-    if (payload?.slug) {
+    if (payload.slug) {
       baseSlug = slugify(payload.slug);
-    } else if (payload?.title) {
+    } else if (payload.title) {
       baseSlug = slugify(payload.title);
-    } else if (existingArticle?.slug) {
+    } else if (existingArticle) {
       baseSlug = existingArticle.slug;
     } else {
       baseSlug = 'untitled-article';
@@ -337,8 +282,7 @@ async function start() {
     const finalSlug = await getUniqueSlug(baseSlug, existingArticle?.id);
 
     // 2. Reading time calculation
-    const trimmedContent = content.trim();
-    const wordCount = trimmedContent ? trimmedContent.split(/\s+/).length : 0;
+    const wordCount = content.trim().split(/\s+/).length;
     const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
     // 3. SEO, Canonical, OG and Schema
@@ -355,211 +299,6 @@ async function start() {
       openGraphMetadata: seoDetails.openGraphMetadata,
       jsonLdSchema: seoDetails.jsonLdSchema
     };
-  };
-
-  // ==========================================
-  // UNIFIED ARTICLE REPOSITORY (SINGLE SOURCE OF TRUTH)
-  // ==========================================
-
-  const getAllArticlesFromRepository = async (): Promise<any[]> => {
-    if (!isSupabaseConfigured || !supabaseClient) {
-      return [];
-    }
-    try {
-      const { data, error } = await supabaseClient
-        .from('articles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Supabase fetch error in repository:', error);
-        return [];
-      }
-      return (data || []).map((art: any) => mapArticleFromDb(art));
-    } catch (err) {
-      console.error('Supabase repository fetch exception:', err);
-      return [];
-    }
-  };
-
-  const getPublishedArticlesFromRepository = async (): Promise<any[]> => {
-    if (!isSupabaseConfigured || !supabaseClient) {
-      return [];
-    }
-    try {
-      const { data, error } = await supabaseClient
-        .from('articles')
-        .select('*')
-        .neq('status', 'draft')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Supabase fetch published error in repository:', error);
-        return [];
-      }
-      return (data || []).map((art: any) => mapArticleFromDb(art));
-    } catch (err) {
-      console.error('Supabase repository fetch published exception:', err);
-      return [];
-    }
-  };
-
-  // ==========================================
-  // DYNAMIC SITEMAP & RSS GENERATORS
-  // ==========================================
-
-  const generateSitemapXml = async (overrideArticles?: any[]): Promise<string> => {
-    const articles = overrideArticles || (await getPublishedArticlesFromRepository());
-    const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
-    const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
-
-    const currentDate = new Date().toISOString().split('T')[0];
-    let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-  <!-- Core Static Pages -->
-  <url>
-    <loc>${baseDomain}/</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/blog</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/about</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/contact</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/privacy</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/terms</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/disclosure</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-`;
-
-    articles.forEach((art: any) => {
-      const artDate = art.publishedAt ? new Date(art.publishedAt).toISOString().split('T')[0] : currentDate;
-      sitemapXml += `  <url>
-    <loc>${baseDomain}/blog/${art.slug}</loc>
-    <lastmod>${artDate}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>\n`;
-    });
-
-    sitemapXml += `</urlset>`;
-    return sitemapXml;
-  };
-
-  const generateRssXml = async (overrideArticles?: any[]): Promise<string> => {
-    let settings = {
-      siteName: 'NetVentures',
-      siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.'
-    };
-    const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
-    const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
-
-    if (isSupabaseConfigured && supabaseClient) {
-      try {
-        const { data } = await supabaseClient
-          .from('site_settings')
-          .select('*')
-          .eq('id', 'global')
-          .maybeSingle();
-
-        if (data) {
-          settings.siteName = data.site_name || settings.siteName;
-          settings.siteDescription = data.site_description || settings.siteDescription;
-        }
-      } catch (e) {
-        // use default settings
-      }
-    }
-
-    const rawArticles = overrideArticles || (await getPublishedArticlesFromRepository());
-
-    let categoriesMap: Record<string, string> = {};
-    if (isSupabaseConfigured && supabaseClient) {
-      try {
-        const { data: cats } = await supabaseClient.from('categories').select('*');
-        (cats || []).forEach((c: any) => {
-          categoriesMap[c.id] = c.name;
-          categoriesMap[c.slug] = c.name;
-        });
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    const articles = rawArticles.map((art: any) => ({
-      ...art,
-      categoryName: categoriesMap[art.categoryId || art.category] || 'Editorial'
-    }));
-
-    const escapeXml = (unsafe: string) => {
-      if (!unsafe) return '';
-      return unsafe
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-    };
-
-    let rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-<channel>
-  <title>${escapeXml(settings.siteName)}</title>
-  <link>${baseDomain}</link>
-  <description>${escapeXml(settings.siteDescription)}</description>
-  <language>en-us</language>
-  <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-  <atom:link href="${baseDomain}/rss.xml" rel="self" type="application/rss+xml" />
-`;
-
-    articles.forEach(art => {
-      const pubDateFormatted = new Date(art.publishedAt || new Date()).toUTCString();
-      rssXml += `  <item>
-    <title>${escapeXml(art.title)}</title>
-    <link>${baseDomain}/blog/${art.slug}</link>
-    <description>${escapeXml(art.shortDescription)}</description>
-    <author>${escapeXml(art.author)}</author>
-    <category>${escapeXml(art.categoryName)}</category>
-    <pubDate>${pubDateFormatted}</pubDate>
-    <guid isPermaLink="true">${baseDomain}/blog/${art.slug}</guid>
-  </item>\n`;
-    });
-
-    rssXml += `</channel>
-</rss>`;
-
-    return rssXml;
   };
 
   // ==========================================
@@ -628,8 +367,7 @@ async function start() {
 
   // Security Token Authentication Middleware
   const authenticateAgent = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const defaultApiKey = 'netventures-agent-key-2026';
-    const configuredApiKey = (process.env.AI_AGENT_API_KEY || defaultApiKey).trim();
+    const configuredApiKey = (process.env.AI_AGENT_API_KEY || 'netventures-agent-key-2026').trim();
     
     let providedKey = '';
     const authHeader = req.headers.authorization;
@@ -641,7 +379,7 @@ async function start() {
       providedKey = String(req.query.api_key).trim();
     }
 
-    if (providedKey === configuredApiKey || providedKey === defaultApiKey) {
+    if (providedKey === configuredApiKey) {
       return next();
     }
 
@@ -1197,38 +935,6 @@ async function start() {
     });
   });
 
-  // GET /articles -> Fetch all articles from repository (supports ?status=published)
-  apiRouter.get('/articles', async (req, res) => {
-    try {
-      const statusFilter = req.query.status as string;
-      const articles = statusFilter === 'published'
-        ? await getPublishedArticlesFromRepository()
-        : await getAllArticlesFromRepository();
-
-      return res.json(articles);
-    } catch (err: any) {
-      console.error('Error fetching articles from repository:', err);
-      return res.status(500).json({ error: 'Database error', message: err.message });
-    }
-  });
-
-  // GET /articles/:idOrSlug -> Fetch single article from repository by ID or Slug
-  apiRouter.get('/articles/:idOrSlug', async (req, res) => {
-    try {
-      const { idOrSlug } = req.params;
-      const allArticles = await getAllArticlesFromRepository();
-      const article = allArticles.find((a: any) => a.id === idOrSlug || a.slug === idOrSlug);
-
-      if (!article) {
-        return res.status(404).json({ error: 'Not found', message: `Article matching "${idOrSlug}" not found in repository.` });
-      }
-      return res.json(article);
-    } catch (err: any) {
-      console.error('Error fetching article from repository:', err);
-      return res.status(500).json({ error: 'Database error', message: err.message });
-    }
-  });
-
   // POST /articles -> Create and publish new article
   apiRouter.post('/articles', authenticateAgent, validateBody(articleCreateSchema), async (req, res) => {
     const {
@@ -1247,24 +953,18 @@ async function start() {
     } = req.body;
 
     try {
-      if (!isSupabaseConfigured || !supabaseClient) {
-        return res.status(500).json({ error: 'Database unavailable', message: 'Supabase client is not configured.' });
-      }
-
       // Resolve category ID
       let finalCategoryId = categoryId || '';
+      const categories = isSupabaseConfigured && supabaseClient
+        ? (await supabaseClient.from('categories').select('*')).data || []
+        : loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
+
       if (categoryId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId)) {
-        const { data: cats } = await supabaseClient.from('categories').select('*');
-        if (cats) {
-          const match = cats.find((c: any) => c.slug === categoryId || c.name.toLowerCase() === categoryId.toLowerCase());
-          if (match) {
-            finalCategoryId = match.id;
-          }
+        const match = categories.find(c => c.slug === categoryId || c.name.toLowerCase() === categoryId.toLowerCase());
+        if (match) {
+          finalCategoryId = match.id;
         }
       }
-
-      // Process featuredImage if base64 DataURL was sent
-      const cleanFeaturedImage = processFeaturedImage(featuredImage, req);
 
       // Generate slug, reading time, canonicalUrl, OG and JSON-LD
       const rawPayload = {
@@ -1274,7 +974,7 @@ async function start() {
         categoryId: finalCategoryId,
         tags,
         status: status || 'published',
-        featuredImage: cleanFeaturedImage,
+        featuredImage,
         seoTitle,
         seoDescription,
         canonicalUrl,
@@ -1293,7 +993,7 @@ async function start() {
         categoryId: finalCategoryId,
         tags: tags || [],
         status: status || 'published',
-        featuredImage: cleanFeaturedImage,
+        featuredImage: featuredImage || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&h=630&q=80',
         seoTitle: seoTitle || title,
         seoDescription: seoDescription || shortDescription || '',
         canonicalUrl: seoAttrs.canonicalUrl,
@@ -1304,49 +1004,68 @@ async function start() {
         faq: faq || []
       };
 
-      const dbPayload = {
-        title: articlePayload.title,
-        slug: articlePayload.slug,
-        content: articlePayload.content,
-        short_description: articlePayload.shortDescription,
-        category_id: articlePayload.categoryId || null,
-        tags: articlePayload.tags,
-        status: articlePayload.status,
-        featured_image: articlePayload.featuredImage,
-        seo_title: articlePayload.seoTitle,
-        seo_description: articlePayload.seoDescription,
-        canonical_url: articlePayload.canonicalUrl,
-        published_at: articlePayload.publishedAt || new Date().toISOString(),
-        reading_time: articlePayload.readingTime,
-        views: 0,
-        author: articlePayload.author,
-        faq: articlePayload.faq,
-        created_at: new Date().toISOString()
-      };
+      let resultArticle;
 
-      let resultArticle: any = null;
-      let { data, error } = await supabaseClient
-        .from('articles')
-        .insert([dbPayload])
-        .select()
-        .single();
+      if (isSupabaseConfigured && supabaseClient) {
+        const dbPayload = {
+          title: articlePayload.title,
+          slug: articlePayload.slug,
+          content: articlePayload.content,
+          excerpt: articlePayload.shortDescription,
+          category: articlePayload.categoryId || null,
+          tags: articlePayload.tags,
+          status: articlePayload.status,
+          featured_image: articlePayload.featuredImage,
+          seo_title: articlePayload.seoTitle,
+          meta_description: articlePayload.seoDescription,
+          canonical_url: articlePayload.canonicalUrl,
+          reading_time: articlePayload.readingTime,
+          views: 0,
+          author: articlePayload.author,
+          faq: articlePayload.faq,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
 
-      if (error) {
-        if (error.code === '23505') {
-          dbPayload.slug = `${dbPayload.slug}-${Math.round(Math.random() * 1000)}`;
-          const retryResult = await supabaseClient.from('articles').insert([dbPayload]).select().single();
-          if (retryResult.error) {
-            return res.status(500).json({ error: 'Database insert failed', message: retryResult.error.message });
+        const { data, error } = await supabaseClient
+          .from('articles')
+          .insert([dbPayload])
+          .select()
+          .single();
+
+        if (error) {
+          if (error.code === '23505') {
+            dbPayload.slug = `${dbPayload.slug}-${Math.round(Math.random() * 1000)}`;
+            const retryResult = await supabaseClient.from('articles').insert([dbPayload]).select().single();
+            if (retryResult.error) throw retryResult.error;
+            resultArticle = mapArticleFromDb(retryResult.data);
+          } else {
+            throw error;
           }
-          resultArticle = mapArticleFromDb(retryResult.data);
         } else {
-          return res.status(500).json({ error: 'Database insert failed', message: error.message });
+          resultArticle = mapArticleFromDb(data);
         }
       } else {
-        resultArticle = mapArticleFromDb(data);
+        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+        const existsIdx = articlesList.findIndex(a => a.slug === articlePayload.slug);
+        
+        let uniqueSlug = articlePayload.slug;
+        if (existsIdx !== -1) {
+          uniqueSlug = `${articlePayload.slug}-${Date.now().toString().slice(-4)}`;
+        }
+
+        const fallbackItem = {
+          ...articlePayload,
+          id: `art-${Date.now()}`,
+          slug: uniqueSlug
+        };
+
+        articlesList.unshift(fallbackItem);
+        saveLocalFile(LOCAL_ARTICLES_FILE, articlesList);
+        resultArticle = fallbackItem;
       }
 
-      // Trigger SEO sitemap/RSS files regeneration
+      // Generate SEO sitemap/RSS files asynchronously
       triggerSeoRegeneration();
 
       // Return augmented article with real-time SEO OpenGraph and JSON-LD metadata fields
@@ -1359,7 +1078,7 @@ async function start() {
       return res.status(201).json({
         success: true,
         article: responseArticle,
-        message: 'Article created and published successfully to Supabase.'
+        message: 'Article created and published successfully with auto-generated SEO metadata!'
       });
 
     } catch (err: any) {
@@ -1374,25 +1093,28 @@ async function start() {
     const updates = req.body;
 
     try {
-      if (!isSupabaseConfigured || !supabaseClient) {
-        return res.status(500).json({ error: 'Database unavailable', message: 'Supabase client is not configured.' });
-      }
+      let updatedArticle = null;
+      let existingObj: any = null;
 
-      let isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
-      const lookupQuery = isUuid 
-        ? supabaseClient.from('articles').select('*').eq('id', id).maybeSingle()
-        : supabaseClient.from('articles').select('*').eq('slug', id).maybeSingle();
+      // Locate existing record to resolve attributes
+      if (isSupabaseConfigured && supabaseClient) {
+        let isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
+        const lookupQuery = isUuid 
+          ? supabaseClient.from('articles').select('*').eq('id', id)
+          : supabaseClient.from('articles').select('*').eq('slug', id);
 
-      const { data: dbMatch, error: lookupErr } = await lookupQuery;
-      if (lookupErr || !dbMatch) {
-        return res.status(404).json({ error: 'Not found', message: `Article with ID/Slug "${id}" not found in Supabase.` });
-      }
-
-      const existingObj = mapArticleFromDb(dbMatch);
-
-      // Process base64 image if passed in updates
-      if (updates.featuredImage) {
-        updates.featuredImage = processFeaturedImage(updates.featuredImage, req);
+        const { data: existing, error: lookupError } = await lookupQuery.maybeSingle();
+        if (lookupError || !existing) {
+          return res.status(404).json({ error: 'Not found', message: `Article with ID/Slug "${id}" not found.` });
+        }
+        existingObj = mapArticleFromDb(existing);
+      } else {
+        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+        const match = articlesList.find(a => a.id === id || a.slug === id);
+        if (!match) {
+          return res.status(404).json({ error: 'Not Found', message: `Article with ID/Slug "${id}" not found.` });
+        }
+        existingObj = match;
       }
 
       // Resolve attributes and SEO configurations dynamically
@@ -1404,48 +1126,79 @@ async function start() {
 
       const seoAttrs = await autoGenerateArticleAttributes(mergedPayload, existingObj);
 
-      const dbPayload: any = {
-        updated_at: new Date().toISOString()
-      };
+      if (isSupabaseConfigured && supabaseClient) {
+        const dbPayload: any = {
+          updated_at: new Date().toISOString()
+        };
 
-      if (updates.title !== undefined) dbPayload.title = updates.title;
-      dbPayload.slug = seoAttrs.slug;
-      if (updates.content !== undefined) {
-        dbPayload.content = updates.content;
-        dbPayload.reading_time = seoAttrs.readingTime;
-      }
-      if (updates.shortDescription !== undefined) dbPayload.short_description = updates.shortDescription;
-      if (updates.categoryId !== undefined) {
-        let catId = updates.categoryId;
-        if (catId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catId)) {
-          const { data: cats } = await supabaseClient.from('categories').select('*');
-          const match = (cats || []).find((c: any) => c.slug === catId || c.name.toLowerCase() === catId.toLowerCase());
-          if (match) catId = match.id;
+        if (updates.title !== undefined) dbPayload.title = updates.title;
+        dbPayload.slug = seoAttrs.slug;
+        if (updates.content !== undefined) {
+          dbPayload.content = updates.content;
+          dbPayload.reading_time = seoAttrs.readingTime;
         }
-        const isCatUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(catId || ''));
-        dbPayload.category_id = isCatUuid ? catId : null;
+        if (updates.shortDescription !== undefined) dbPayload.excerpt = updates.shortDescription;
+        if (updates.categoryId !== undefined) {
+          let catId = updates.categoryId;
+          if (catId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catId)) {
+            const { data: cats } = await supabaseClient.from('categories').select('*');
+            const match = (cats || []).find(c => c.slug === catId || c.name.toLowerCase() === catId.toLowerCase());
+            if (match) catId = match.id;
+          }
+          dbPayload.category = catId || null;
+        }
+        if (updates.tags !== undefined) dbPayload.tags = updates.tags;
+        if (updates.status !== undefined) dbPayload.status = updates.status;
+        if (updates.featuredImage !== undefined) dbPayload.featured_image = updates.featuredImage;
+        if (updates.seoTitle !== undefined) dbPayload.seo_title = updates.seoTitle;
+        if (updates.seoDescription !== undefined) dbPayload.meta_description = updates.seoDescription;
+        dbPayload.canonical_url = seoAttrs.canonicalUrl;
+        if (updates.author !== undefined) dbPayload.author = updates.author;
+        if (updates.faq !== undefined) dbPayload.faq = updates.faq;
+
+        const { data: updatedData, error: updateError } = await supabaseClient
+          .from('articles')
+          .update(dbPayload)
+          .eq('id', existingObj.id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        updatedArticle = mapArticleFromDb(updatedData);
+
+      } else {
+        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+        const idx = articlesList.findIndex(a => a.id === existingObj.id);
+
+        const updatedItem = {
+          ...existingObj,
+          ...updates,
+          id: existingObj.id,
+          slug: seoAttrs.slug,
+          readingTime: seoAttrs.readingTime,
+          canonicalUrl: seoAttrs.canonicalUrl,
+          updatedAt: new Date().toISOString()
+        };
+
+        if (updates.shortDescription !== undefined) updatedItem.shortDescription = updates.shortDescription;
+        if (updates.categoryId !== undefined) {
+          let catId = updates.categoryId;
+          const categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
+          if (catId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(catId)) {
+            const match = categories.find(c => c.slug === catId || c.name.toLowerCase() === catId.toLowerCase());
+            if (match) catId = match.id;
+          }
+          updatedItem.categoryId = catId;
+        }
+        if (updates.seoDescription !== undefined) updatedItem.seoDescription = updates.seoDescription;
+        if (updates.featuredImage !== undefined) updatedItem.featuredImage = updates.featuredImage;
+
+        articlesList[idx] = updatedItem;
+        saveLocalFile(LOCAL_ARTICLES_FILE, articlesList);
+        updatedArticle = updatedItem;
       }
-      if (updates.tags !== undefined) dbPayload.tags = updates.tags;
-      if (updates.status !== undefined) dbPayload.status = updates.status;
-      if (updates.featuredImage !== undefined) dbPayload.featured_image = updates.featuredImage;
-      if (updates.seoTitle !== undefined) dbPayload.seo_title = updates.seoTitle;
-      if (updates.seoDescription !== undefined) dbPayload.seo_description = updates.seoDescription;
-      dbPayload.canonical_url = seoAttrs.canonicalUrl;
-      if (updates.author !== undefined) dbPayload.author = updates.author;
-      if (updates.faq !== undefined) dbPayload.faq = updates.faq;
 
-      let updateQuery = isUuid 
-        ? supabaseClient.from('articles').update(dbPayload).eq('id', existingObj.id).select().single()
-        : supabaseClient.from('articles').update(dbPayload).eq('slug', existingObj.slug).select().single();
-
-      const { data: updatedData, error: updateErr } = await updateQuery;
-      if (updateErr) {
-        return res.status(500).json({ error: 'Database update failed', message: updateErr.message });
-      }
-
-      const updatedArticle = mapArticleFromDb(updatedData);
-
-      // Trigger SEO sitemap/RSS files regeneration
+      // Generate SEO sitemap/RSS files asynchronously
       triggerSeoRegeneration();
 
       const responseArticle = {
@@ -1457,7 +1210,7 @@ async function start() {
       return res.json({
         success: true,
         article: responseArticle,
-        message: 'Article updated successfully in Supabase.'
+        message: 'Article updated successfully with dynamic SEO indexing!'
       });
 
     } catch (err: any) {
@@ -1482,7 +1235,88 @@ async function start() {
 
   app.get('/sitemap.xml', async (req, res) => {
     try {
-      const sitemapXml = await generateSitemapXml();
+      let articles: any[] = [];
+      const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
+      const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+
+      if (isSupabaseConfigured && supabaseClient) {
+        const { data: dbArticles, error } = await supabaseClient
+          .from('articles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && dbArticles) {
+          articles = dbArticles
+            .filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft')
+            .map(art => mapArticleFromDb(art));
+        }
+      } else {
+        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+        articles = articlesList.filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft');
+      }
+
+      const currentDate = new Date().toISOString().split('T')[0];
+      let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <!-- Core Static Pages -->
+  <url>
+    <loc>${baseDomain}/</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/blog</loc>
+    <lastmod>${currentDate}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/about</loc>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/contact</loc>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/privacy</loc>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/terms</loc>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>${baseDomain}/disclosure</loc>
+    <lastmod>2026-07-19</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+`;
+
+      articles.forEach((art: any) => {
+        const artDate = art.publishedAt ? new Date(art.publishedAt).toISOString().split('T')[0] : currentDate;
+        sitemapXml += `  <url>
+    <loc>${baseDomain}/blog/${art.slug}</loc>
+    <lastmod>${artDate}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>\n`;
+      });
+
+      sitemapXml += `</urlset>`;
+
       res.header('Content-Type', 'application/xml; charset=utf-8');
       res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.send(sitemapXml);
@@ -1494,7 +1328,104 @@ async function start() {
 
   app.get('/rss.xml', async (req, res) => {
     try {
-      const rssXml = await generateRssXml();
+      let articles: any[] = [];
+      let settings = {
+        siteName: 'NetVentures',
+        siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.'
+      };
+      const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
+      const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+
+      if (isSupabaseConfigured && supabaseClient) {
+        // Fetch site settings
+        const { data: settingsData } = await supabaseClient
+          .from('site_settings')
+          .select('*')
+          .eq('id', 'global')
+          .maybeSingle();
+
+        if (settingsData) {
+          settings.siteName = settingsData.site_name || settings.siteName;
+          settings.siteDescription = settingsData.site_description || settings.siteDescription;
+        }
+
+        // Fetch categories map
+        const { data: categories } = await supabaseClient.from('categories').select('*');
+        const categoriesMap: any = {};
+        (categories || []).forEach(c => {
+          categoriesMap[c.id] = c.name;
+        });
+
+        // Fetch articles
+        const { data: dbArticles, error } = await supabaseClient
+          .from('articles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && dbArticles) {
+          articles = dbArticles
+            .filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft')
+            .map(art => {
+              const mapped: any = mapArticleFromDb(art);
+              return {
+                ...mapped,
+                categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial'
+              };
+            });
+        }
+      } else {
+        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+        const categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
+        const categoriesMap: any = {};
+        categories.forEach((c: any) => {
+          categoriesMap[c.id] = c.name;
+        });
+
+        articles = articlesList
+          .filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft')
+          .map((art: any) => ({
+            ...art,
+            categoryName: categoriesMap[art.categoryId] || 'Editorial'
+          }));
+      }
+
+      const escapeXml = (unsafe: string) => {
+        if (!unsafe) return '';
+        return unsafe
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&apos;');
+      };
+
+      let rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+  <title>${escapeXml(settings.siteName)}</title>
+  <link>${baseDomain}</link>
+  <description>${escapeXml(settings.siteDescription)}</description>
+  <language>en-us</language>
+  <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+  <atom:link href="${baseDomain}/rss.xml" rel="self" type="application/rss+xml" />
+`;
+
+      articles.forEach(art => {
+        const pubDateFormatted = new Date(art.publishedAt || new Date()).toUTCString();
+        rssXml += `  <item>
+    <title>${escapeXml(art.title)}</title>
+    <link>${baseDomain}/blog/${art.slug}</link>
+    <description>${escapeXml(art.shortDescription)}</description>
+    <author>${escapeXml(art.author)}</author>
+    <category>${escapeXml(art.categoryName)}</category>
+    <pubDate>${pubDateFormatted}</pubDate>
+    <guid isPermaLink="true">${baseDomain}/blog/${art.slug}</guid>
+  </item>\n`;
+      });
+
+      rssXml += `</channel>
+</rss>`;
+
       res.header('Content-Type', 'application/xml; charset=utf-8');
       res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.send(rssXml);
@@ -1525,16 +1456,12 @@ async function start() {
     });
   }
 
-  if (!process.env.VERCEL) {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`📡 Full-stack server running on http://localhost:${PORT}`);
-      console.log(`🔒 Secure API key: ${process.env.AI_AGENT_API_KEY ? 'Set from env' : 'Using default dev key (netventures-agent-key-2026)'}`);
-    });
-  }
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`📡 Full-stack server running on http://localhost:${PORT}`);
+    console.log(`🔒 Secure API key: ${process.env.AI_AGENT_API_KEY ? 'Set from env' : 'Using default dev key (netventures-agent-key-2026)'}`);
+  });
 }
 
 start().catch(err => {
   console.error('Fatal server boot error:', err);
 });
-
-export default app;
