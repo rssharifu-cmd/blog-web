@@ -105,7 +105,14 @@ function saveLocalFile<T>(filePath: string, data: T) {
 }
 
 // Supabase Configuration
-const SUPABASE_URL = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+let rawSupabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+if (rawSupabaseUrl) {
+  if (!rawSupabaseUrl.includes('://')) {
+    rawSupabaseUrl = `https://${rawSupabaseUrl}.supabase.co`;
+  }
+  rawSupabaseUrl = rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+}
+const SUPABASE_URL = rawSupabaseUrl;
 const SUPABASE_ANON_KEY = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
@@ -157,9 +164,8 @@ const mapArticleFromDb = (dbArt: any) => {
   };
 };
 
-export const app = express();
-
 async function start() {
+  const app = express();
 
   // Middleware
   app.use(express.json({ limit: '50mb' }));
@@ -1457,16 +1463,12 @@ async function start() {
     });
   }
 
-  if (!process.env.VERCEL) {
-    app.listen(PORT, '0.0.0.0', () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`📡 Full-stack server running on http://localhost:${PORT}`);
     console.log(`🔒 Secure API key: ${process.env.AI_AGENT_API_KEY ? 'Set from env' : 'Using default dev key (netventures-agent-key-2026)'}`);
-    });
-  }
+  });
 }
 
 start().catch(err => {
   console.error('Fatal server boot error:', err);
 });
-
-export default app;

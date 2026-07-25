@@ -28,7 +28,14 @@ const loadEnvFile = () => {
 
 loadEnvFile();
 
-const SUPABASE_URL = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim();
+let rawSupabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim();
+if (rawSupabaseUrl) {
+  if (!rawSupabaseUrl.includes('://')) {
+    rawSupabaseUrl = `https://${rawSupabaseUrl}.supabase.co`;
+  }
+  rawSupabaseUrl = rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+}
+const SUPABASE_URL = rawSupabaseUrl;
 const SUPABASE_ANON_KEY = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 // Base URL for links. Default to NetVentures primary URL.
 const SITE_BASE_URL = process.env.APP_URL || 'https://netventures.online';
