@@ -97,10 +97,13 @@ async function run() {
 
       const publishedArticles = localArticles.filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft');
       publishedArticles.forEach(art => {
-        if (art.slug) {
-          articleMap.set(art.slug, {
+        const slug = (art.slug && art.slug.trim())
+          ? art.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+          : (art.title ? art.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : art.id);
+        if (slug) {
+          articleMap.set(slug, {
             title: art.title,
-            slug: art.slug,
+            slug: slug,
             shortDescription: art.shortDescription || art.title,
             publishedAt: art.publishedAt || new Date().toISOString(),
             author: art.author || 'Elena Rostova',
@@ -167,10 +170,13 @@ async function run() {
         if (dbArticles && dbArticles.length > 0) {
           const publishedArticles = dbArticles.filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft');
           publishedArticles.forEach(art => {
-            if (art.slug) {
-              articleMap.set(art.slug, {
+            const slug = (art.slug && art.slug.trim())
+              ? art.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+              : (art.title ? art.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : art.id);
+            if (slug) {
+              articleMap.set(slug, {
                 title: art.title,
-                slug: art.slug,
+                slug: slug,
                 shortDescription: art.excerpt || art.short_description || art.title,
                 publishedAt: art.published_at || art.created_at || new Date().toISOString(),
                 author: art.author || 'Elena Rostova',

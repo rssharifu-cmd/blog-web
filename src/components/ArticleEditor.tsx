@@ -25,7 +25,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
   const [shortDescription, setShortDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [status, setStatus] = useState<'draft' | 'published'>('draft');
+  const [status, setStatus] = useState<'draft' | 'published'>('published');
   const [featuredImage, setFeaturedImage] = useState('');
   const [author, setAuthor] = useState('Elena Rostova');
 
@@ -121,20 +121,26 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
     setLoading(true);
     setError(null);
 
+    const generatedSlug = (slug && slug.trim())
+      ? slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+      : title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || `post-${Date.now()}`;
+
+    const finalStatus = status || 'published';
+
     const articleInput = {
       id: articleId || undefined,
       title,
-      slug,
+      slug: generatedSlug,
       content,
       shortDescription,
       categoryId,
       tags: selectedTags,
-      status,
+      status: finalStatus,
       featuredImage,
       author,
       seoTitle: seoTitle || `${title} - NetVentures`,
       seoDescription: seoDescription || shortDescription,
-      canonicalUrl: canonicalUrl || `https://netventures.online/blog/${slug}`,
+      canonicalUrl: canonicalUrl || `https://netventures.online/blog/${generatedSlug}`,
       faq,
     };
 

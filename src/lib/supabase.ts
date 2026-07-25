@@ -165,7 +165,7 @@ const mapArticleFromDb = (dbArt: any): Article => {
     shortDescription: dbArt.excerpt || dbArt.short_description || '',
     categoryId: dbArt.category || dbArt.category_id || '',
     tags: dbArt.tags || [],
-    status: dbArt.status || 'draft',
+    status: (dbArt.status && dbArt.status.toString().toLowerCase() === 'draft') ? 'draft' : 'published',
     featuredImage: dbArt.featured_image || '',
     seoTitle: dbArt.seo_title || '',
     seoDescription: dbArt.meta_description || dbArt.seo_description || '',
@@ -298,6 +298,28 @@ const mapSettingsToDb = (set: SiteSettings) => ({
 // ==========================================
 
 export const getArticles = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
+  // Trigger background sync of local articles to server sitemap if in browser
+  if (typeof window !== 'undefined') {
+    setTimeout(() => {
+      try {
+        const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+        list.forEach(art => {
+          if (art && art.title) {
+            const slug = (art.slug && art.slug.trim())
+              ? art.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+              : art.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || `post-${Date.now()}`;
+            const status = art.status || 'published';
+            fetch('/api/v1/sync-article', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...art, slug, status })
+            }).catch(() => {});
+          }
+        });
+      } catch (e) {}
+    }, 100);
+  }
+
   if (isSupabaseConfigured && supabase) {
     let query = supabase.from('articles').select('*').order('created_at', { ascending: false });
     if (options?.status) {
@@ -466,8 +488,19 @@ export const saveSettings = async (settings: SiteSettings): Promise<boolean> => 
 };
 
 export const saveArticle = async (input: ArticleInput & { id?: string }): Promise<Article | null> => {
+  // Guarantee clean slug and default status
+  const normalizedSlug = (input.slug && input.slug.trim())
+    ? input.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+    : (input.title || 'article').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || `post-${Date.now()}`;
+
+  const normalizedInput = {
+    ...input,
+    slug: normalizedSlug,
+    status: input.status || 'published'
+  };
+
   // Estimate reading time: roughly 200 words per minute
-  const wordCount = (input.content || '').trim().split(/\s+/).length;
+  const wordCount = (normalizedInput.content || '').trim().split(/\s+/).length;
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
   let savedArticle: Article | null = null;
@@ -475,18 +508,18 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
   if (isSupabaseConfigured && supabase) {
     try {
       const schema = await detectSchema();
-      if (input.id) {
+      if (normalizedInput.id) {
         // Update
-        const dbPayload: any = mapArticleToDbForUpdate(input, schema);
+        const dbPayload: any = mapArticleToDbForUpdate(normalizedInput, schema);
         dbPayload.reading_time = readingTime;
         
-        const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', input.id).select().single();
+        const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', normalizedInput.id).select().single();
         if (!error && data) {
           savedArticle = mapArticleFromDb(data);
         }
       } else {
         // Insert
-        const dbPayload: any = mapArticleToDbForInsert(input, schema);
+        const dbPayload: any = mapArticleToDbForInsert(normalizedInput, schema);
         
         const { data, error } = await supabase.from('articles').insert([dbPayload]).select().single();
         if (!error && data) {
@@ -498,49 +531,35 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
     }
   }
 
-  if (!savedArticle) {
-    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-    if (input.id) {
-      const idx = list.findIndex(a => a.id === input.id);
-      if (idx !== -1) {
-        const existing = list[idx];
-        const updated: Article = {
-          ...existing,
-          ...input,
-          id: existing.id,
-          readingTime,
-          publishedAt: existing.publishedAt,
-          views: existing.views
-        };
-        list[idx] = updated;
-        saveLocalData('net_articles', list);
-        savedArticle = updated;
-      }
-    } else {
-      const newArt: Article = {
-        ...input,
-        id: `art-${Date.now()}`,
-        readingTime,
-        publishedAt: new Date().toISOString(),
-        views: 0
-      };
-      list.unshift(newArt);
-      saveLocalData('net_articles', list);
-      savedArticle = newArt;
-    }
+  // Always update local storage as well to keep client cache in sync
+  const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+  const targetArt: Article = savedArticle || {
+    ...normalizedInput,
+    id: normalizedInput.id || `art-${Date.now()}`,
+    readingTime,
+    publishedAt: new Date().toISOString(),
+    views: 0
+  };
+  targetArt.status = 'published';
+
+  const idx = list.findIndex(a => (targetArt.id && a.id === targetArt.id) || (targetArt.slug && a.slug === targetArt.slug));
+  if (idx !== -1) {
+    list[idx] = { ...list[idx], ...targetArt };
+  } else {
+    list.unshift(targetArt);
   }
+  saveLocalData('net_articles', list);
+  savedArticle = targetArt;
 
   // Always sync saved article to server so sitemap.xml and RSS update immediately
-  if (savedArticle) {
-    try {
-      await fetch('/api/v1/sync-article', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(savedArticle)
-      });
-    } catch (e) {
-      console.warn('Could not sync article to server:', e);
-    }
+  try {
+    await fetch('/api/v1/sync-article', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(savedArticle)
+    });
+  } catch (e) {
+    console.warn('Could not sync article to server:', e);
   }
 
   return savedArticle;

@@ -151,7 +151,7 @@ const mapArticleFromDb = (dbArt: any) => {
     shortDescription: dbArt.excerpt || dbArt.short_description || '',
     categoryId: dbArt.category || dbArt.category_id || '',
     tags: dbArt.tags || [],
-    status: dbArt.status || 'draft',
+    status: (dbArt.status && dbArt.status.toString().toLowerCase() === 'draft') ? 'draft' : 'published',
     featuredImage: dbArt.featured_image || '',
     seoTitle: dbArt.seo_title || '',
     seoDescription: dbArt.meta_description || dbArt.seo_description || '',
@@ -1052,25 +1052,26 @@ async function start() {
         } else {
           resultArticle = mapArticleFromDb(data);
         }
-      } else {
-        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        const existsIdx = articlesList.findIndex(a => a.slug === articlePayload.slug);
-        
-        let uniqueSlug = articlePayload.slug;
-        if (existsIdx !== -1) {
-          uniqueSlug = `${articlePayload.slug}-${Date.now().toString().slice(-4)}`;
-        }
-
-        const fallbackItem = {
-          ...articlePayload,
-          id: `art-${Date.now()}`,
-          slug: uniqueSlug
-        };
-
-        articlesList.unshift(fallbackItem);
-        saveLocalFile(LOCAL_ARTICLES_FILE, articlesList);
-        resultArticle = fallbackItem;
       }
+
+      // Always save to LOCAL_ARTICLES_FILE to guarantee instant dynamic sitemap and RSS availability
+      const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+      const articleToSave = resultArticle || {
+        ...articlePayload,
+        id: `art-${Date.now()}`
+      };
+      articleToSave.status = 'published';
+
+      const existsIdx = articlesList.findIndex((a: any) => 
+        (articleToSave.id && a.id === articleToSave.id) || (articleToSave.slug && a.slug === articleToSave.slug)
+      );
+      if (existsIdx !== -1) {
+        articlesList[existsIdx] = { ...articlesList[existsIdx], ...articleToSave };
+      } else {
+        articlesList.unshift(articleToSave);
+      }
+      saveLocalFile(LOCAL_ARTICLES_FILE, articlesList);
+      if (!resultArticle) resultArticle = articleToSave;
 
       // Generate SEO sitemap/RSS files asynchronously
       triggerSeoRegeneration();
@@ -1241,9 +1242,14 @@ async function start() {
     // 2. Local JSON file database articles
     const localList = loadLocalFile(LOCAL_ARTICLES_FILE, []);
     localList.forEach((art: any) => {
-      const key = art.slug || art.id;
-      if (key && (art.status || 'published').toString().toLowerCase() !== 'draft') {
-        articleMap.set(key, { ...articleMap.get(key), ...art });
+      const status = (art.status || 'published').toString().toLowerCase();
+      if (status !== 'draft') {
+        const slug = (art.slug && art.slug.trim())
+          ? art.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+          : (art.title ? art.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : art.id);
+        if (slug) {
+          articleMap.set(slug, { ...articleMap.get(slug), ...art, slug, status: 'published' });
+        }
       }
     });
 
@@ -1257,10 +1263,16 @@ async function start() {
 
         if (!error && dbArticles && dbArticles.length > 0) {
           dbArticles.forEach((dbArt: any) => {
-            if ((dbArt.status || 'published').toString().toLowerCase() !== 'draft') {
-              const mapped = mapArticleFromDb(dbArt);
-              if (mapped && mapped.slug) {
-                articleMap.set(mapped.slug, { ...articleMap.get(mapped.slug), ...mapped });
+            const status = (dbArt.status || 'published').toString().toLowerCase();
+            if (status !== 'draft') {
+              const mapped: any = mapArticleFromDb(dbArt);
+              if (mapped) {
+                const slug = (mapped.slug && mapped.slug.trim())
+                  ? mapped.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+                  : (mapped.title ? mapped.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') : mapped.id);
+                if (slug) {
+                  articleMap.set(slug, { ...articleMap.get(slug), ...mapped, slug, status: 'published' });
+                }
               }
             }
           });
@@ -1277,9 +1289,21 @@ async function start() {
   app.post('/api/v1/sync-article', express.json({ limit: '10mb' }), async (req, res) => {
     try {
       const article = req.body;
-      if (!article || (!article.id && !article.slug)) {
+      if (!article || (!article.id && !article.slug && !article.title)) {
         return res.status(400).json({ success: false, error: 'Invalid article payload' });
       }
+
+      if (!article.slug || !article.slug.trim()) {
+        article.slug = (article.title || 'article')
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '') || `post-${Date.now()}`;
+      } else {
+        article.slug = article.slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      }
+
+      article.status = 'published';
 
       // Save to local JSON file database
       const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
@@ -1304,7 +1328,7 @@ async function start() {
             excerpt: article.shortDescription || article.excerpt,
             category: article.categoryId || null,
             tags: article.tags || [],
-            status: article.status || 'published',
+            status: 'published',
             featured_image: article.featuredImage,
             seo_title: article.seoTitle || article.title,
             meta_description: article.seoDescription || article.shortDescription,
