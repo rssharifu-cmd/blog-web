@@ -1226,6 +1226,131 @@ async function start() {
     }
   });
 
+  // Helper function to combine articles from default articles, local JSON files, and Supabase
+  async function getAllArticlesCombined() {
+    const articleMap = new Map<string, any>();
+
+    // 1. Default articles
+    DEFAULT_ARTICLES.forEach((art: any) => {
+      const key = art.slug || art.id;
+      if (key && (art.status || 'published').toString().toLowerCase() !== 'draft') {
+        articleMap.set(key, art);
+      }
+    });
+
+    // 2. Local JSON file database articles
+    const localList = loadLocalFile(LOCAL_ARTICLES_FILE, []);
+    localList.forEach((art: any) => {
+      const key = art.slug || art.id;
+      if (key && (art.status || 'published').toString().toLowerCase() !== 'draft') {
+        articleMap.set(key, { ...articleMap.get(key), ...art });
+      }
+    });
+
+    // 3. Supabase database articles
+    if (isSupabaseConfigured && supabaseClient) {
+      try {
+        const { data: dbArticles, error } = await supabaseClient
+          .from('articles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && dbArticles && dbArticles.length > 0) {
+          dbArticles.forEach((dbArt: any) => {
+            if ((dbArt.status || 'published').toString().toLowerCase() !== 'draft') {
+              const mapped = mapArticleFromDb(dbArt);
+              if (mapped && mapped.slug) {
+                articleMap.set(mapped.slug, { ...articleMap.get(mapped.slug), ...mapped });
+              }
+            }
+          });
+        }
+      } catch (dbErr) {
+        console.warn('Supabase article fetch error in sitemap generator:', dbErr);
+      }
+    }
+
+    return Array.from(articleMap.values());
+  }
+
+  // Endpoints to sync articles directly from client UI and immediately trigger sitemap regeneration
+  app.post('/api/v1/sync-article', express.json({ limit: '10mb' }), async (req, res) => {
+    try {
+      const article = req.body;
+      if (!article || (!article.id && !article.slug)) {
+        return res.status(400).json({ success: false, error: 'Invalid article payload' });
+      }
+
+      // Save to local JSON file database
+      const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+      const existingIdx = articlesList.findIndex((a: any) => 
+        (article.id && a.id === article.id) || (article.slug && a.slug === article.slug)
+      );
+
+      if (existingIdx !== -1) {
+        articlesList[existingIdx] = { ...articlesList[existingIdx], ...article };
+      } else {
+        articlesList.unshift(article);
+      }
+      saveLocalFile(LOCAL_ARTICLES_FILE, articlesList);
+
+      // Attempt Supabase sync if configured
+      if (isSupabaseConfigured && supabaseClient) {
+        try {
+          const dbPayload = {
+            title: article.title,
+            slug: article.slug,
+            content: article.content,
+            excerpt: article.shortDescription || article.excerpt,
+            category: article.categoryId || null,
+            tags: article.tags || [],
+            status: article.status || 'published',
+            featured_image: article.featuredImage,
+            seo_title: article.seoTitle || article.title,
+            meta_description: article.seoDescription || article.shortDescription,
+            canonical_url: article.canonicalUrl,
+            reading_time: article.readingTime || 5,
+            author: article.author || 'Elena Rostova',
+            faq: article.faq || [],
+            created_at: article.publishedAt || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          await supabaseClient.from('articles').upsert([dbPayload], { onConflict: 'slug' });
+        } catch (dbErr) {
+          console.warn('Supabase sync warning:', dbErr);
+        }
+      }
+
+      // Regenerate sitemap and static SEO files asynchronously
+      triggerSeoRegeneration();
+
+      return res.json({ success: true, message: 'Article synced and added to sitemap successfully' });
+    } catch (err: any) {
+      console.error('Error syncing article:', err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.delete('/api/v1/sync-article/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
+      const filtered = articlesList.filter((a: any) => a.id !== id && a.slug !== id);
+      saveLocalFile(LOCAL_ARTICLES_FILE, filtered);
+
+      if (isSupabaseConfigured && supabaseClient) {
+        try {
+          await supabaseClient.from('articles').delete().eq('id', id);
+        } catch (e) {}
+      }
+
+      triggerSeoRegeneration();
+      return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Mount the versioned API router under /api/v1
   app.use('/api/v1', apiRouter);
 
@@ -1242,27 +1367,11 @@ async function start() {
 
   app.get('/sitemap.xml', async (req, res) => {
     try {
-      let articles: any[] = [];
+      const articles = await getAllArticlesCombined();
       const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
       const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
-
-      if (isSupabaseConfigured && supabaseClient) {
-        const { data: dbArticles, error } = await supabaseClient
-          .from('articles')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (!error && dbArticles) {
-          articles = dbArticles
-            .filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft')
-            .map(art => mapArticleFromDb(art));
-        }
-      } else {
-        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        articles = articlesList.filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft');
-      }
-
       const currentDate = new Date().toISOString().split('T')[0];
+
       let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -1314,8 +1423,9 @@ async function start() {
 
       articles.forEach((art: any) => {
         const artDate = art.publishedAt ? new Date(art.publishedAt).toISOString().split('T')[0] : currentDate;
+        const slug = art.slug || art.id;
         sitemapXml += `  <url>
-    <loc>${baseDomain}/blog/${art.slug}</loc>
+    <loc>${baseDomain}/blog/${slug}</loc>
     <lastmod>${artDate}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -1335,7 +1445,7 @@ async function start() {
 
   app.get('/rss.xml', async (req, res) => {
     try {
-      let articles: any[] = [];
+      const articles = await getAllArticlesCombined();
       let settings = {
         siteName: 'NetVentures',
         siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.'
@@ -1344,7 +1454,6 @@ async function start() {
       const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
 
       if (isSupabaseConfigured && supabaseClient) {
-        // Fetch site settings
         const { data: settingsData } = await supabaseClient
           .from('site_settings')
           .select('*')
@@ -1355,45 +1464,6 @@ async function start() {
           settings.siteName = settingsData.site_name || settings.siteName;
           settings.siteDescription = settingsData.site_description || settings.siteDescription;
         }
-
-        // Fetch categories map
-        const { data: categories } = await supabaseClient.from('categories').select('*');
-        const categoriesMap: any = {};
-        (categories || []).forEach(c => {
-          categoriesMap[c.id] = c.name;
-        });
-
-        // Fetch articles
-        const { data: dbArticles, error } = await supabaseClient
-          .from('articles')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (!error && dbArticles) {
-          articles = dbArticles
-            .filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft')
-            .map(art => {
-              const mapped: any = mapArticleFromDb(art);
-              return {
-                ...mapped,
-                categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial'
-              };
-            });
-        }
-      } else {
-        const articlesList = loadLocalFile(LOCAL_ARTICLES_FILE, DEFAULT_ARTICLES);
-        const categories = loadLocalFile(LOCAL_CATEGORIES_FILE, DEFAULT_CATEGORIES);
-        const categoriesMap: any = {};
-        categories.forEach((c: any) => {
-          categoriesMap[c.id] = c.name;
-        });
-
-        articles = articlesList
-          .filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft')
-          .map((art: any) => ({
-            ...art,
-            categoryName: categoriesMap[art.categoryId] || 'Editorial'
-          }));
       }
 
       const escapeXml = (unsafe: string) => {

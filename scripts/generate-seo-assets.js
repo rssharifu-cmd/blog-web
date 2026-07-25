@@ -73,9 +73,49 @@ async function run() {
   let articles = [...DEFAULT_ARTICLES];
   let settings = { ...DEFAULT_SETTINGS };
 
-  // Attempt to fetch fresh data from live Supabase database
-  let loadedFromLiveDb = false;
+  const articleMap = new Map();
+  DEFAULT_ARTICLES.forEach(art => {
+    if (art.slug) articleMap.set(art.slug, art);
+  });
 
+  // Check local file database
+  const localArticlesPath = path.resolve(process.cwd(), 'src', 'data', 'local_articles.json');
+  const localCategoriesPath = path.resolve(process.cwd(), 'src', 'data', 'local_categories.json');
+  if (fs.existsSync(localArticlesPath)) {
+    try {
+      console.log('📂 Loading articles from local JSON database file for SEO generation...');
+      const localArticles = JSON.parse(fs.readFileSync(localArticlesPath, 'utf-8'));
+      const localCategories = fs.existsSync(localCategoriesPath) 
+        ? JSON.parse(fs.readFileSync(localCategoriesPath, 'utf-8'))
+        : [];
+      
+      const categoriesMap = {};
+      localCategories.forEach(c => {
+        categoriesMap[c.id] = c.name;
+        categoriesMap[c.slug] = c.name;
+      });
+
+      const publishedArticles = localArticles.filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft');
+      publishedArticles.forEach(art => {
+        if (art.slug) {
+          articleMap.set(art.slug, {
+            title: art.title,
+            slug: art.slug,
+            shortDescription: art.shortDescription || art.title,
+            publishedAt: art.publishedAt || new Date().toISOString(),
+            author: art.author || 'Elena Rostova',
+            categoryName: categoriesMap[art.categoryId] || 'Editorial',
+            content: art.content || ''
+          });
+        }
+      });
+      console.log(`✅ Loaded articles from local file database.`);
+    } catch (err) {
+      console.warn('⚠️ Error loading local JSON database for SEO generation:', err.message);
+    }
+  }
+
+  // Attempt to fetch fresh data from live Supabase database
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
       console.log('🔗 Connecting to Supabase database to fetch published columns...');
@@ -126,69 +166,30 @@ async function run() {
         const dbArticles = await articlesRes.json();
         if (dbArticles && dbArticles.length > 0) {
           const publishedArticles = dbArticles.filter(art => (art.status || 'published').toString().toLowerCase() !== 'draft');
-          if (publishedArticles.length > 0) {
-            articles = publishedArticles.map(art => ({
-              title: art.title,
-              slug: art.slug,
-              shortDescription: art.excerpt || art.short_description || art.title,
-              publishedAt: art.published_at || art.created_at || new Date().toISOString(),
-              author: art.author || 'Elena Rostova',
-              categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial',
-              content: art.content || ''
-            }));
-            loadedFromLiveDb = true;
-            console.log(`✅ Retrieved ${articles.length} published articles from Supabase.`);
-          }
+          publishedArticles.forEach(art => {
+            if (art.slug) {
+              articleMap.set(art.slug, {
+                title: art.title,
+                slug: art.slug,
+                shortDescription: art.excerpt || art.short_description || art.title,
+                publishedAt: art.published_at || art.created_at || new Date().toISOString(),
+                author: art.author || 'Elena Rostova',
+                categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial',
+                content: art.content || ''
+              });
+            }
+          });
+          console.log(`✅ Retrieved published articles from Supabase.`);
         }
       } else {
-        console.warn(`⚠️ Supabase articles query returned status ${articlesRes.status}. Using default fallback articles.`);
+        console.warn(`⚠️ Supabase articles query returned status ${articlesRes.status}.`);
       }
     } catch (err) {
       console.warn('⚠️ Network or authentication error reading from Supabase database:', err.message);
     }
   }
 
-  // Fallback to local file-based database if not loaded from Supabase
-  if (!loadedFromLiveDb) {
-    const localArticlesPath = path.resolve(process.cwd(), 'src', 'data', 'local_articles.json');
-    const localCategoriesPath = path.resolve(process.cwd(), 'src', 'data', 'local_categories.json');
-    if (fs.existsSync(localArticlesPath)) {
-      try {
-        console.log('📂 Loading articles from local JSON database file for SEO generation...');
-        const localArticles = JSON.parse(fs.readFileSync(localArticlesPath, 'utf-8'));
-        const localCategories = fs.existsSync(localCategoriesPath) 
-          ? JSON.parse(fs.readFileSync(localCategoriesPath, 'utf-8'))
-          : [];
-        
-        const categoriesMap = {};
-        localCategories.forEach(c => {
-          categoriesMap[c.id] = c.name;
-          categoriesMap[c.slug] = c.name;
-        });
-
-        // Filter for published articles
-        const publishedArticles = localArticles.filter(art => art.status === 'published');
-        if (publishedArticles.length > 0) {
-          articles = publishedArticles.map(art => ({
-            title: art.title,
-            slug: art.slug,
-            shortDescription: art.shortDescription || art.title,
-            publishedAt: art.publishedAt || new Date().toISOString(),
-            author: art.author || 'Elena Rostova',
-            categoryName: categoriesMap[art.categoryId] || 'Editorial',
-            content: art.content || ''
-          }));
-          console.log(`✅ Loaded ${articles.length} published articles from local file database.`);
-        } else {
-          console.log('ℹ️ No published articles found in local database. Using default fallback articles.');
-        }
-      } catch (err) {
-        console.warn('⚠️ Error loading local JSON database for SEO generation:', err.message);
-      }
-    } else {
-      console.log('ℹ️ Supabase credentials not found and local files do not exist. Utilizing fallback defaults.');
-    }
-  }
+  articles = Array.from(articleMap.values());
 
   // Ensure sitemap targets the public build folder or current assets directory
   const outDir = path.resolve(process.cwd(), 'dist');

@@ -470,25 +470,35 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
   const wordCount = (input.content || '').trim().split(/\s+/).length;
   const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 
+  let savedArticle: Article | null = null;
+
   if (isSupabaseConfigured && supabase) {
-    const schema = await detectSchema();
-    if (input.id) {
-      // Update
-      const dbPayload: any = mapArticleToDbForUpdate(input, schema);
-      dbPayload.reading_time = readingTime;
-      
-      const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', input.id).select().single();
-      if (error) throw new Error(error.message);
-      return mapArticleFromDb(data);
-    } else {
-      // Insert
-      const dbPayload: any = mapArticleToDbForInsert(input, schema);
-      
-      const { data, error } = await supabase.from('articles').insert([dbPayload]).select().single();
-      if (error) throw new Error(error.message);
-      return mapArticleFromDb(data);
+    try {
+      const schema = await detectSchema();
+      if (input.id) {
+        // Update
+        const dbPayload: any = mapArticleToDbForUpdate(input, schema);
+        dbPayload.reading_time = readingTime;
+        
+        const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', input.id).select().single();
+        if (!error && data) {
+          savedArticle = mapArticleFromDb(data);
+        }
+      } else {
+        // Insert
+        const dbPayload: any = mapArticleToDbForInsert(input, schema);
+        
+        const { data, error } = await supabase.from('articles').insert([dbPayload]).select().single();
+        if (!error && data) {
+          savedArticle = mapArticleFromDb(data);
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase save failed, falling back to local storage:', e);
     }
-  } else {
+  }
+
+  if (!savedArticle) {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
     if (input.id) {
       const idx = list.findIndex(a => a.id === input.id);
@@ -504,9 +514,8 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
         };
         list[idx] = updated;
         saveLocalData('net_articles', list);
-        return updated;
+        savedArticle = updated;
       }
-      return null;
     } else {
       const newArt: Article = {
         ...input,
@@ -517,21 +526,45 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
       };
       list.unshift(newArt);
       saveLocalData('net_articles', list);
-      return newArt;
+      savedArticle = newArt;
     }
   }
+
+  // Always sync saved article to server so sitemap.xml and RSS update immediately
+  if (savedArticle) {
+    try {
+      await fetch('/api/v1/sync-article', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(savedArticle)
+      });
+    } catch (e) {
+      console.warn('Could not sync article to server:', e);
+    }
+  }
+
+  return savedArticle;
 };
 
 export const deleteArticle = async (id: string): Promise<boolean> => {
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.from('articles').delete().eq('id', id);
-    return !error;
-  } else {
-    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-    const filtered = list.filter(a => a.id !== id);
-    saveLocalData('net_articles', filtered);
-    return true;
+    try {
+      await supabase.from('articles').delete().eq('id', id);
+    } catch (e) {}
   }
+  const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+  const filtered = list.filter(a => a.id !== id);
+  saveLocalData('net_articles', filtered);
+
+  try {
+    await fetch(`/api/v1/sync-article/${id}`, {
+      method: 'DELETE'
+    });
+  } catch (e) {
+    console.warn('Could not sync article deletion with server:', e);
+  }
+
+  return true;
 };
 
 export const createCategory = async (name: string, description: string): Promise<Category | null> => {
