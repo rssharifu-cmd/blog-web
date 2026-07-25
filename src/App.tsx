@@ -666,14 +666,16 @@ export default function App() {
             {/* Left Content column */}
             <div className="lg:col-span-8 space-y-8">
               {/* Featured Cover Image */}
-              <div className="rounded-2xl overflow-hidden aspect-video bg-zinc-100 dark:bg-zinc-900">
-                <img 
-                  src={article.featuredImage} 
-                  alt={article.title} 
-                  className="w-full h-full object-cover" 
-                  referrerPolicy="no-referrer"
-                />
-              </div>
+              {article.featuredImage ? (
+                <div className="rounded-2xl overflow-hidden aspect-video bg-zinc-100 dark:bg-zinc-900">
+                  <img 
+                    src={article.featuredImage} 
+                    alt={article.title || 'Article cover'} 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              ) : null}
 
               {/* Dynamic Table of Contents (Render on Mobile inside columns) */}
               <div className="block lg:hidden">
@@ -1445,12 +1447,18 @@ export default function App() {
                 className="group grid grid-cols-1 lg:grid-cols-12 gap-8 items-center cursor-pointer p-6 rounded-3xl border border-gray-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-gold-500/20 hover:shadow-xl dark:hover:shadow-gold-500/1 transition-all duration-300"
               >
                 <div className="lg:col-span-7 aspect-video rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-900">
-                  <img 
-                    src={featuredArticle.featuredImage} 
-                    alt={featuredArticle.title} 
-                    className="w-full h-full object-cover transform group-hover:scale-103 transition-transform duration-500" 
-                    referrerPolicy="no-referrer"
-                  />
+                  {featuredArticle.featuredImage ? (
+                    <img 
+                      src={featuredArticle.featuredImage} 
+                      alt={featuredArticle.title || 'Featured article'} 
+                      className="w-full h-full object-cover transform group-hover:scale-103 transition-transform duration-500" 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 text-zinc-400">
+                      <span className="text-xs font-mono uppercase tracking-wider">Featured Cover</span>
+                    </div>
+                  )}
                 </div>
                 <div className="lg:col-span-5 space-y-4">
                   <span className="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gold-100 dark:bg-gold-500/10 text-gold-700 dark:text-gold-500">

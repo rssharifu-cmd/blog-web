@@ -28,13 +28,19 @@ export default function ArticleCard({ article, category, onClick }: ArticleCardP
     >
       {/* Featured Image Container */}
       <div className="relative overflow-hidden aspect-video bg-zinc-100 dark:bg-zinc-900">
-        <img 
-          src={article.featuredImage} 
-          alt={article.title}
-          loading="lazy"
-          className="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500"
-          referrerPolicy="no-referrer"
-        />
+        {article.featuredImage ? (
+          <img 
+            src={article.featuredImage} 
+            alt={article.title || 'Article cover'}
+            loading="lazy"
+            className="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 text-zinc-400">
+            <span className="text-xs font-mono uppercase tracking-wider">No Image</span>
+          </div>
+        )}
         {category && (
           <span className="absolute top-4 left-4 inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-zinc-900/90 dark:bg-white/95 text-white dark:text-zinc-900 shadow-sm">
             {category.name}

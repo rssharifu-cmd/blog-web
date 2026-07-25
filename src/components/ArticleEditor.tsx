@@ -439,7 +439,9 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                         featuredImage === src ? 'border-gold-500 scale-95' : 'border-transparent opacity-60 hover:opacity-100'
                       }`}
                     >
-                      <img src={src} className="object-cover w-full h-full" referrerPolicy="no-referrer" />
+                      {src ? (
+                        <img src={src} className="object-cover w-full h-full" referrerPolicy="no-referrer" alt="Preset cover option" />
+                      ) : null}
                     </button>
                   ))}
                 </div>
@@ -517,7 +519,13 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
         /* Real-time HTML Content preview mode */
         <div className="space-y-6">
           <div className="relative aspect-video rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-900">
-            <img src={featuredImage} alt={title} className="object-cover w-full h-full" referrerPolicy="no-referrer" />
+            {featuredImage ? (
+              <img src={featuredImage} alt={title || 'Draft cover'} className="object-cover w-full h-full" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-500">
+                <span className="text-xs font-mono uppercase tracking-wider">No Cover Image Selected</span>
+              </div>
+            )}
             <div className="absolute inset-0 bg-linear-to-t from-zinc-950/80 via-zinc-950/25 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 text-white">
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gold-500 text-zinc-950 uppercase mb-3">

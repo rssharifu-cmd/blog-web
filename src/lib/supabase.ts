@@ -24,10 +24,19 @@ export const isSupabaseConfigured = Boolean(
   (supabaseUrl.startsWith('http://') || supabaseUrl.startsWith('https://'))
 );
 
+const customFetch = (...args: Parameters<typeof fetch>) => {
+  const fetchFn = typeof window !== 'undefined' ? window.fetch : fetch;
+  return fetchFn(...args);
+};
+
 const initSupabase = () => {
   if (!isSupabaseConfigured) return null;
   try {
-    return createClient(supabaseUrl, supabaseAnonKey);
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        fetch: customFetch
+      }
+    });
   } catch (err) {
     console.error('Failed to initialize Supabase client:', err);
     return null;
@@ -296,10 +305,22 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
     }
     const { data, error } = await query;
     if (error) {
-      console.error('Supabase error:', error);
-      return [];
+      console.warn('Supabase fetch error, using local fallback:', error.message || error);
+      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+      if (options?.status) {
+        return list.filter(a => a.status === options.status);
+      }
+      return list;
     }
-    return (data || []).map(mapArticleFromDb);
+    const articles = (data || []).map(mapArticleFromDb);
+    if (articles.length === 0) {
+      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+      if (options?.status) {
+        return list.filter(a => a.status === options.status);
+      }
+      return list;
+    }
+    return articles;
   } else {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
     if (options?.status) {
@@ -313,10 +334,13 @@ export const getArticleBySlug = async (slug: string): Promise<Article | null> =>
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('articles').select('*').eq('slug', slug).maybeSingle();
     if (error) {
-      console.error(error);
-      return null;
+      console.warn('Supabase fetch error, using local fallback:', error.message || error);
+      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+      return list.find(a => a.slug === slug) || null;
     }
-    return data ? mapArticleFromDb(data) : null;
+    if (data) return mapArticleFromDb(data);
+    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+    return list.find(a => a.slug === slug) || null;
   } else {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
     return list.find(a => a.slug === slug) || null;
@@ -327,10 +351,13 @@ export const getArticleById = async (id: string): Promise<Article | null> => {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('articles').select('*').eq('id', id).maybeSingle();
     if (error) {
-      console.error(error);
-      return null;
+      console.warn('Supabase fetch error, using local fallback:', error.message || error);
+      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+      return list.find(a => a.id === id) || null;
     }
-    return data ? mapArticleFromDb(data) : null;
+    if (data) return mapArticleFromDb(data);
+    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+    return list.find(a => a.id === id) || null;
   } else {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
     return list.find(a => a.id === id) || null;
@@ -341,10 +368,10 @@ export const getCategories = async (): Promise<Category[]> => {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('categories').select('*').order('name');
     if (error) {
-      console.error(error);
-      return DEFAULT_CATEGORIES;
+      console.warn('Supabase fetch error, using local fallback:', error.message || error);
+      return loadLocalData<Category[]>('net_categories', DEFAULT_CATEGORIES);
     }
-    return data || [];
+    return (data && data.length > 0) ? data : loadLocalData<Category[]>('net_categories', DEFAULT_CATEGORIES);
   } else {
     return loadLocalData<Category[]>('net_categories', DEFAULT_CATEGORIES);
   }

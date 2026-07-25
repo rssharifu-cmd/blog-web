@@ -3,6 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function() {
+        try {
+          var targets = [
+            typeof window !== 'undefined' ? window : null,
+            typeof self !== 'undefined' ? self : null,
+            typeof globalThis !== 'undefined' ? globalThis : null
+          ];
+          targets.forEach(function(target) {
+            if (!target) return;
+            var currentFetch = target.fetch ? target.fetch.bind(target) : null;
+            try {
+              Object.defineProperty(target, 'fetch', {
+                get: function() {
+                  return currentFetch;
+                },
+                set: function(fn) {
+                  currentFetch = fn;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            } catch (e) {}
+          });
+        } catch (e) {}
+      })();
+    </script>
     
     <!-- DNS preconnect to eliminate server connection latency on Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
