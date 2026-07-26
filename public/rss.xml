@@ -1,191 +1,154 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+const SUPABASE_URL = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
+const SUPABASE_KEY = (
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  ''
+).trim();
+const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
+
+const DEFAULT_SETTINGS = {
+  siteName: 'NetVentures',
+  siteDescription:
+    'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.',
+};
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+function resolveSupabaseUrl(raw: string): string {
+  let url = raw;
+  if (url && !url.includes('://')) {
+    url = `https://${url}.supabase.co`;
+  }
+  return url.replace(/\/rest\/v1\/?$/, '').replace(/\/$/, '');
+}
+
+function escapeXml(unsafe: string): string {
+  if (!unsafe) return '';
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+export default async function handler(req: any, res: any) {
+  try {
+    const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+    let settings = { ...DEFAULT_SETTINGS };
+
+    let articles: Array<{
+      slug?: string;
+      title?: string;
+      excerpt?: string;
+      short_description?: string;
+      author?: string;
+      published_at?: string;
+      created_at?: string;
+      status?: string;
+      categoryName?: string;
+      category?: string;
+      category_id?: string;
+    }> = [];
+
+    if (SUPABASE_URL && SUPABASE_KEY) {
+      const cleanUrl = resolveSupabaseUrl(SUPABASE_URL);
+      const headers = {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      };
+
+      // Site settings (name/description), same as original site_settings lookup
+      try {
+        const settingsRes = await fetch(`${cleanUrl}/rest/v1/site_settings?id=eq.global&select=*`, { headers });
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          if (settingsData && settingsData.length > 0) {
+            const dbSet = settingsData[0];
+            settings.siteName = dbSet.site_name || settings.siteName;
+            settings.siteDescription = dbSet.site_description || settings.siteDescription;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load site_settings:', e);
+      }
+
+      // Categories, to map category id -> name
+      let categoriesMap: Record<string, string> = {};
+      try {
+        const catRes = await fetch(`${cleanUrl}/rest/v1/categories?select=*`, { headers });
+        if (catRes.ok) {
+          const cats = await catRes.json();
+          (cats || []).forEach((c: any) => {
+            categoriesMap[c.id] = c.name;
+            categoriesMap[c.slug] = c.name;
+          });
+        }
+      } catch (e) {
+        console.warn('Could not load categories:', e);
+      }
+
+      // Articles
+      const articlesRes = await fetch(
+        `${cleanUrl}/rest/v1/articles?select=slug,title,excerpt,short_description,author,published_at,created_at,status,category,category_id&order=created_at.desc&limit=50`,
+        { headers }
+      );
+      if (articlesRes.ok) {
+        const rows = await articlesRes.json();
+        articles = (rows || [])
+          .filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft')
+          .map((a: any) => ({
+            ...a,
+            categoryName: categoriesMap[a.category] || categoriesMap[a.category_id] || 'Editorial',
+          }));
+      } else {
+        console.error('Supabase articles fetch failed:', articlesRes.status, await articlesRes.text());
+      }
+    } else {
+      console.warn('Supabase env vars not set — RSS feed will be empty.');
+    }
+
+    let rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
-  <title>NetVentures</title>
-  <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app</link>
-  <description>The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.</description>
+  <title>${escapeXml(settings.siteName)}</title>
+  <link>${baseDomain}</link>
+  <description>${escapeXml(settings.siteDescription)}</description>
   <language>en-us</language>
-  <lastBuildDate>Sat, 25 Jul 2026 22:18:07 GMT</lastBuildDate>
-  <atom:link href="https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/rss.xml" rel="self" type="application/rss+xml" />
-  <item>
-    <title>The AI-Powered Content Empire: Scaling to $10,000/Month in 2026</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/ai-powered-content-empire</link>
-    <description>Discover how to leverage state-of-the-art AI systems, automated editors, and predictive search frameworks to build an organic traffic powerhouse.</description>
-    <author>Elena Rostova</author>
-    <category>Editorial</category>
-    <pubDate>Wed, 15 Jul 2026 09:00:00 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/ai-powered-content-empire</guid>
-  </item>
-  <item>
-    <title>SaaS Case Study: Automating Cold Outreach with Clay &amp; Make.com</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/saas-case-study-clay-make-automation</link>
-    <description>How we built a zero-touch pipeline that extracts leads, enriches their records via AI, and schedules highly personalized sequences.</description>
-    <author>Marcus Vance</author>
-    <category>Editorial</category>
-    <pubDate>Thu, 16 Jul 2026 14:30:00 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/saas-case-study-clay-make-automation</guid>
-  </item>
-  <item>
-    <title>How to Make Money with ChatGPT in 2026: 20 Proven Methods That Actually Work</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/how-to-make-money-with-chatgpt-2026-proven-methods</link>
-    <description>20 proven, tested methods to make money with ChatGPT in 2026. Real earnings data, step-by-step instructions, and the exact prompts you need to start earning this week.</description>
-    <author>NetVentures Team</author>
-    <category>making money online</category>
-    <pubDate>Sat, 25 Jul 2026 20:43:57 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/how-to-make-money-with-chatgpt-2026-proven-methods</guid>
-  </item>
-  <item>
-    <title>SEO Trends 2026: What Actually Matters for Small Business Rankings</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/seo-trends-2026-small-business-rankings</link>
-    <description>Google&apos;s ranking algorithm changed dramatically in 2025-2026. We break down the 8 SEO trends that actually matter for small business visibility in 2026.</description>
-    <author>NetVentures Team</author>
-    <category>Digital Marketing</category>
-    <pubDate>Sat, 25 Jul 2026 10:20:50 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/seo-trends-2026-small-business-rankings</guid>
-  </item>
-  <item>
-    <title>How AI Agents Are Transforming Business Operations in 2026: The Complete Guide</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/ai-agents-transforming-business-operations-2026</link>
-    <description>AI agents are automating entire business workflows. This guide shows how companies are using autonomous AI systems to handle customer service, data processing, and decision-making—with real ROI data.</description>
-    <author>NetVentures Team</author>
-    <category>Automation</category>
-    <pubDate>Sat, 25 Jul 2026 09:55:11 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/ai-agents-transforming-business-operations-2026</guid>
-  </item>
-  <item>
-    <title>Best AI Website Builders in 2026: Create a Professional Website Without Coding</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/best-ai-website-builders-2026-no-code-guide</link>
-    <description>We tested and ranked the 10 best AI website builders of 2026. Compare features, pricing, design quality, and SEO capabilities to find the right no-code platform for your business.</description>
-    <author>NetVentures Team</author>
-    <category>AI Tools</category>
-    <pubDate>Fri, 24 Jul 2026 22:04:14 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/best-ai-website-builders-2026-no-code-guide</guid>
-  </item>
-  <item>
-    <title>15 AI Side Hustles That Actually Make Money in 2026 (Tested and Ranked)</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/ai-side-hustles-that-actually-make-money-2026</link>
-    <description>We tested 15 AI side hustles to find which ones actually generate income in 2026. Real earnings data, startup costs, and step-by-step instructions for each.</description>
-    <author>NetVentures Team</author>
-    <category>making money online</category>
-    <pubDate>Fri, 24 Jul 2026 22:01:44 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/ai-side-hustles-that-actually-make-money-2026</guid>
-  </item>
-  <item>
-    <title>How to Build a 6-Figure Email List in 2026: Complete Step-by-Step Playbook for Solopreneurs</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/build-6-figure-email-list-2026-complete-guide</link>
-    <description>A complete guide to building a 6-figure email list as a solopreneur in 2026. From lead magnets to monetization, this playbook covers every step needed to build a valuable asset.</description>
-    <author>NetVentures Team</author>
-    <category>Digital Marketing</category>
-    <pubDate>Fri, 24 Jul 2026 12:16:02 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/build-6-figure-email-list-2026-complete-guide</guid>
-  </item>
-  <item>
-    <title>Perplexity AI vs ChatGPT: Which AI Search Engine is Better for Your Workflow in 2026?</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/perplexity-ai-vs-chatgpt-comparison-2026</link>
-    <description>Perplexity AI and ChatGPT are the top AI tools for research and information retrieval. Here&apos;s a detailed comparison of their features, strengths, and best use cases in 2026.</description>
-    <author>NetVentures Team</author>
-    <category>AI Tools</category>
-    <pubDate>Fri, 24 Jul 2026 11:51:36 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/perplexity-ai-vs-chatgpt-comparison-2026</guid>
-  </item>
-  <item>
-    <title>10 Best Free AI Video Generator Apps and Websites in 2026 (Tested and Ranked)</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/best-free-ai-video-generator-apps-websites-2026</link>
-    <description>We tested every major free AI video generator app and website in 2026. Here are the top 10 ranked by quality, ease of use, and what you can actually create for free.</description>
-    <author>NetVentures Team</author>
-    <category>AI Tools</category>
-    <pubDate>Fri, 24 Jul 2026 11:10:55 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/best-free-ai-video-generator-apps-websites-2026</guid>
-  </item>
-  <item>
-    <title>Building Scalable Data Pipelines with AI: Extract, Transform, Load at Enterprise Scale in 2026</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/scalable-data-pipelines-ai-etl-2026</link>
-    <description>A comprehensive guide to building scalable AI-powered data pipelines — from architecture design to handling massive data volumes with automated ETL in 2026.</description>
-    <author>NetVentures Team</author>
-    <category>Automation</category>
-    <pubDate>Thu, 23 Jul 2026 09:54:41 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/scalable-data-pipelines-ai-etl-2026</guid>
-  </item>
-  <item>
-    <title>Prompt Engineering for Developers: How to Build Better AI Applications in 2026</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/prompt-engineering-developers-ai-applications-2026</link>
-    <description>A developer&apos;s complete guide to prompt engineering — from basic techniques to advanced strategies for building production-ready AI applications in 2026.</description>
-    <author>NetVentures Team</author>
-    <category>AI Tools</category>
-    <pubDate>Thu, 23 Jul 2026 10:11:01 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/prompt-engineering-developers-ai-applications-2026</guid>
-  </item>
-  <item>
-    <title>Notion AI for Business Automation: Complete Guide to Database Automation, Content Generation, and Workflow Optimization</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/notion-ai-business-automation-guide-2026</link>
-    <description>A complete guide to automating your business using Notion AI. Learn how to use AI to automate databases, generate content, optimize workflows, and scale operations — with real examples and step-by-step instructions.</description>
-    <author>NetVentures Team</author>
-    <category>Automation</category>
-    <pubDate>Wed, 22 Jul 2026 09:33:15 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/notion-ai-business-automation-guide-2026</guid>
-  </item>
-  <item>
-    <title>Claude 3.5 Sonnet vs GPT-4o: Which AI Model Should You Choose in 2026?</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/claude-35-sonnet-vs-gpt-4o-comparison-2026</link>
-    <description>A comprehensive comparison of Claude 3.5 Sonnet and GPT-4o — two of the most advanced AI models in 2026. Discover performance differences, pricing, speed, and which model is best for your specific use case.</description>
-    <author>NetVentures Team</author>
-    <category>AI Tools</category>
-    <pubDate>Wed, 22 Jul 2026 09:13:06 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/claude-35-sonnet-vs-gpt-4o-comparison-2026</guid>
-  </item>
-  <item>
-    <title>Email Marketing Automation with AI: How to Build Campaigns That Convert in 2026</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/email-marketing-automation-ai-2026</link>
-    <description>A complete guide to building AI-powered email marketing automation in 2026 — from choosing the right tools to writing, segmenting, personalizing, and optimizing campaigns for maximum conversions.</description>
-    <author>NetVentures Team</author>
-    <category>Digital Marketing</category>
-    <pubDate>Tue, 21 Jul 2026 09:53:24 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/email-marketing-automation-ai-2026</guid>
-  </item>
-  <item>
-    <title>15 Best AI Tools for Small Businesses in 2026: A Complete Comparison Guide</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/best-ai-tools-small-businesses-2026</link>
-    <description>A hands-on comparison of the 15 most useful AI tools for small businesses in 2026 — covering content creation, marketing, design, automation, customer support, and more.</description>
-    <author>NetVentures Team</author>
-    <category>AI Tools</category>
-    <pubDate>Tue, 21 Jul 2026 09:57:02 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/best-ai-tools-small-businesses-2026</guid>
-  </item>
-  <item>
-    <title>How to Start a Freelance Business with AI Tools in 2026: A Step-by-Step Guide</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/start-freelance-business-ai-tools-2026</link>
-    <description>A practical, step-by-step guide to launching a freelance business powered by AI tools — from choosing your niche and pricing your services to landing your first clients in 2026.</description>
-    <author>NetVentures Team</author>
-    <category>making money online</category>
-    <pubDate>Tue, 21 Jul 2026 10:00:52 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/start-freelance-business-ai-tools-2026</guid>
-  </item>
-  <item>
-    <title>How AI Agents Are Automating Content Creation in 2026: A Complete Guide</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/ai-agents-automating-content-creation-2026</link>
-    <description>Discover how AI agents are transforming content creation in 2026 — from automated research and SEO-optimized writing to scheduled publishing. A complete guide for businesses ready to scale their content.</description>
-    <author>NetVentures Team</author>
-    <category>Automation</category>
-    <pubDate>Tue, 21 Jul 2026 10:05:46 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/ai-agents-automating-content-creation-2026</guid>
-  </item>
-  <item>
-    <title>Is AI Asking for Legal Rights? The Truth Behind the Latest Debate</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/is-ai-asking-for-legal-rights</link>
-    <description>Are AI systems demanding legal rights or even creating their own religion? Discover the facts behind the headlines, what researchers are debating, and what it means for the future of artificial intelligence.</description>
-    <author>Elena Rostova</author>
-    <category>AI Tools</category>
-    <pubDate>Sun, 19 Jul 2026 10:23:57 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/is-ai-asking-for-legal-rights</guid>
-  </item>
-  <item>
-    <title>How to Make Money Online in 2026: 10 Proven Methods That Actually Work</title>
-    <link>https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/how-to-make-money-online-2026</link>
-    <description>Learn 10 realistic ways to make money online in 2026, including freelancing, blogging, affiliate marketing, YouTube, AI tools, and digital products.</description>
-    <author>NetVentures Team</author>
-    <category>making money online</category>
-    <pubDate>Sat, 18 Jul 2026 18:02:48 GMT</pubDate>
-    <guid isPermaLink="true">https://ais-dev-fstw562gxh2zjc7kdq4nlr-62025699794.europe-west2.run.app/blog/how-to-make-money-online-2026</guid>
-  </item>
-</channel>
-</rss>
+  <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+  <atom:link href="${baseDomain}/rss.xml" rel="self" type="application/rss+xml" />
+`;
+
+    articles.forEach((art) => {
+      const slug = art.slug ? slugify(art.slug) : slugify(art.title || '');
+      if (!slug) return;
+      const pubDate = new Date(art.published_at || art.created_at || Date.now()).toUTCString();
+      rssXml += `  <item>
+    <title>${escapeXml(art.title || '')}</title>
+    <link>${baseDomain}/blog/${slug}</link>
+    <description>${escapeXml(art.excerpt || art.short_description || '')}</description>
+    <author>${escapeXml(art.author || '')}</author>
+    <category>${escapeXml(art.categoryName || '')}</category>
+    <pubDate>${pubDate}</pubDate>
+    <guid isPermaLink="true">${baseDomain}/blog/${slug}</guid>
+  </item>\n`;
+    });
+
+    rssXml += `</channel>
+</rss>`;
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+    res.status(200).send(rssXml);
+  } catch (err: any) {
+    console.error('Error generating RSS feed:', err);
+    res.status(500).send('Error generating RSS feed');
+  }
+}
