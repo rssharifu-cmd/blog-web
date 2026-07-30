@@ -14,6 +14,8 @@ import SocialShare from './components/SocialShare.js';
 import { Article, Category, Tag, SiteSettings } from './types.js';
 import { 
   getArticles, 
+  getArticleSummaries,
+  getArticleBySlug,
   getCategories, 
   getTags, 
   getSettings, 
@@ -57,6 +59,10 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
+
+  // Active full article state for single post views
+  const [activeFullArticle, setActiveFullArticle] = useState<Article | null>(null);
+  const [fullArticleLoading, setFullArticleLoading] = useState(false);
   
   // Loading & Filter states
   const [loading, setLoading] = useState(true);
@@ -129,7 +135,7 @@ export default function App() {
   const fetchAllData = async () => {
     try {
       const [artData, catData, tagData, setData] = await Promise.all([
-        getArticles({ status: 'published' }),
+        getArticleSummaries({ status: 'published' }),
         getCategories(),
         getTags(),
         getSettings()
@@ -149,6 +155,30 @@ export default function App() {
   useEffect(() => {
     fetchAllData();
   }, []);
+
+  // Fetch full article content when navigating to a single post page
+  useEffect(() => {
+    const parts = currentPath.split('/');
+    const isSingle = parts[1] === 'blog' && parts[2];
+    const slug = isSingle ? parts[2] : null;
+
+    if (slug) {
+      setFullArticleLoading(true);
+      getArticleBySlug(slug)
+        .then(fullArt => {
+          setActiveFullArticle(fullArt);
+        })
+        .catch(err => {
+          console.error('Error fetching full article content:', err);
+        })
+        .finally(() => {
+          setFullArticleLoading(false);
+        });
+    } else {
+      setActiveFullArticle(null);
+      setFullArticleLoading(false);
+    }
+  }, [currentPath]);
 
   // Increments single page hit dynamically
   const incrementArticleView = (slug: string) => {
@@ -224,7 +254,9 @@ export default function App() {
     const isBlogSingle = parts[1] === 'blog' && parts[2];
     
     if (isBlogSingle) {
-      const article = articles.find(a => a.slug === parts[2]);
+      const summaryArticle = articles.find(a => a.slug === parts[2]);
+      const fullArticle = (activeFullArticle && activeFullArticle.slug === parts[2]) ? activeFullArticle : null;
+      const article = fullArticle ? (summaryArticle ? { ...summaryArticle, ...fullArticle } : fullArticle) : summaryArticle;
       if (article) {
         title = article.seoTitle || `${article.title} - ${siteName}`;
         description = article.seoDescription || article.shortDescription;
@@ -544,7 +576,7 @@ export default function App() {
         document.head.appendChild(gaInitScript);
       }
     }
-  }, [currentPath, articles, loading, currentSettings]);
+  }, [currentPath, articles, activeFullArticle, loading, currentSettings]);
 
   // Render Loader
   if (loading) {
@@ -590,10 +622,23 @@ export default function App() {
     // 1. ARTICLE DETAIL VIEW
     // ----------------------------------------
     if (activeArticleSlug) {
-      const article = articles.find(a => a.slug === activeArticleSlug);
+      const summaryArticle = articles.find(a => a.slug === activeArticleSlug);
+      const fullArticle = (activeFullArticle && activeFullArticle.slug === activeArticleSlug) ? activeFullArticle : null;
+      const article = fullArticle 
+        ? (summaryArticle ? { ...summaryArticle, ...fullArticle } : fullArticle)
+        : summaryArticle;
+
+      if (!article && !fullArticleLoading) {
+        return render404();
+      }
 
       if (!article) {
-        return render404();
+        return (
+          <div className="max-w-4xl mx-auto px-4 py-20 text-center font-mono text-sm text-gray-500 dark:text-gray-400 space-y-3">
+            <div className="w-6 h-6 border-2 border-gold-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p>Loading article...</p>
+          </div>
+        );
       }
 
       const category = categories.find(c => c.id === article.categoryId);
@@ -679,61 +724,68 @@ export default function App() {
 
               {/* Dynamic Table of Contents (Render on Mobile inside columns) */}
               <div className="block lg:hidden">
-                <Toc content={article.content} />
+                <Toc content={article.content || ''} />
               </div>
 
               {/* Article Content Render */}
-              <div className="markdown-body text-gray-700 dark:text-zinc-300 text-base sm:text-lg leading-relaxed space-y-6">
-                {article.content.split('\n\n').map((chunk, index) => {
-                  if (chunk.startsWith('## ')) {
-                    const txt = chunk.replace('## ', '');
-                    const headingId = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                    return <h2 key={index} id={headingId}>{txt}</h2>;
-                  }
-                  if (chunk.startsWith('### ')) {
-                    const txt = chunk.replace('### ', '');
-                    const headingId = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-                    return <h3 key={index} id={headingId}>{txt}</h3>;
-                  }
-                  if (chunk.startsWith('* ') || chunk.startsWith('- ')) {
-                    return (
-                      <ul key={index}>
-                        {chunk.split('\n').map((li, i) => (
-                          <li key={i}>{li.replace(/^[\s*-]+/, '')}</li>
-                        ))}
-                      </ul>
-                    );
-                  }
-                  // Table parser
-                  if (chunk.startsWith('|')) {
-                    const rows = chunk.split('\n').filter(Boolean);
-                    const parseCols = (rowStr: string) => rowStr.split('|').map(c => c.trim()).filter(Boolean);
-                    return (
-                      <div key={index} className="overflow-x-auto my-6 border border-gray-100 dark:border-zinc-800 rounded-xl">
-                        <table className="min-w-full divide-y divide-gray-100 dark:divide-zinc-800">
-                          <thead>
-                            <tr className="bg-zinc-50 dark:bg-zinc-900/50">
-                              {parseCols(rows[0]).map((th, i) => (
-                                <th key={i} className="px-4 py-2.5 text-xs font-mono font-bold uppercase text-gray-500 dark:text-gray-400">{th}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100 dark:divide-zinc-800/60 text-sm text-gray-600 dark:text-gray-300">
-                            {rows.slice(2).map((row, rowIdx) => (
-                              <tr key={rowIdx}>
-                                {parseCols(row).map((td, tdIdx) => (
-                                  <td key={tdIdx} className="px-4 py-3">{td}</td>
+              {fullArticleLoading || !article.content ? (
+                <div className="p-12 text-center font-mono text-sm text-gray-500 dark:text-gray-400 space-y-3 border border-gray-100 dark:border-zinc-850 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/20">
+                  <div className="w-6 h-6 border-2 border-gold-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p>Loading article...</p>
+                </div>
+              ) : (
+                <div className="markdown-body text-gray-700 dark:text-zinc-300 text-base sm:text-lg leading-relaxed space-y-6">
+                  {article.content.split('\n\n').map((chunk, index) => {
+                    if (chunk.startsWith('## ')) {
+                      const txt = chunk.replace('## ', '');
+                      const headingId = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                      return <h2 key={index} id={headingId}>{txt}</h2>;
+                    }
+                    if (chunk.startsWith('### ')) {
+                      const txt = chunk.replace('### ', '');
+                      const headingId = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                      return <h3 key={index} id={headingId}>{txt}</h3>;
+                    }
+                    if (chunk.startsWith('* ') || chunk.startsWith('- ')) {
+                      return (
+                        <ul key={index}>
+                          {chunk.split('\n').map((li, i) => (
+                            <li key={i}>{li.replace(/^[\s*-]+/, '')}</li>
+                          ))}
+                        </ul>
+                      );
+                    }
+                    // Table parser
+                    if (chunk.startsWith('|')) {
+                      const rows = chunk.split('\n').filter(Boolean);
+                      const parseCols = (rowStr: string) => rowStr.split('|').map(c => c.trim()).filter(Boolean);
+                      return (
+                        <div key={index} className="overflow-x-auto my-6 border border-gray-100 dark:border-zinc-800 rounded-xl">
+                          <table className="min-w-full divide-y divide-gray-100 dark:divide-zinc-800">
+                            <thead>
+                              <tr className="bg-zinc-50 dark:bg-zinc-900/50">
+                                {parseCols(rows[0]).map((th, i) => (
+                                  <th key={i} className="px-4 py-2.5 text-xs font-mono font-bold uppercase text-gray-500 dark:text-gray-400">{th}</th>
                                 ))}
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  }
-                  return <p key={index}>{chunk}</p>;
-                })}
-              </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-zinc-800/60 text-sm text-gray-600 dark:text-gray-300">
+                              {rows.slice(2).map((row, rowIdx) => (
+                                <tr key={rowIdx}>
+                                  {parseCols(row).map((td, tdIdx) => (
+                                    <td key={tdIdx} className="px-4 py-3">{td}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    }
+                    return <p key={index}>{chunk}</p>;
+                  })}
+                </div>
+              )}
 
               {/* Tag Badges */}
               <div className="flex flex-wrap gap-2 pt-6 border-t border-gray-100 dark:border-zinc-900/50">
@@ -810,7 +862,7 @@ export default function App() {
 
             {/* Right Sticky Sidebar */}
             <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
-              <Toc content={article.content} />
+              <Toc content={article.content || ''} />
               
               {/* Popular Insights Widget */}
               <div className="p-6 rounded-2xl border border-gray-100 dark:border-zinc-800 bg-white dark:bg-zinc-950 space-y-4">
@@ -916,7 +968,6 @@ export default function App() {
         const query = searchQuery.toLowerCase();
         return (
           art.title.toLowerCase().includes(query) ||
-          art.content.toLowerCase().includes(query) ||
           art.shortDescription.toLowerCase().includes(query) ||
           art.tags.some(t => t.toLowerCase().includes(query))
         );
@@ -1012,7 +1063,6 @@ export default function App() {
           : true;
         const matchesSearch = searchQuery 
           ? art.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            art.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
             art.shortDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
             art.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
           : true;

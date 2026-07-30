@@ -352,6 +352,38 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
   }
 };
 
+export const getArticleSummaries = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
+  if (isSupabaseConfigured && supabase) {
+    const schema = await detectSchema();
+    const selectFields = schema === 'new'
+      ? 'id, title, slug, excerpt, category, tags, status, featured_image, seo_title, meta_description, canonical_url, created_at, published_at, reading_time, views, author, faq'
+      : 'id, title, slug, short_description, category_id, tags, status, featured_image, seo_title, seo_description, canonical_url, created_at, reading_time, views, author, faq';
+
+    let query = supabase.from('articles').select(selectFields).order('created_at', { ascending: false });
+    if (options?.status) {
+      query = query.eq('status', options.status);
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.warn('Supabase fetch error, using local fallback:', error.message || error);
+      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+      let res = options?.status ? list.filter(a => a.status === options.status) : list;
+      return res.map(a => ({ ...a, content: '' }));
+    }
+    const articles = (data || []).map(row => ({ ...mapArticleFromDb(row), content: '' }));
+    if (articles.length === 0) {
+      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+      let res = options?.status ? list.filter(a => a.status === options.status) : list;
+      return res.map(a => ({ ...a, content: '' }));
+    }
+    return articles;
+  } else {
+    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+    let res = options?.status ? list.filter(a => a.status === options.status) : list;
+    return res.map(a => ({ ...a, content: '' }));
+  }
+};
+
 export const getArticleBySlug = async (slug: string): Promise<Article | null> => {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('articles').select('*').eq('slug', slug).maybeSingle();
