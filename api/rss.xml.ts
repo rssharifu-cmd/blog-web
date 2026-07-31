@@ -100,7 +100,7 @@ export default async function handler(req: any, res: any) {
       }
 
       const articlesRes = await fetch(
-        `${cleanUrl}/rest/v1/articles?select=slug,title,short_description,author,published_at,created_at,status,category_id&order=created_at.desc&limit=50`,
+        `${cleanUrl}/rest/v1/articles?select=slug,title,short_description,author,published_at,created_at,status,category_id&order=created_at.desc&limit=1000`,
         { headers }
       );
       if (articlesRes.ok) {

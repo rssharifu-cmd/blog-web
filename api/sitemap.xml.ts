@@ -40,7 +40,7 @@ export default async function handler(req: any, res: any) {
     if (SUPABASE_URL && SUPABASE_KEY) {
       const cleanUrl = resolveSupabaseUrl(SUPABASE_URL);
       const response = await fetch(
-        `${cleanUrl}/rest/v1/articles?select=slug,title,published_at,created_at,status&order=created_at.desc`,
+        `${cleanUrl}/rest/v1/articles?select=slug,title,published_at,created_at,status&order=created_at.desc&limit=1000`,
         {
           headers: {
             apikey: SUPABASE_KEY,
