@@ -142,7 +142,7 @@ export default async function handler(req: any, res: any) {
 </rss>`;
 
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
     res.status(200).send(rssXml);
   } catch (err: any) {
     console.error('Error generating RSS feed:', err);
