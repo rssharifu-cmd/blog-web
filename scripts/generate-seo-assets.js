@@ -206,7 +206,7 @@ async function run() {
     fs.mkdirSync(outDir, { recursive: true });
   }
 
-  const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+  const baseDomain = (SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL).replace('://www.netventures.online', '://netventures.online');
 
   // ----------------------------------------
   // 1. GENERATE ROBOTS.TXT

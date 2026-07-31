@@ -41,7 +41,13 @@ function escapeXml(unsafe: string): string {
 
 export default async function handler(req: any, res: any) {
   try {
-    const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+    let reqHost = (req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').toString().split(',')[0].trim();
+    let baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+    if (reqHost && !reqHost.includes('localhost') && !reqHost.includes('127.0.0.1')) {
+      const proto = (req?.headers?.['x-forwarded-proto'] || 'https').toString().split(',')[0].trim();
+      baseDomain = `${proto}://${reqHost}`;
+    }
+    baseDomain = baseDomain.replace('://www.netventures.online', '://netventures.online');
     let settings = { ...DEFAULT_SETTINGS };
 
     let articles: Array<{
