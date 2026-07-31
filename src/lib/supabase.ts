@@ -418,6 +418,10 @@ export const getArticleById = async (id: string): Promise<Article | null> => {
   }
 };
 
+export const getArticleForEdit = async (id: string): Promise<Article | null> => {
+  return getArticleById(id);
+};
+
 export const getCategories = async (): Promise<Category[]> => {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('categories').select('*').order('name');
