@@ -622,8 +622,9 @@ export default function App() {
     // 1. ARTICLE DETAIL VIEW
     // ----------------------------------------
     if (activeArticleSlug) {
-      const summaryArticle = articles.find(a => a.slug === activeArticleSlug);
-      const fullArticle = (activeFullArticle && activeFullArticle.slug === activeArticleSlug) ? activeFullArticle : null;
+      const slugifyStr = (text: string) => text ? text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : '';
+      const summaryArticle = articles.find(a => a.slug === activeArticleSlug || slugifyStr(a.slug) === slugifyStr(activeArticleSlug));
+      const fullArticle = (activeFullArticle && (activeFullArticle.slug === activeArticleSlug || slugifyStr(activeFullArticle.slug) === slugifyStr(activeArticleSlug))) ? activeFullArticle : null;
       const article = fullArticle 
         ? (summaryArticle ? { ...summaryArticle, ...fullArticle } : fullArticle)
         : summaryArticle;

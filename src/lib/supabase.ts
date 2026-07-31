@@ -327,20 +327,41 @@ export const getArticleSummaries = async (options?: { status?: 'draft' | 'publis
   }
 };
 
+const slugifyStr = (text: string): string => {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+};
+
 export const getArticleBySlug = async (slug: string): Promise<Article | null> => {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from('articles').select('*').eq('slug', slug).maybeSingle();
     if (error) {
       console.warn('Supabase fetch error, using local fallback:', error.message || error);
       const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-      return list.find(a => a.slug === slug) || null;
+      return list.find(a => a.slug === slug || slugifyStr(a.slug) === slugifyStr(slug) || slugifyStr(a.title) === slugifyStr(slug)) || null;
     }
     if (data) return mapArticleFromDb(data);
+
+    // If exact slug match not found in Supabase, query articles to match by slugified string or title
+    const { data: allArts } = await supabase.from('articles').select('*');
+    if (allArts && allArts.length > 0) {
+      const matched = allArts.find(a => 
+        a.slug === slug || 
+        (a.slug && slugifyStr(a.slug) === slugifyStr(slug)) || 
+        (a.title && slugifyStr(a.title) === slugifyStr(slug))
+      );
+      if (matched) return mapArticleFromDb(matched);
+    }
+
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-    return list.find(a => a.slug === slug) || null;
+    return list.find(a => a.slug === slug || slugifyStr(a.slug) === slugifyStr(slug) || slugifyStr(a.title) === slugifyStr(slug)) || null;
   } else {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-    return list.find(a => a.slug === slug) || null;
+    return list.find(a => a.slug === slug || slugifyStr(a.slug) === slugifyStr(slug) || slugifyStr(a.title) === slugifyStr(slug)) || null;
   }
 };
 
@@ -407,7 +428,7 @@ export const getSettings = async (): Promise<SiteSettings> => {
 export const incrementArticleView = async (slug: string): Promise<boolean> => {
   if (isSupabaseConfigured && supabase) {
     // Attempt standard transaction increment
-    const { data: current } = await supabase.from('articles').select('views, id').eq('slug', slug).single();
+    const { data: current } = await supabase.from('articles').select('views, id').eq('slug', slug).maybeSingle();
     if (current) {
       const { error } = await supabase.from('articles').update({ views: (current.views || 0) + 1 }).eq('id', current.id);
       return !error;

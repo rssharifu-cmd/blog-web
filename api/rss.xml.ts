@@ -124,7 +124,7 @@ export default async function handler(req: any, res: any) {
 `;
 
     articles.forEach((art) => {
-      const slug = art.slug ? slugify(art.slug) : slugify(art.title || '');
+      const slug = (art.slug && art.slug.trim()) ? art.slug.trim() : slugify(art.title || '');
       if (!slug) return;
       const pubDate = new Date(art.published_at || art.created_at || Date.now()).toUTCString();
       rssXml += `  <item>

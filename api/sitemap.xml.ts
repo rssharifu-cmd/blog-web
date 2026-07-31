@@ -105,7 +105,7 @@ export default async function handler(req: any, res: any) {
 
     const seenSlugs = new Set<string>();
     articles.forEach((art) => {
-      const slug = art.slug ? slugify(art.slug) : slugify(art.title || '');
+      const slug = (art.slug && art.slug.trim()) ? art.slug.trim() : slugify(art.title || '');
       if (!slug || seenSlugs.has(slug)) return;
       seenSlugs.add(slug);
 
