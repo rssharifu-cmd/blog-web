@@ -94,7 +94,7 @@ export default async function handler(req: any, res: any) {
       }
 
       const articlesRes = await fetch(
-        `${cleanUrl}/rest/v1/articles?select=slug,title,excerpt,short_description,author,published_at,created_at,status,category,category_id&order=created_at.desc&limit=50`,
+        `${cleanUrl}/rest/v1/articles?select=slug,title,short_description,author,published_at,created_at,status,category_id&order=created_at.desc&limit=50`,
         { headers }
       );
       if (articlesRes.ok) {
@@ -103,7 +103,7 @@ export default async function handler(req: any, res: any) {
           .filter((a: any) => (a.status || 'published').toString().toLowerCase() !== 'draft')
           .map((a: any) => ({
             ...a,
-            categoryName: categoriesMap[a.category] || categoriesMap[a.category_id] || 'Editorial',
+            categoryName: categoriesMap[a.category_id] || 'Editorial',
           }));
       } else {
         console.error('Supabase articles fetch failed:', articlesRes.status, await articlesRes.text());

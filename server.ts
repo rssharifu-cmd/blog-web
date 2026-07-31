@@ -1018,20 +1018,19 @@ async function start() {
           title: articlePayload.title,
           slug: articlePayload.slug,
           content: articlePayload.content,
-          excerpt: articlePayload.shortDescription,
-          category: articlePayload.categoryId || null,
+          short_description: articlePayload.shortDescription,
+          category_id: articlePayload.categoryId || null,
           tags: articlePayload.tags,
           status: articlePayload.status,
           featured_image: articlePayload.featuredImage,
           seo_title: articlePayload.seoTitle,
-          meta_description: articlePayload.seoDescription,
+          seo_description: articlePayload.seoDescription,
           canonical_url: articlePayload.canonicalUrl,
           reading_time: articlePayload.readingTime,
           views: 0,
           author: articlePayload.author,
           faq: articlePayload.faq,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          created_at: new Date().toISOString()
         };
 
         const { data, error } = await supabaseClient

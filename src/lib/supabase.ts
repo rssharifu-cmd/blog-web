@@ -161,16 +161,16 @@ const mapArticleFromDb = (dbArt: any): Article => {
     id: dbArt.id,
     title: dbArt.title,
     slug: dbArt.slug,
-    content: dbArt.content,
-    shortDescription: dbArt.excerpt || dbArt.short_description || '',
-    categoryId: dbArt.category || dbArt.category_id || '',
+    content: dbArt.content || '',
+    shortDescription: dbArt.short_description || dbArt.excerpt || '',
+    categoryId: dbArt.category_id || dbArt.category || '',
     tags: dbArt.tags || [],
     status: (dbArt.status && dbArt.status.toString().toLowerCase() === 'draft') ? 'draft' : 'published',
     featuredImage: dbArt.featured_image || '',
     seoTitle: dbArt.seo_title || '',
-    seoDescription: dbArt.meta_description || dbArt.seo_description || '',
+    seoDescription: dbArt.seo_description || dbArt.meta_description || '',
     canonicalUrl: dbArt.canonical_url || '',
-    publishedAt: dbArt.created_at || dbArt.published_at || new Date().toISOString(),
+    publishedAt: dbArt.published_at || dbArt.created_at || new Date().toISOString(),
     readingTime: dbArt.reading_time || 5,
     views: dbArt.views || 0,
     author: dbArt.author || 'Anonymous',
@@ -178,32 +178,8 @@ const mapArticleFromDb = (dbArt: any): Article => {
   };
 };
 
-let detectedSchema: 'new' | 'old' | null = null;
-
-async function detectSchema(): Promise<'new' | 'old'> {
-  if (detectedSchema) return detectedSchema;
-  if (!isSupabaseConfigured || !supabase) return 'old';
-  
-  try {
-    const { error } = await supabase.from('articles').select('category').limit(1);
-    if (error) {
-      const msg = error.message?.toLowerCase() || '';
-      if (msg.includes('category') || msg.includes('column') || msg.includes('cache') || msg.includes('not found')) {
-        detectedSchema = 'old';
-      } else {
-        detectedSchema = 'new';
-      }
-    } else {
-      detectedSchema = 'new';
-    }
-  } catch (e) {
-    detectedSchema = 'old';
-  }
-  return detectedSchema;
-}
-
-const mapArticleToDbForInsert = (art: Partial<ArticleInput>, schema: 'new' | 'old') => {
-  const common = {
+const mapArticleToDbForInsert = (art: Partial<ArticleInput>) => {
+  return {
     title: art.title,
     slug: art.slug,
     author: art.author || 'Elena Rostova',
@@ -211,34 +187,19 @@ const mapArticleToDbForInsert = (art: Partial<ArticleInput>, schema: 'new' | 'ol
     featured_image: art.featuredImage,
     seo_title: art.seoTitle,
     canonical_url: art.canonicalUrl,
-    status: art.status,
+    status: art.status || 'published',
     tags: art.tags || [],
-    faq: art.faq || []
+    faq: art.faq || [],
+    category_id: art.categoryId,
+    short_description: art.shortDescription,
+    seo_description: art.seoDescription,
+    published_at: new Date().toISOString(),
+    created_at: new Date().toISOString()
   };
-
-  if (schema === 'new') {
-    return {
-      ...common,
-      category: art.categoryId,
-      excerpt: art.shortDescription,
-      meta_description: art.seoDescription,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-  } else {
-    return {
-      ...common,
-      category_id: art.categoryId,
-      short_description: art.shortDescription,
-      seo_description: art.seoDescription,
-      published_at: new Date().toISOString(),
-      created_at: new Date().toISOString()
-    };
-  }
 };
 
-const mapArticleToDbForUpdate = (art: Partial<ArticleInput> & { id?: string }, schema: 'new' | 'old') => {
-  const common = {
+const mapArticleToDbForUpdate = (art: Partial<ArticleInput> & { id?: string }) => {
+  return {
     title: art.title,
     slug: art.slug,
     author: art.author,
@@ -248,26 +209,11 @@ const mapArticleToDbForUpdate = (art: Partial<ArticleInput> & { id?: string }, s
     canonical_url: art.canonicalUrl,
     status: art.status,
     tags: art.tags,
-    faq: art.faq
+    faq: art.faq,
+    category_id: art.categoryId,
+    short_description: art.shortDescription,
+    seo_description: art.seoDescription
   };
-
-  if (schema === 'new') {
-    return {
-      ...common,
-      category: art.categoryId,
-      excerpt: art.shortDescription,
-      meta_description: art.seoDescription,
-      updated_at: new Date().toISOString()
-    };
-  } else {
-    return {
-      ...common,
-      category_id: art.categoryId,
-      short_description: art.shortDescription,
-      seo_description: art.seoDescription,
-      published_at: new Date().toISOString()
-    };
-  }
 };
 
 const mapSettingsFromDb = (dbSet: any): SiteSettings => ({
@@ -354,10 +300,7 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
 
 export const getArticleSummaries = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
   if (isSupabaseConfigured && supabase) {
-    const schema = await detectSchema();
-    const selectFields = schema === 'new'
-      ? 'id, title, slug, excerpt, category, tags, status, featured_image, seo_title, meta_description, canonical_url, created_at, published_at, reading_time, views, author, faq'
-      : 'id, title, slug, short_description, category_id, tags, status, featured_image, seo_title, seo_description, canonical_url, created_at, reading_time, views, author, faq';
+    const selectFields = 'id, title, slug, short_description, category_id, tags, status, featured_image, seo_title, seo_description, canonical_url, created_at, published_at, reading_time, views, author, faq';
 
     let query = supabase.from('articles').select(selectFields).order('created_at', { ascending: false });
     if (options?.status) {
@@ -543,10 +486,9 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
 
   if (isSupabaseConfigured && supabase) {
     try {
-      const schema = await detectSchema();
       if (normalizedInput.id) {
         // Update
-        const dbPayload: any = mapArticleToDbForUpdate(normalizedInput, schema);
+        const dbPayload: any = mapArticleToDbForUpdate(normalizedInput);
         dbPayload.reading_time = readingTime;
         
         const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', normalizedInput.id).select().single();
@@ -555,7 +497,7 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
         }
       } else {
         // Insert
-        const dbPayload: any = mapArticleToDbForInsert(normalizedInput, schema);
+        const dbPayload: any = mapArticleToDbForInsert(normalizedInput);
         
         const { data, error } = await supabase.from('articles').insert([dbPayload]).select().single();
         if (!error && data) {
