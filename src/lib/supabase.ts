@@ -336,6 +336,31 @@ const slugifyStr = (text: string): string => {
     .replace(/(^-|-$)/g, '');
 };
 
+const getSlugTokens = (str: string): string[] => {
+  const stopWords = new Set(['for', 'in', 'and', 'the', 'a', 'an', 'of', 'to', 'with', 'on', 'at', 'by', 'real']);
+  return slugifyStr(str)
+    .split('-')
+    .filter(t => t.length > 1 && !stopWords.has(t));
+};
+
+export const isSlugMatch = (targetSlug: string, candidateSlugOrTitle: string): boolean => {
+  if (!targetSlug || !candidateSlugOrTitle) return false;
+  const targetNorm = slugifyStr(targetSlug);
+  const candidateNorm = slugifyStr(candidateSlugOrTitle);
+
+  if (targetNorm === candidateNorm) return true;
+  if (candidateNorm.includes(targetNorm) || targetNorm.includes(candidateNorm)) return true;
+
+  const targetTokens = getSlugTokens(targetSlug);
+  const candidateTokens = getSlugTokens(candidateSlugOrTitle);
+  if (targetTokens.length === 0 || candidateTokens.length === 0) return false;
+
+  const candidateSet = new Set(candidateTokens);
+  const common = targetTokens.filter(t => candidateSet.has(t));
+  const ratio = common.length / Math.min(targetTokens.length, candidateTokens.length);
+  return ratio >= 0.7;
+};
+
 export const getArticleBySlug = async (slug: string): Promise<Article | null> => {
   if (isSupabaseConfigured && supabase) {
     // 1. Try exact slug match
@@ -346,16 +371,19 @@ export const getArticleBySlug = async (slug: string): Promise<Article | null> =>
       console.warn('Supabase fetch error for slug, using local fallback:', error.message || error);
     }
 
-    // 2. Try matching by ID if slug is a UUID / ID
-    const { data: idData } = await supabase.from('articles').select('*').eq('id', slug).maybeSingle();
-    if (idData) return mapArticleFromDb(idData);
+    // 2. Try matching by ID ONLY if slug is a valid UUID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
+    if (isUuid) {
+      const { data: idData } = await supabase.from('articles').select('*').eq('id', slug).maybeSingle();
+      if (idData) return mapArticleFromDb(idData);
+    }
 
-    // 3. Lightweight check: fetch only lightweight id, slug, title to find flexible slug match without downloading heavy content column
+    // 3. Lightweight check: fetch id, slug, title to find flexible slug match
     const { data: lightArts } = await supabase.from('articles').select('id, slug, title').limit(100);
     if (lightArts && lightArts.length > 0) {
       const matched = lightArts.find(a => 
-        (a.slug && slugifyStr(a.slug) === slugifyStr(slug)) || 
-        (a.title && slugifyStr(a.title) === slugifyStr(slug))
+        (a.slug && isSlugMatch(slug, a.slug)) || 
+        (a.title && isSlugMatch(slug, a.title))
       );
       if (matched) {
         const { data: matchedFull } = await supabase.from('articles').select('*').eq('id', matched.id).maybeSingle();
@@ -365,10 +393,10 @@ export const getArticleBySlug = async (slug: string): Promise<Article | null> =>
 
     // 4. Fallback to local data if not found in Supabase
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-    return list.find(a => a.slug === slug || slugifyStr(a.slug) === slugifyStr(slug) || slugifyStr(a.title) === slugifyStr(slug)) || null;
+    return list.find(a => isSlugMatch(slug, a.slug) || isSlugMatch(slug, a.title)) || null;
   } else {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-    return list.find(a => a.slug === slug || slugifyStr(a.slug) === slugifyStr(slug) || slugifyStr(a.title) === slugifyStr(slug)) || null;
+    return list.find(a => isSlugMatch(slug, a.slug) || isSlugMatch(slug, a.title)) || null;
   }
 };
 

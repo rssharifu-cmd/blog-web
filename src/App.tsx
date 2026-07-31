@@ -20,7 +20,8 @@ import {
   getTags, 
   getSettings, 
   incrementArticleView as sbIncrementArticleView,
-  isSupabaseConfigured
+  isSupabaseConfigured,
+  isSlugMatch
 } from './lib/supabase.js';
 
 const sanitizePath = (path: string): string => {
@@ -622,9 +623,8 @@ export default function App() {
     // 1. ARTICLE DETAIL VIEW
     // ----------------------------------------
     if (activeArticleSlug) {
-      const slugifyStr = (text: string) => text ? text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') : '';
-      const summaryArticle = articles.find(a => a.slug === activeArticleSlug || slugifyStr(a.slug) === slugifyStr(activeArticleSlug));
-      const fullArticle = (activeFullArticle && (activeFullArticle.slug === activeArticleSlug || slugifyStr(activeFullArticle.slug) === slugifyStr(activeArticleSlug))) ? activeFullArticle : null;
+      const summaryArticle = articles.find(a => isSlugMatch(activeArticleSlug, a.slug) || isSlugMatch(activeArticleSlug, a.title));
+      const fullArticle = (activeFullArticle && (isSlugMatch(activeArticleSlug, activeFullArticle.slug) || isSlugMatch(activeArticleSlug, activeFullArticle.title))) ? activeFullArticle : null;
       const article = fullArticle 
         ? (summaryArticle ? { ...summaryArticle, ...fullArticle } : fullArticle)
         : summaryArticle;
