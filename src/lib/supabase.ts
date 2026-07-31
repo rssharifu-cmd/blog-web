@@ -338,25 +338,32 @@ const slugifyStr = (text: string): string => {
 
 export const getArticleBySlug = async (slug: string): Promise<Article | null> => {
   if (isSupabaseConfigured && supabase) {
+    // 1. Try exact slug match
     const { data, error } = await supabase.from('articles').select('*').eq('slug', slug).maybeSingle();
-    if (error) {
-      console.warn('Supabase fetch error, using local fallback:', error.message || error);
-      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-      return list.find(a => a.slug === slug || slugifyStr(a.slug) === slugifyStr(slug) || slugifyStr(a.title) === slugifyStr(slug)) || null;
-    }
-    if (data) return mapArticleFromDb(data);
+    if (!error && data) return mapArticleFromDb(data);
 
-    // If exact slug match not found in Supabase, query articles to match by slugified string or title
-    const { data: allArts } = await supabase.from('articles').select('*');
-    if (allArts && allArts.length > 0) {
-      const matched = allArts.find(a => 
-        a.slug === slug || 
+    if (error) {
+      console.warn('Supabase fetch error for slug, using local fallback:', error.message || error);
+    }
+
+    // 2. Try matching by ID if slug is a UUID / ID
+    const { data: idData } = await supabase.from('articles').select('*').eq('id', slug).maybeSingle();
+    if (idData) return mapArticleFromDb(idData);
+
+    // 3. Lightweight check: fetch only lightweight id, slug, title to find flexible slug match without downloading heavy content column
+    const { data: lightArts } = await supabase.from('articles').select('id, slug, title').limit(100);
+    if (lightArts && lightArts.length > 0) {
+      const matched = lightArts.find(a => 
         (a.slug && slugifyStr(a.slug) === slugifyStr(slug)) || 
         (a.title && slugifyStr(a.title) === slugifyStr(slug))
       );
-      if (matched) return mapArticleFromDb(matched);
+      if (matched) {
+        const { data: matchedFull } = await supabase.from('articles').select('*').eq('id', matched.id).maybeSingle();
+        if (matchedFull) return mapArticleFromDb(matchedFull);
+      }
     }
 
+    // 4. Fallback to local data if not found in Supabase
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
     return list.find(a => a.slug === slug || slugifyStr(a.slug) === slugifyStr(slug) || slugifyStr(a.title) === slugifyStr(slug)) || null;
   } else {
