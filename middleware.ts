@@ -3,10 +3,16 @@ import { next } from '@vercel/functions';
 export default function middleware(request: Request) {
   const url = new URL(request.url);
 
-  // Redirect www domain to canonical root domain if needed
-  if (url.hostname === 'www.netventures.online') {
+  // Prevent redirect loop if already redirected or header indicates loop
+  const proto = request.headers.get('x-forwarded-proto') || 'https';
+  const redirectedFrom = request.headers.get('x-redirected-by');
+
+  if (url.hostname === 'www.netventures.online' && !redirectedFrom) {
     url.hostname = 'netventures.online';
-    return Response.redirect(url.toString(), 301);
+    url.protocol = `${proto}:`;
+    const response = Response.redirect(url.toString(), 301);
+    response.headers.set('x-redirected-by', 'middleware');
+    return response;
   }
 
   return next();
