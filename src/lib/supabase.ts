@@ -129,7 +129,9 @@ const loadLocalData = <T>(key: string, defaultValue: T): T => {
   try {
     const data = localStorage.getItem(key);
     if (!data) {
-      saveLocalData(key, defaultValue);
+      if (!isSupabaseConfigured) {
+        saveLocalData(key, defaultValue);
+      }
       return defaultValue;
     }
     return JSON.parse(data);
@@ -144,6 +146,14 @@ const saveLocalData = <T>(key: string, value: T) => {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (err) {
     console.warn(`Failed to save local storage data for key "${key}":`, err);
+    if (key !== 'net_articles') {
+      try {
+        localStorage.removeItem('net_articles');
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch (e) {
+        // Ignore
+      }
+    }
   }
 };
 
@@ -158,6 +168,12 @@ const initFallbackState = () => {
 
 if (!isSupabaseConfigured) {
   initFallbackState();
+} else {
+  try {
+    localStorage.removeItem('net_articles');
+  } catch (e) {
+    // Ignore
+  }
 }
 
 // ==========================================
@@ -253,8 +269,8 @@ const mapSettingsToDb = (set: SiteSettings) => ({
 // ==========================================
 
 export const getArticles = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
-  // Trigger background sync of local articles to server sitemap if in browser
-  if (typeof window !== 'undefined') {
+  // Trigger background sync of local articles to server sitemap if in browser and Supabase is not configured
+  if (typeof window !== 'undefined' && !isSupabaseConfigured) {
     setTimeout(() => {
       try {
         const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
@@ -574,8 +590,8 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
     }
   }
 
-  // Only perform local storage caching when Supabase save did not return an article (fallback mode)
-  if (!savedArticle) {
+  // Only perform local storage caching when Supabase save did not return an article and Supabase is not configured
+  if (!savedArticle && !isSupabaseConfigured) {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
     const targetArt: Article = {
       ...normalizedInput,
@@ -594,6 +610,10 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
     }
     saveLocalData('net_articles', list);
     savedArticle = targetArt;
+  } else if (isSupabaseConfigured) {
+    try {
+      localStorage.removeItem('net_articles');
+    } catch (e) {}
   }
 
   // Always sync saved article to server so sitemap.xml and RSS update immediately
@@ -623,10 +643,14 @@ export const deleteArticle = async (id: string): Promise<boolean> => {
     }
   }
 
-  if (!deletedFromSupabase) {
+  if (!deletedFromSupabase && !isSupabaseConfigured) {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
     const filtered = list.filter(a => a.id !== id);
     saveLocalData('net_articles', filtered);
+  } else if (isSupabaseConfigured) {
+    try {
+      localStorage.removeItem('net_articles');
+    } catch (e) {}
   }
 
   try {
