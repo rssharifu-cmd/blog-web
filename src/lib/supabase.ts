@@ -306,13 +306,6 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
       return list;
     }
     const articles = (data || []).map(mapArticleFromDb);
-    if (articles.length === 0) {
-      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-      if (options?.status) {
-        return list.filter(a => a.status === options.status);
-      }
-      return list;
-    }
     return articles;
   } else {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
@@ -339,11 +332,6 @@ export const getArticleSummaries = async (options?: { status?: 'draft' | 'publis
       return res.map(a => ({ ...a, content: '' }));
     }
     const articles = (data || []).map(row => ({ ...mapArticleFromDb(row), content: '' }));
-    if (articles.length === 0) {
-      const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-      let res = options?.status ? list.filter(a => a.status === options.status) : list;
-      return res.map(a => ({ ...a, content: '' }));
-    }
     return articles;
   } else {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
