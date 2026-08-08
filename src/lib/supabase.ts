@@ -126,16 +126,25 @@ const DEFAULT_ARTICLES: Article[] = [
 
 // LocalStorage helpers
 const loadLocalData = <T>(key: string, defaultValue: T): T => {
-  const data = localStorage.getItem(key);
-  if (!data) {
-    localStorage.setItem(key, JSON.stringify(defaultValue));
+  try {
+    const data = localStorage.getItem(key);
+    if (!data) {
+      saveLocalData(key, defaultValue);
+      return defaultValue;
+    }
+    return JSON.parse(data);
+  } catch (err) {
+    console.warn(`Failed to load local storage data for key "${key}":`, err);
     return defaultValue;
   }
-  return JSON.parse(data);
 };
 
 const saveLocalData = <T>(key: string, value: T) => {
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    console.warn(`Failed to save local storage data for key "${key}":`, err);
+  }
 };
 
 // Initialize LocalStorage states
@@ -565,25 +574,27 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
     }
   }
 
-  // Always update local storage as well to keep client cache in sync
-  const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-  const targetArt: Article = savedArticle || {
-    ...normalizedInput,
-    id: normalizedInput.id || `art-${Date.now()}`,
-    readingTime,
-    publishedAt: new Date().toISOString(),
-    views: 0
-  };
-  targetArt.status = 'published';
+  // Only perform local storage caching when Supabase save did not return an article (fallback mode)
+  if (!savedArticle) {
+    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+    const targetArt: Article = {
+      ...normalizedInput,
+      id: normalizedInput.id || `art-${Date.now()}`,
+      readingTime,
+      publishedAt: new Date().toISOString(),
+      views: 0
+    };
+    targetArt.status = 'published';
 
-  const idx = list.findIndex(a => (targetArt.id && a.id === targetArt.id) || (targetArt.slug && a.slug === targetArt.slug));
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...targetArt };
-  } else {
-    list.unshift(targetArt);
+    const idx = list.findIndex(a => (targetArt.id && a.id === targetArt.id) || (targetArt.slug && a.slug === targetArt.slug));
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...targetArt };
+    } else {
+      list.unshift(targetArt);
+    }
+    saveLocalData('net_articles', list);
+    savedArticle = targetArt;
   }
-  saveLocalData('net_articles', list);
-  savedArticle = targetArt;
 
   // Always sync saved article to server so sitemap.xml and RSS update immediately
   try {
@@ -600,14 +611,23 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
 };
 
 export const deleteArticle = async (id: string): Promise<boolean> => {
+  let deletedFromSupabase = false;
   if (isSupabaseConfigured && supabase) {
     try {
-      await supabase.from('articles').delete().eq('id', id);
-    } catch (e) {}
+      const { error } = await supabase.from('articles').delete().eq('id', id);
+      if (!error) {
+        deletedFromSupabase = true;
+      }
+    } catch (e) {
+      console.warn('Supabase article deletion failed, falling back to local storage:', e);
+    }
   }
-  const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
-  const filtered = list.filter(a => a.id !== id);
-  saveLocalData('net_articles', filtered);
+
+  if (!deletedFromSupabase) {
+    const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
+    const filtered = list.filter(a => a.id !== id);
+    saveLocalData('net_articles', filtered);
+  }
 
   try {
     await fetch(`/api/v1/sync-article/${id}`, {
