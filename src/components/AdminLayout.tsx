@@ -8,6 +8,7 @@ import { Article, Category, Tag, SiteSettings } from '../types.js';
 import ArticleEditor from './ArticleEditor.js';
 import { 
   getArticles, 
+  getArticleSummaries,
   getSettings,
   saveSettings, 
   deleteArticle, 
@@ -139,7 +140,7 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const fetchAdminData = async () => {
     try {
       const [artData, setData] = await Promise.all([
-        getArticles(),
+        getArticleSummaries(),
         getSettings()
       ]);
 
