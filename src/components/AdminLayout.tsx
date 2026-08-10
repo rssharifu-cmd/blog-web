@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, FolderKanban, Settings, Key, LogOut, 
   Plus, Edit, Trash2, Eye, EyeOff, Save, CheckCircle2, AlertCircle, Sparkles, TrendingUp,
-  Globe, Copy, ExternalLink, Check, UploadCloud
+  Globe, Copy, ExternalLink, Check
 } from 'lucide-react';
 import { Article, Category, Tag, SiteSettings } from '../types.js';
 import ArticleEditor from './ArticleEditor.js';
@@ -20,9 +20,7 @@ import {
   requestPasswordReset,
   verifySession, 
   changeAdminPassword, 
-  isSupabaseConfigured,
-  uploadBase64ImageToStorage,
-  updateArticleFeaturedImage
+  isSupabaseConfigured
 } from '../lib/supabase.js';
 
 interface AdminLayoutProps {
@@ -77,61 +75,6 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const [copiedFeedFull, setCopiedFeedFull] = useState(false);
   const [categorySuccess, setCategorySuccess] = useState(false);
   const [tagSuccess, setTagSuccess] = useState(false);
-
-  // Image Migration state
-  const [migrating, setMigrating] = useState(false);
-  const [migrationProgress, setMigrationProgress] = useState<{ current: number; total: number; title: string } | null>(null);
-  const [migrationResult, setMigrationResult] = useState<{ successCount: number; skipCount: number; failures: { title: string; error: string }[] } | null>(null);
-
-  const handleMigrateImages = async () => {
-    if (!window.confirm('Start migrating base64 featured images to Supabase Storage? This will process all articles and upload base64 images to Storage.')) return;
-
-    setMigrating(true);
-    setMigrationResult(null);
-    setMigrationProgress(null);
-
-    try {
-      const allArticles = await getArticles();
-      const total = allArticles.length;
-      let successCount = 0;
-      let skipCount = 0;
-      const failures: { title: string; error: string }[] = [];
-
-      for (let i = 0; i < allArticles.length; i++) {
-        const art = allArticles[i];
-        setMigrationProgress({ current: i + 1, total, title: art.title });
-
-        const img = art.featuredImage || '';
-        if (!img || img.startsWith('http')) {
-          skipCount++;
-          continue;
-        }
-
-        if (img.startsWith('data:image')) {
-          try {
-            const publicUrl = await uploadBase64ImageToStorage(img, art.id);
-            await updateArticleFeaturedImage(art.id, publicUrl);
-            successCount++;
-          } catch (err: any) {
-            console.error(`Failed to migrate image for "${art.title}":`, err);
-            failures.push({ title: art.title, error: err.message || 'Upload/update failed' });
-          }
-        } else {
-          skipCount++;
-        }
-      }
-
-      setMigrationResult({ successCount, skipCount, failures });
-      fetchAdminData();
-      onRefreshData();
-    } catch (err: any) {
-      console.error('Migration failed:', err);
-      alert(`Migration error: ${err.message || 'Failed to process migration'}`);
-    } finally {
-      setMigrating(false);
-      setMigrationProgress(null);
-    }
-  };
 
   // Token management
   const getToken = () => localStorage.getItem('net_admin_token') || '';
@@ -667,88 +610,18 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
             {/* 1. DASHBOARD VIEW */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6 animate-fade-in">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Overview Dashboard</h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Editorial performance and content metrics aggregated live.</p>
                   </div>
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      onClick={handleMigrateImages}
-                      disabled={migrating}
-                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-semibold uppercase tracking-wider rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      title="Migrate base64 cover images to Supabase Storage"
-                    >
-                      <UploadCloud className="h-4 w-4" />
-                      {migrating ? 'Migrating Images...' : 'Migrate Images to Storage'}
-                    </button>
-                    <button
-                      onClick={() => handleOpenEditor()}
-                      className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4" /> New Article
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleOpenEditor()}
+                    className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" /> New Article
+                  </button>
                 </div>
-
-                {/* Migration Progress Bar */}
-                {migrating && migrationProgress && (
-                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span>Migrating base64 images to Supabase Storage...</span>
-                      <span>{migrationProgress.current} / {migrationProgress.total} articles</span>
-                    </div>
-                    <div className="w-full bg-amber-200 dark:bg-amber-950 rounded-full h-2 overflow-hidden">
-                      <div 
-                        className="bg-amber-500 h-2 transition-all duration-300" 
-                        style={{ width: `${Math.round((migrationProgress.current / migrationProgress.total) * 100)}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-amber-700 dark:text-amber-300 truncate">
-                      Current: <span className="font-medium">{migrationProgress.title}</span>
-                    </p>
-                  </div>
-                )}
-
-                {/* Migration Summary Result */}
-                {migrationResult && (
-                  <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 space-y-2 text-xs animate-fade-in">
-                    <div className="flex items-center justify-between font-bold text-gray-900 dark:text-white">
-                      <span>Image Migration Summary</span>
-                      <button 
-                        onClick={() => setMigrationResult(null)}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-[10px] uppercase font-mono cursor-pointer"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-4 text-gray-600 dark:text-gray-300 font-mono">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                        Successfully Migrated: {migrationResult.successCount}
-                      </span>
-                      <span className="text-gray-500">
-                        Skipped (Already URL / empty): {migrationResult.skipCount}
-                      </span>
-                      {migrationResult.failures.length > 0 && (
-                        <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                          Failed: {migrationResult.failures.length}
-                        </span>
-                      )}
-                    </div>
-                    {migrationResult.failures.length > 0 && (
-                      <div className="pt-2 border-t border-gray-200 dark:border-zinc-800 space-y-1">
-                        <p className="font-semibold text-rose-500">Failed articles:</p>
-                        <ul className="list-disc list-inside space-y-0.5 text-rose-400">
-                          {migrationResult.failures.map((f, idx) => (
-                            <li key={idx}>
-                              <span className="font-medium">{f.title}</span>: {f.error}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -822,28 +695,17 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
             {/* 2. ARTICLES VIEW */}
             {activeTab === 'articles' && (
               <div className="space-y-6 animate-fade-in">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Articles Catalogue</h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Compose, publish, draft, and optimize your business posts.</p>
                   </div>
-                  <div className="flex items-center gap-2.5">
-                    <button
-                      onClick={handleMigrateImages}
-                      disabled={migrating}
-                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-semibold uppercase tracking-wider rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      title="Migrate base64 cover images to Supabase Storage"
-                    >
-                      <UploadCloud className="h-4 w-4" />
-                      {migrating ? 'Migrating Images...' : 'Migrate Images to Storage'}
-                    </button>
-                    <button
-                      onClick={() => handleOpenEditor()}
-                      className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4" /> New Article
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleOpenEditor()}
+                    className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" /> New Article
+                  </button>
                 </div>
 
                 <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-xs">
