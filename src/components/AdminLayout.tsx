@@ -822,17 +822,28 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
             {/* 2. ARTICLES VIEW */}
             {activeTab === 'articles' && (
               <div className="space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Articles Catalogue</h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Compose, publish, draft, and optimize your business posts.</p>
                   </div>
-                  <button
-                    onClick={() => handleOpenEditor()}
-                    className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4" /> New Article
-                  </button>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      onClick={handleMigrateImages}
+                      disabled={migrating}
+                      className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-semibold uppercase tracking-wider rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Migrate base64 cover images to Supabase Storage"
+                    >
+                      <UploadCloud className="h-4 w-4" />
+                      {migrating ? 'Migrating Images...' : 'Migrate Images to Storage'}
+                    </button>
+                    <button
+                      onClick={() => handleOpenEditor()}
+                      className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider rounded-xl hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" /> New Article
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-xs">
