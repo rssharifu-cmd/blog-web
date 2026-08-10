@@ -318,7 +318,7 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
 
 export const getArticleSummaries = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
   if (isSupabaseConfigured && supabase) {
-    const selectFields = 'id, title, slug, short_description, category_id, tags, status, seo_title, seo_description, canonical_url, created_at, published_at, reading_time, views, author, faq';
+    const selectFields = 'id, title, slug, short_description, category_id, tags, status, featured_image, seo_title, seo_description, canonical_url, created_at, published_at, reading_time, views, author, faq';
 
     let query = supabase.from('articles').select(selectFields).order('created_at', { ascending: false }).limit(200);
     if (options?.status) {
@@ -854,5 +854,60 @@ export const changeAdminPassword = async (newPasswordStr: string): Promise<boole
   } else {
     localStorage.setItem('net_admin_pass_fallback', newPasswordStr);
     return true;
+  }
+};
+
+// ==========================================
+// IMAGE MIGRATION HELPERS
+// ==========================================
+
+export const uploadBase64ImageToStorage = async (dataUrl: string, articleId: string): Promise<string> => {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error('Supabase is not configured');
+  }
+
+  const matches = dataUrl.match(/^data:(image\/[a-zA-Z0-9\+\-\.]+);base64,(.+)$/);
+  if (!matches) {
+    throw new Error('Invalid base64 image format');
+  }
+
+  const mimeType = matches[1];
+  const base64Data = matches[2];
+  let ext = mimeType.split('/')[1] || 'png';
+  if (ext === 'jpeg') ext = 'jpg';
+  if (ext.includes('+')) ext = ext.split('+')[0];
+
+  const byteCharacters = atob(base64Data);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mimeType });
+
+  const fileName = `covers/migrated-${articleId.replace(/[^a-zA-Z0-9_-]/g, '')}-${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('media')
+    .upload(fileName, blob, { contentType: mimeType, upsert: true });
+
+  if (uploadError) {
+    throw new Error(`Storage upload error: ${uploadError.message}`);
+  }
+
+  const { data } = supabase.storage.from('media').getPublicUrl(fileName);
+  return data.publicUrl;
+};
+
+export const updateArticleFeaturedImage = async (id: string, imageUrl: string): Promise<void> => {
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase
+      .from('articles')
+      .update({ featured_image: imageUrl })
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
   }
 };
