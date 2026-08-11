@@ -318,7 +318,7 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
 
 export const getArticleSummaries = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
   if (isSupabaseConfigured && supabase) {
-    const selectFields = 'id, title, slug, short_description, category_id, tags, status, seo_title, seo_description, canonical_url, created_at, published_at, reading_time, views, author, faq';
+    const selectFields = 'id, title, slug, short_description, category_id, tags, status, featured_image, seo_title, seo_description, canonical_url, created_at, published_at, reading_time, views, author, faq';
 
     let query = supabase.from('articles').select(selectFields).order('created_at', { ascending: false }).limit(200);
     if (options?.status) {
