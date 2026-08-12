@@ -398,8 +398,8 @@ export default function App() {
       };
       schemas.push(breadcrumbSchema);
     } else if (currentPath === '/about') {
-      title = `About Stefan Sharif & NetVentures - ${siteName}`;
-      description = "Stefan Sharif is the Founder & CEO of NetVentures, an independent digital publication covering SaaS, AI tools, web hosting, automation, and online business technology.";
+      title = `About Stefan Sharf & NetVentures - ${siteName}`;
+      description = "Stefan Sharf is the Founder & CEO of NetVentures, an independent digital publication covering SaaS, AI tools, web hosting, automation, and online business technology.";
       
       const breadcrumbSchema = {
         "@type": "BreadcrumbList",
@@ -423,8 +423,8 @@ export default function App() {
 
       const personSchema = {
         "@type": "Person",
-        "@id": `${origin}/#stefan-sharif`,
-        "name": "Stefan Sharif",
+        "@id": `${origin}/#stefan-sharf`,
+        "name": "Stefan Sharf",
         "jobTitle": "Founder & CEO",
         "worksFor": {
           "@type": "Organization",
@@ -1224,7 +1224,7 @@ export default function App() {
     }
 
     // ----------------------------------------
-    // 3. ABOUT PAGE (Stefan Sharif & Editorial Transparency)
+    // 3. ABOUT PAGE (Stefan Sharf & Editorial Transparency)
     // ----------------------------------------
     if (currentPath === '/about') {
       return (
@@ -1238,12 +1238,12 @@ export default function App() {
             </h1>
           </div>
 
-          {/* 1 & 2 & 3. Stefan Sharif Profile Photo, Identity & Introduction */}
+          {/* 1 & 2 & 3. Stefan Sharf Profile Photo, Identity & Introduction */}
           <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
               <img
-                src="/stefan-sharif.jpg"
-                alt="Stefan Sharif - Founder & CEO, NetVentures"
+                src="/stefan-sharf.jpg"
+                alt="Stefan Sharf - Founder & CEO, NetVentures"
                 loading="lazy"
                 decoding="async"
                 referrerPolicy="no-referrer"
@@ -1252,7 +1252,7 @@ export default function App() {
               <div className="space-y-4 text-center sm:text-left">
                 <div>
                   <h2 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 dark:text-white">
-                    Stefan Sharif
+                    Stefan Sharf
                   </h2>
                   <p className="text-gold-600 dark:text-gold-500 font-semibold text-sm mt-0.5">
                     Founder & CEO, NetVentures
@@ -1261,10 +1261,10 @@ export default function App() {
 
                 <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                   <h3 className="font-display font-bold text-base text-gray-900 dark:text-white pt-1">
-                    About Stefan Sharif
+                    About Stefan Sharf
                   </h3>
                   <p>
-                    Stefan Sharif is the Founder & CEO of NetVentures, an independent digital publication focused on SaaS, AI tools, web hosting, automation, and online business technology.
+                    Stefan Sharf is the Founder & CEO of NetVentures, an independent digital publication focused on SaaS, AI tools, web hosting, automation, and online business technology.
                   </p>
                   <p>
                     NetVentures is built and operated with an editorial and research team that researches, analyzes, and publishes practical guides, comparisons, reviews, and insights to help readers make better technology decisions.
@@ -1277,18 +1277,18 @@ export default function App() {
             </div>
           </div>
 
-          {/* 4. Stefan Sharif on YouTube */}
+          {/* 4. Stefan Sharf on YouTube */}
           <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-linear-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900/50 shadow-xs space-y-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-red-500/10 text-red-600 dark:text-red-500">
                 <Youtube className="h-5 w-5" />
               </div>
               <h3 className="font-display font-bold text-xl text-gray-900 dark:text-white">
-                Stefan Sharif on YouTube
+                Stefan Sharf on YouTube
               </h3>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-              Stefan Sharif also creates videos about AI, technology, SaaS, online business, and useful digital tools.
+              Stefan Sharf also creates videos about AI, technology, SaaS, online business, and useful digital tools.
             </p>
             <div className="pt-2">
               <a
@@ -1377,7 +1377,7 @@ export default function App() {
                     value={contactForm.name}
                     onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
                     required
-                    placeholder="Stefan Sharif"
+                    placeholder="Stefan Sharf"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
                   />
                 </div>

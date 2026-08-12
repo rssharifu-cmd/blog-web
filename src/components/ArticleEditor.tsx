@@ -27,7 +27,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [status, setStatus] = useState<'draft' | 'published'>('published');
   const [featuredImage, setFeaturedImage] = useState('');
-  const [author, setAuthor] = useState('Stefan Sharif');
+  const [author, setAuthor] = useState('Stefan Sharf');
 
   // SEO Fields
   const [seoTitle, setSeoTitle] = useState('');
