@@ -35,10 +35,10 @@ export default function Newsletter() {
         </span>
         
         <h3 className="font-display text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-          Join 42,000+ founders automating digital wealth
+          Stay Ahead of the Latest in SaaS & AI
         </h3>
         <p className="mt-2 text-sm sm:text-base text-gray-500 dark:text-gray-400 leading-relaxed">
-          Get exclusive weekly breakdowns on high-ticket affiliate strategies, generative content engines, and SaaS marketing playbooks. Strictly zero-spam, actionable insights only.
+          Get practical insights, useful tools, and technology updates delivered to your inbox.
         </p>
 
         {status === 'success' ? (

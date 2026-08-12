@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Search, Calendar, Clock, Eye, Sparkles, BookOpen, ChevronRight, 
-  ArrowLeft, Mail, ArrowRight, Compass, ShieldAlert, FileCheck, HelpCircle, Send, Globe, ChevronLeft
+  ArrowLeft, Mail, ArrowRight, Compass, ShieldAlert, FileCheck, HelpCircle, Send, Globe, ChevronLeft,
+  Youtube, ExternalLink
 } from 'lucide-react';
 import Header from './components/Header.js';
 import Footer from './components/Footer.js';
@@ -397,8 +398,8 @@ export default function App() {
       };
       schemas.push(breadcrumbSchema);
     } else if (currentPath === '/about') {
-      title = `About Our Editorial Desk - ${siteName}`;
-      description = "Learn about our editorial transparency, digital systems expertise, author profiles, and content publishing workflow.";
+      title = `About Stefan Sharif & NetVentures - ${siteName}`;
+      description = "Stefan Sharif is the Founder & CEO of NetVentures, an independent digital publication covering SaaS, AI tools, web hosting, automation, and online business technology.";
       
       const breadcrumbSchema = {
         "@type": "BreadcrumbList",
@@ -419,6 +420,22 @@ export default function App() {
         ]
       };
       schemas.push(breadcrumbSchema);
+
+      const personSchema = {
+        "@type": "Person",
+        "@id": `${origin}/#stefan-sharif`,
+        "name": "Stefan Sharif",
+        "jobTitle": "Founder & CEO",
+        "worksFor": {
+          "@type": "Organization",
+          "name": "NetVentures",
+          "url": origin
+        },
+        "sameAs": [
+          "https://www.youtube.com/@Stefansharf"
+        ]
+      };
+      schemas.push(personSchema);
     } else if (currentPath === '/contact') {
       title = `Contact Inquiries - ${siteName}`;
       description = "Get in touch with our administrative or editorial desk for general inquiries, SaaS reviews, or sponsorships.";
@@ -829,7 +846,7 @@ export default function App() {
                 />
                 
                 <div className="p-4 rounded-xl border border-gray-100 dark:border-zinc-900 bg-amber-500/2 dark:bg-amber-500/1 border-amber-500/10 text-xs text-gray-400 dark:text-gray-500 leading-relaxed font-sans">
-                  <strong>Editorial Transparency:</strong> Elena and the editorial team only recommend products we have personally vetted, configured, or integrated. Read our complete{' '}
+                  <strong>Editorial Transparency:</strong> NetVentures works with an editorial and research team to research and publish technology content. Read our complete{' '}
                   <button onClick={() => navigate('/disclosure')} className="font-semibold underline hover:text-gold-500">
                     Affiliate Disclosure
                   </button>.
@@ -1207,73 +1224,117 @@ export default function App() {
     }
 
     // ----------------------------------------
-    // 3. ABOUT PAGE (Editorial profile)
+    // 3. ABOUT PAGE (Stefan Sharif & Editorial Transparency)
     // ----------------------------------------
     if (currentPath === '/about') {
       return (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10 animate-fade-in">
-          <div className="space-y-4 text-center">
+          <div className="space-y-3 text-center">
             <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gold-100 dark:bg-gold-500/10 text-gold-700 dark:text-gold-500">
-              The Editorial Desk
+              About NetVentures
             </span>
-            <h1 className="font-display font-bold text-3xl sm:text-4xl text-gray-900 dark:text-white tracking-tight">Our Mission & Principles</h1>
-            <p className="text-gray-500 dark:text-gray-400 max-w-xl mx-auto leading-relaxed text-sm sm:text-base">
-              Providing clear, factual frameworks to help programmers, designers, and marketers transition into automated high-ticket consulting.
-            </p>
+            <h1 className="font-display font-bold text-3xl sm:text-4xl text-gray-900 dark:text-white tracking-tight">
+              About Us & Leadership
+            </h1>
           </div>
 
-          {/* Core Content Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6">
-            <div className="space-y-4">
-              <h3 className="font-display font-bold text-lg text-gray-900 dark:text-white">Strict Editorial Code</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                We do not publish generic content or simple programmatic fluff. Every guide, SaaS review, and case study on NetVentures represents real testing, real lines of code, and verified workflows.
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                Our content must pass rigorous clarity checklists. If a workflow or integration is prone to errors, we outline troubleshooting procedures and code snippets in the article faq so developers have zero points of friction.
-              </p>
-            </div>
-            <div className="p-6 rounded-2xl bg-zinc-50 dark:bg-zinc-900/40 border border-gray-100 dark:border-zinc-900/50 space-y-4">
-              <h3 className="font-display font-bold text-base text-gray-900 dark:text-white">Core Pillars We Teach</h3>
-              <ul className="space-y-2.5 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
-                <li className="flex items-center gap-2">✔ High-Ticket Affiliate Marketing</li>
-                <li className="flex items-center gap-2">✔ Cold Outreach & Enrichment Automations</li>
-                <li className="flex items-center gap-2">✔ Generative Content Engines (GEO)</li>
-                <li className="flex items-center gap-2">✔ SaaS Product Reviews & Deep Tutorials</li>
-                <li className="flex items-center gap-2">✔ Solopreneur Consulting Retainers</li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Premium Brand names suggestions box (Explicitly Requested by user!) */}
-          <div className="p-8 rounded-2xl border border-gray-100 dark:border-zinc-800 bg-linear-to-b from-white to-zinc-50 dark:from-zinc-900 dark:to-zinc-950 space-y-4 shadow-xs">
-            <div className="flex items-center gap-2 text-gray-900 dark:text-white">
-              <Sparkles className="h-5 w-5 text-gold-500" />
-              <h3 className="font-display font-bold text-lg">Platform Suggestions: Premium Brand Names</h3>
-            </div>
-            <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
-              As part of our commitment to helping users start digital ventures, our naming team designed 10 premium, short, and highly memorable brand names tailored for online wealth, AI operations, and content platforms:
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              {[
-                { name: '1. NetVentures', desc: 'Sleek, enterprise-level digital magazine branding.' },
-                { name: '2. AIBizJournal', desc: 'Authority branding focusing on artificial intelligence.' },
-                { name: '3. IncomeVanguard', desc: 'Suggests forward-thinking investment and passive income.' },
-                { name: '4. DigitalVanguard', desc: 'Premium, modern web consulting or media imprint.' },
-                { name: '5. VenturesFlow', desc: 'Casual, action-oriented startup blogging brand.' },
-                { name: '6. RevenueRise', desc: 'Catchy, memorable brand for newsletters or SaaS reviews.' },
-                { name: '7. AIWealthLab', desc: 'Tech-forward name focusing on automation and finance.' },
-                { name: '8. DigitalAvenue', desc: 'Classic, professional branding for online business directories.' },
-                { name: '9. SolopreneurLab', desc: 'Niche, hyper-targeted brand for single-operator tutorials.' },
-                { name: '10. ApexIncome', desc: 'Strong, high-ticket agency and financial consultation brand.' }
-              ].map((brand, idx) => (
-                <div key={idx} className="p-4 bg-white dark:bg-zinc-900/60 rounded-xl border border-gray-100 dark:border-zinc-850">
-                  <p className="font-semibold text-gray-900 dark:text-white text-sm font-display">{brand.name}</p>
-                  <p className="text-xs text-gray-400 mt-1">{brand.desc}</p>
+          {/* 1 & 2 & 3. Stefan Sharif Profile Photo, Identity & Introduction */}
+          <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
+              <img
+                src="/stefan-sharif.jpg"
+                alt="Stefan Sharif - Founder & CEO, NetVentures"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl object-cover border-2 border-gold-500/30 shadow-md flex-shrink-0"
+              />
+              <div className="space-y-4 text-center sm:text-left">
+                <div>
+                  <h2 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 dark:text-white">
+                    Stefan Sharif
+                  </h2>
+                  <p className="text-gold-600 dark:text-gold-500 font-semibold text-sm mt-0.5">
+                    Founder & CEO, NetVentures
+                  </p>
                 </div>
-              ))}
+
+                <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                  <h3 className="font-display font-bold text-base text-gray-900 dark:text-white pt-1">
+                    About Stefan Sharif
+                  </h3>
+                  <p>
+                    Stefan Sharif is the Founder & CEO of NetVentures, an independent digital publication focused on SaaS, AI tools, web hosting, automation, and online business technology.
+                  </p>
+                  <p>
+                    NetVentures is built and operated with an editorial and research team that researches, analyzes, and publishes practical guides, comparisons, reviews, and insights to help readers make better technology decisions.
+                  </p>
+                  <p>
+                    Stefan also creates YouTube videos covering technology, AI, online business, software, and related topics.
+                  </p>
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* 4. Stefan Sharif on YouTube */}
+          <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-linear-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900/50 shadow-xs space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-red-500/10 text-red-600 dark:text-red-500">
+                <Youtube className="h-5 w-5" />
+              </div>
+              <h3 className="font-display font-bold text-xl text-gray-900 dark:text-white">
+                Stefan Sharif on YouTube
+              </h3>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              Stefan Sharif also creates videos about AI, technology, SaaS, online business, and useful digital tools.
+            </p>
+            <div className="pt-2">
+              <a
+                href="https://www.youtube.com/@Stefansharf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-colors cursor-pointer"
+              >
+                <Youtube className="h-4 w-4" />
+                <span>Watch on YouTube</span>
+                <ExternalLink className="h-3.5 w-3.5 opacity-80" />
+              </a>
+            </div>
+          </div>
+
+          {/* 5. How We Work */}
+          <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gold-500/10 text-gold-600 dark:text-gold-500">
+                <FileCheck className="h-5 w-5" />
+              </div>
+              <h3 className="font-display font-bold text-xl text-gray-900 dark:text-white">
+                How We Work
+              </h3>
+            </div>
+            <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              <p>
+                NetVentures works with an editorial and research team to research and publish technology content. We use official product information, publicly available data, documentation, independent research, and practical analysis where available.
+              </p>
+              <p>
+                We aim to distinguish verified information from analysis and opinion. When a product has not been personally tested by our team, we do not claim that it has been tested.
+              </p>
+            </div>
+          </div>
+
+          {/* 6. Editorial Transparency / Affiliate Disclosure */}
+          <div className="p-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-xs sm:text-sm text-gray-600 dark:text-gray-300 space-y-2">
+            <h4 className="font-display font-bold text-amber-800 dark:text-amber-400 text-sm">
+              Editorial Transparency & Affiliate Disclosure
+            </h4>
+            <p className="leading-relaxed">
+              NetVentures may receive compensation through affiliate links when readers purchase products mentioned on our site. This helps support our independent research and publishing at no extra cost to you. Read our full{' '}
+              <button onClick={() => navigate('/disclosure')} className="font-semibold text-gold-600 dark:text-gold-500 underline hover:opacity-80 cursor-pointer">
+                Affiliate Disclosure
+              </button>.
+            </p>
           </div>
         </div>
       );
@@ -1293,9 +1354,9 @@ export default function App() {
       return (
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 animate-fade-in">
           <div className="space-y-3 text-center">
-            <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">Connect with Elena</h1>
+            <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">Contact NetVentures</h1>
             <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto leading-relaxed text-sm">
-              Inquiries regarding partnerships, SaaS evaluations, or programmatic audits? Drop us a line below.
+              Inquiries regarding partnerships, SaaS evaluations, or editorial questions? Drop us a line below.
             </p>
           </div>
 
@@ -1303,7 +1364,7 @@ export default function App() {
             <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-400 flex items-start gap-3 animate-fade-in">
               <div>
                 <p className="font-bold">Transmission Secured!</p>
-                <p className="text-sm mt-1 leading-relaxed">Our editorial staff enriches and filters inquiry emails using AI. We typically reply within 24 business hours.</p>
+                <p className="text-sm mt-1 leading-relaxed">Our editorial staff filters inquiry emails using AI. We typically reply within 24 business hours.</p>
               </div>
             </div>
           ) : (
@@ -1316,7 +1377,7 @@ export default function App() {
                     value={contactForm.name}
                     onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
                     required
-                    placeholder="Elena Rostova"
+                    placeholder="Stefan Sharif"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
                   />
                 </div>
@@ -1327,7 +1388,7 @@ export default function App() {
                     value={contactForm.email}
                     onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
                     required
-                    placeholder="elena@netventures.com"
+                    placeholder="stefan@netventures.online"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
                   />
                 </div>

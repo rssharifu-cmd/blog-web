@@ -90,7 +90,7 @@ const DEFAULT_ARTICLES: Article[] = [
     seoTitle: 'How to Build an AI Content Empire in 2026 - NetVentures',
     seoDescription: 'Step-by-step blueprint to build, scale, and monetize a high-authority blog using generative AI and advanced workflow automation.',
     canonicalUrl: 'https://netventures.online/blog/ai-powered-content-empire',
-    author: 'Elena Rostova',
+    author: 'Stefan Sharif',
     publishedAt: '2026-07-15T09:00:00Z',
     readingTime: 6,
     views: 1245,
@@ -207,7 +207,7 @@ const mapArticleToDbForInsert = (art: Partial<ArticleInput>) => {
   return {
     title: art.title,
     slug: art.slug,
-    author: art.author || 'Elena Rostova',
+    author: art.author || 'Stefan Sharif',
     content: art.content,
     featured_image: art.featuredImage,
     seo_title: art.seoTitle,
