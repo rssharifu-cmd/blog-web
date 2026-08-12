@@ -33,6 +33,7 @@ export default function ArticleCard({ article, category, onClick }: ArticleCardP
             src={article.featuredImage} 
             alt={article.title || 'Article cover'}
             loading="lazy"
+            decoding="async"
             className="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500"
             referrerPolicy="no-referrer"
           />

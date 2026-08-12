@@ -1502,6 +1502,8 @@ export default function App() {
                     <img 
                       src={featuredArticle.featuredImage} 
                       alt={featuredArticle.title || 'Featured article'} 
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover transform group-hover:scale-103 transition-transform duration-500" 
                       referrerPolicy="no-referrer"
                     />
