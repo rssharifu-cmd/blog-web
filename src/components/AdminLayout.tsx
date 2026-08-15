@@ -1076,7 +1076,7 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                         <div className="space-y-1 mt-0.5">
                           <p className="font-bold text-gray-900 dark:text-white">Get Meta Tag from Google</p>
                           <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
-                            Log into Google Search Console, add <strong>https://netventures.online/</strong> as your property, and select <strong>HTML Tag</strong> verification.
+                            Log into Google Search Console, add <strong>https://www.netventures.online/</strong> as your property, and select <strong>HTML Tag</strong> verification.
                           </p>
                         </div>
                       </div>
@@ -1096,7 +1096,7 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                         <div className="space-y-1 mt-0.5">
                           <p className="font-bold text-gray-900 dark:text-white">Verify Ownership</p>
                           <p className="text-gray-500 dark:text-gray-400 leading-relaxed">
-                            Return to Search Console and click the <strong>Verify</strong> button. Google will read your netventures.online home page and grant full access.
+                            Return to Search Console and click the <strong>Verify</strong> button. Google will read your www.netventures.online home page and grant full access.
                           </p>
                         </div>
                       </div>
@@ -1109,7 +1109,7 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                       <div>
                         <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white">SEO Index Submission</h4>
                         <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                          ⚠️ <strong>Important:</strong> Google Search Console already pre-fills <code>https://netventures.online/</code>. 
+                          ⚠️ <strong>Important:</strong> Google Search Console already pre-fills <code>https://www.netventures.online/</code>. 
                           You must submit <strong>only the relative file path</strong> below!
                         </p>
                       </div>
@@ -1166,13 +1166,13 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                                 <input
                                   type="text"
                                   readOnly
-                                  value="https://netventures.online/sitemap.xml"
+                                  value="https://www.netventures.online/sitemap.xml"
                                   className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/40 text-gray-400 text-xs font-mono select-all focus:outline-hidden"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    navigator.clipboard.writeText("https://netventures.online/sitemap.xml");
+                                    navigator.clipboard.writeText("https://www.netventures.online/sitemap.xml");
                                     setCopiedSitemapFull(true);
                                     setTimeout(() => setCopiedSitemapFull(false), 2000);
                                   }}
@@ -1237,13 +1237,13 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                                 <input
                                   type="text"
                                   readOnly
-                                  value="https://netventures.online/rss.xml"
+                                  value="https://www.netventures.online/rss.xml"
                                   className="w-full px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/40 text-gray-400 text-xs font-mono select-all focus:outline-hidden"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    navigator.clipboard.writeText("https://netventures.online/rss.xml");
+                                    navigator.clipboard.writeText("https://www.netventures.online/rss.xml");
                                     setCopiedFeedFull(true);
                                     setTimeout(() => setCopiedFeedFull(false), 2000);
                                   }}

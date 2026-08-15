@@ -38,7 +38,7 @@ if (rawSupabaseUrl) {
 const SUPABASE_URL = rawSupabaseUrl;
 const SUPABASE_ANON_KEY = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 // Base URL for links. Default to NetVentures primary URL.
-const SITE_BASE_URL = process.env.APP_URL || 'https://netventures.online';
+const SITE_BASE_URL = process.env.APP_URL || 'https://www.netventures.online';
 
 const DEFAULT_SETTINGS = {
   siteName: 'NetVentures',
@@ -206,7 +206,7 @@ async function run() {
     fs.mkdirSync(outDir, { recursive: true });
   }
 
-  const baseDomain = (SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL).replace('://www.netventures.online', '://netventures.online');
+  const baseDomain = (SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL).replace('://netventures.online', '://www.netventures.online');
 
   // ----------------------------------------
   // 1. GENERATE ROBOTS.TXT

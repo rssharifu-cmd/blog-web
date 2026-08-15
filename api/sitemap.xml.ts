@@ -6,7 +6,7 @@ const SUPABASE_KEY = (
   process.env.SUPABASE_ANON_KEY ||
   ''
 ).trim();
-const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
+const SITE_BASE_URL = (process.env.APP_URL || 'https://www.netventures.online').trim();
 
 function slugify(text: string): string {
   return text
@@ -32,7 +32,7 @@ export default async function handler(req: any, res: any) {
       const proto = (req?.headers?.['x-forwarded-proto'] || 'https').toString().split(',')[0].trim();
       baseDomain = `${proto}://${reqHost}`;
     }
-    baseDomain = baseDomain.replace('://www.netventures.online', '://netventures.online');
+    baseDomain = baseDomain.replace('://netventures.online', '://www.netventures.online');
     const currentDate = new Date().toISOString().split('T')[0];
 
     let articles: Array<{ slug?: string; title?: string; published_at?: string; created_at?: string }> = [];

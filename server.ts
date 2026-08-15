@@ -218,7 +218,8 @@ async function start() {
 
   // Automatic SEO calculations helper (Canonical, OpenGraph, JSON-LD)
   const computeArticleSEO = (article: any) => {
-    const baseDomain = (process.env.APP_URL || 'https://netventures.online').trim().replace(/\/$/, '');
+    const rawDomain = (process.env.APP_URL || 'https://www.netventures.online').trim().replace(/\/$/, '');
+    const baseDomain = rawDomain.replace('://netventures.online', '://www.netventures.online');
     const canonicalUrl = article.canonicalUrl || article.canonical_url || `${baseDomain}/blog/${article.slug}`;
 
     // OpenGraph structure
@@ -1391,8 +1392,9 @@ async function start() {
   app.get('/sitemap.xml', async (req, res) => {
     try {
       const articles = await getAllArticlesCombined();
-      const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
-      const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+      const SITE_BASE_URL = (process.env.APP_URL || 'https://www.netventures.online').trim();
+      let baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+      baseDomain = baseDomain.replace('://netventures.online', '://www.netventures.online');
       const currentDate = new Date().toISOString().split('T')[0];
 
       let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -1473,8 +1475,9 @@ async function start() {
         siteName: 'NetVentures',
         siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.'
       };
-      const SITE_BASE_URL = (process.env.APP_URL || 'https://netventures.online').trim();
-      const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+      const SITE_BASE_URL = (process.env.APP_URL || 'https://www.netventures.online').trim();
+      let baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+      baseDomain = baseDomain.replace('://netventures.online', '://www.netventures.online');
 
       if (isSupabaseConfigured && supabaseClient) {
         const { data: settingsData } = await supabaseClient
