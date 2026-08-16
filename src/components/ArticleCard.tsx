@@ -42,15 +42,19 @@ export default function ArticleCard({ article, category, onClick }: ArticleCardP
             <span className="text-xs font-mono uppercase tracking-wider">No Image</span>
           </div>
         )}
-        {category && (
-          <span className="absolute top-4 left-4 inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-zinc-900/90 dark:bg-white/95 text-white dark:text-zinc-900 shadow-sm">
-            {category.name}
-          </span>
-        )}
       </div>
 
       {/* Content */}
       <div className="flex flex-col flex-1 p-6">
+        {/* Category Label */}
+        {category && (
+          <div className="mb-3">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-gold-100 dark:bg-gold-500/10 text-gold-700 dark:text-gold-500">
+              {category.name}
+            </span>
+          </div>
+        )}
+
         {/* Meta Stats */}
         <div className="flex items-center gap-4 text-xs font-mono text-gray-400 dark:text-gray-500 mb-3">
           <span className="flex items-center gap-1">
@@ -61,10 +65,12 @@ export default function ArticleCard({ article, category, onClick }: ArticleCardP
             <Clock className="h-3.5 w-3.5" />
             {article.readingTime} min read
           </span>
+          {/* View count hidden per design request
           <span className="flex items-center gap-1">
             <Eye className="h-3.5 w-3.5" />
             {article.views} views
           </span>
+          */}
         </div>
 
         {/* Title */}
