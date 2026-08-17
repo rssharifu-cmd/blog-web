@@ -47,7 +47,6 @@ export default async function handler(req: any, res: any) {
       const proto = (req?.headers?.['x-forwarded-proto'] || 'https').toString().split(',')[0].trim();
       baseDomain = `${proto}://${reqHost}`;
     }
-    baseDomain = baseDomain.replace('://netventures.online', '://www.netventures.online');
     let settings = { ...DEFAULT_SETTINGS };
 
     let articles: Array<{

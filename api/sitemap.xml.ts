@@ -32,7 +32,6 @@ export default async function handler(req: any, res: any) {
       const proto = (req?.headers?.['x-forwarded-proto'] || 'https').toString().split(',')[0].trim();
       baseDomain = `${proto}://${reqHost}`;
     }
-    baseDomain = baseDomain.replace('://netventures.online', '://www.netventures.online');
     const currentDate = new Date().toISOString().split('T')[0];
 
     let articles: Array<{ slug?: string; title?: string; published_at?: string; created_at?: string }> = [];
