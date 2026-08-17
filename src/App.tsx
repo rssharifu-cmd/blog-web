@@ -45,6 +45,44 @@ const sanitizePath = (path: string): string => {
   return cleaned;
 };
 
+// Helper to parse markdown links [text](url) safely into React nodes
+const renderTextWithLinks = (text: string): React.ReactNode => {
+  if (!text) return text;
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const elements: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    const [fullMatch, linkText, url] = match;
+    const matchIndex = match.index;
+
+    if (matchIndex > lastIndex) {
+      elements.push(text.slice(lastIndex, matchIndex));
+    }
+
+    elements.push(
+      <a
+        key={`link-${matchIndex}-${url}`}
+        href={url.trim()}
+        target="_blank"
+        rel="noopener noreferrer nofollow sponsored"
+        className="text-gold-600 dark:text-gold-500 font-medium underline underline-offset-2 hover:text-gold-500 dark:hover:text-gold-400 transition-colors"
+      >
+        {linkText}
+      </a>
+    );
+
+    lastIndex = matchIndex + fullMatch.length;
+  }
+
+  if (lastIndex < text.length) {
+    elements.push(text.slice(lastIndex));
+  }
+
+  return elements.length > 0 ? elements : text;
+};
+
 export default function App() {
   // Routing State
   const [currentPath, setCurrentPath] = useState(() => {
@@ -768,7 +806,7 @@ export default function App() {
                       return (
                         <ul key={index}>
                           {chunk.split('\n').map((li, i) => (
-                            <li key={i}>{li.replace(/^[\s*-]+/, '')}</li>
+                            <li key={i}>{renderTextWithLinks(li.replace(/^[\s*-]+/, ''))}</li>
                           ))}
                         </ul>
                       );
@@ -800,7 +838,7 @@ export default function App() {
                         </div>
                       );
                     }
-                    return <p key={index}>{chunk}</p>;
+                    return <p key={index}>{renderTextWithLinks(chunk)}</p>;
                   })}
                 </div>
               )}
