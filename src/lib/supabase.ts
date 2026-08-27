@@ -192,6 +192,7 @@ const mapArticleFromDb = (dbArt: any): Article => {
     tags: dbArt.tags || [],
     status: (dbArt.status && dbArt.status.toString().toLowerCase() === 'draft') ? 'draft' : 'published',
     featuredImage: dbArt.featured_image || '',
+    featuredImageAlt: dbArt.featured_image_alt || dbArt.featuredImageAlt || '',
     seoTitle: dbArt.seo_title || '',
     seoDescription: dbArt.seo_description || dbArt.meta_description || '',
     canonicalUrl: dbArt.canonical_url || '',
@@ -210,6 +211,7 @@ const mapArticleToDbForInsert = (art: Partial<ArticleInput>) => {
     author: art.author || 'Stefan Sharf',
     content: art.content,
     featured_image: art.featuredImage,
+    featured_image_alt: art.featuredImageAlt || '',
     seo_title: art.seoTitle,
     canonical_url: art.canonicalUrl,
     status: art.status || 'published',
@@ -230,6 +232,7 @@ const mapArticleToDbForUpdate = (art: Partial<ArticleInput> & { id?: string }) =
     author: art.author,
     content: art.content,
     featured_image: art.featuredImage,
+    featured_image_alt: art.featuredImageAlt || '',
     seo_title: art.seoTitle,
     canonical_url: art.canonicalUrl,
     status: art.status,
@@ -318,7 +321,7 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
 
 export const getArticleSummaries = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
   if (isSupabaseConfigured && supabase) {
-    const selectFields = 'id, title, slug, short_description, category_id, tags, status, featured_image, seo_title, seo_description, canonical_url, created_at, published_at, reading_time, views, author, faq';
+    const selectFields = 'id, title, slug, short_description, category_id, tags, status, featured_image, featured_image_alt, seo_title, seo_description, canonical_url, created_at, published_at, reading_time, views, author, faq';
 
     let query = supabase.from('articles').select(selectFields).order('created_at', { ascending: false }).limit(200);
     if (options?.status) {

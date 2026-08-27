@@ -12,6 +12,7 @@ import Chatbot from './components/Chatbot.js';
 import Toc from './components/Toc.js';
 import AdminLayout from './components/AdminLayout.js';
 import SocialShare from './components/SocialShare.js';
+import DOMPurify from 'dompurify';
 import { Article, Category, Tag, SiteSettings } from './types.js';
 import { 
   getArticles, 
@@ -40,6 +41,14 @@ const sanitizePath = (path: string): string => {
   // Remove trailing slash if it is not just "/"
   if (cleaned.length > 1 && cleaned.endsWith('/')) {
     cleaned = cleaned.slice(0, -1);
+  }
+
+  // Permanent redirects resolution
+  const REDIRECT_MAP: Record<string, string> = {
+    '/blog/how-to-automate-small-business-without-losing-human-touch': '/blog/small-business-automation-2026-workflows-automate-first'
+  };
+  if (REDIRECT_MAP[cleaned]) {
+    cleaned = REDIRECT_MAP[cleaned];
   }
   
   return cleaned;
@@ -81,6 +90,20 @@ const renderTextWithLinks = (text: string): React.ReactNode => {
   }
 
   return elements.length > 0 ? elements : text;
+};
+
+// Helper to detect if a chunk is formatted as raw HTML
+const isHtmlChunk = (str: string): boolean => {
+  const trimmed = str.trim();
+  return /^<[a-zA-Z][\s\S]*>/i.test(trimmed);
+};
+
+// Sanitize raw HTML chunks before rendering
+const sanitizeHtml = (htmlContent: string): string => {
+  return DOMPurify.sanitize(htmlContent, {
+    ADD_TAGS: ['iframe'],
+    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'target', 'rel', 'class', 'style', 'id']
+  });
 };
 
 export default function App() {
@@ -377,14 +400,14 @@ export default function App() {
         description = "The requested consulting blueprint was archived or relocated to safeguard semantic site architecture.";
       }
     } else if (currentPath === '/blog') {
-      title = `Library Columns - ${siteName}`;
+      title = "NetVentures Blog — Digital Business Strategy Articles";
       description = `Browse our premium library of digital strategies, SaaS case studies, and passive income blueprints.`;
       
       // 1. Blog Schema
       const blogSchema = {
         "@type": "Blog",
         "@id": `${origin}/blog/#blog`,
-        "name": `Library Columns - ${siteName}`,
+        "name": "NetVentures Blog — Digital Business Strategy Articles",
         "description": description,
         "publisher": {
           "@id": `${origin}/#organization`
@@ -771,7 +794,7 @@ export default function App() {
                 <div className="rounded-2xl overflow-hidden aspect-video bg-zinc-100 dark:bg-zinc-900">
                   <img 
                     src={article.featuredImage} 
-                    alt={article.title || 'Article cover'} 
+                    alt={article.featuredImageAlt || article.title || 'Article cover'} 
                     className="w-full h-full object-cover" 
                     referrerPolicy="no-referrer"
                   />
@@ -836,6 +859,16 @@ export default function App() {
                             </tbody>
                           </table>
                         </div>
+                      );
+                    }
+                    // Raw HTML chunk detector & sanitizer fallback
+                    if (isHtmlChunk(chunk)) {
+                      return (
+                        <div 
+                          key={index} 
+                          className="space-y-4"
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(chunk) }} 
+                        />
                       );
                     }
                     return <p key={index}>{renderTextWithLinks(chunk)}</p>;
@@ -1600,7 +1633,7 @@ export default function App() {
                   {featuredArticle.featuredImage ? (
                     <img 
                       src={featuredArticle.featuredImage} 
-                      alt={featuredArticle.title || 'Featured article'} 
+                      alt={featuredArticle.featuredImageAlt || featuredArticle.title || 'Featured article'} 
                       loading="lazy"
                       decoding="async"
                       className="w-full h-full object-cover transform group-hover:scale-103 transition-transform duration-500" 

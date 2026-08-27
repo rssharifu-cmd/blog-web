@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    {
+      "source": "/blog/how-to-automate-small-business-without-losing-human-touch",
+      "destination": "/blog/small-business-automation-2026-workflows-automate-first",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "/api/sitemap.xml" },
     { "source": "/rss.xml", "destination": "/api/rss.xml" },

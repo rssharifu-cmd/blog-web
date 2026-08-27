@@ -1535,6 +1535,18 @@ async function start() {
     }
   });
 
+  // ==========================================
+  // 301 HTTP PERMANENT REDIRECTS (Legacy Slugs)
+  // ==========================================
+  const PERMANENT_REDIRECTS: Record<string, string> = {
+    '/blog/how-to-automate-small-business-without-losing-human-touch': '/blog/small-business-automation-2026-workflows-automate-first'
+  };
+
+  Object.entries(PERMANENT_REDIRECTS).forEach(([source, destination]) => {
+    app.get(source, (req, res) => {
+      res.redirect(301, destination);
+    });
+  });
 
   // ==========================================
   // VITE DEV SERVER & PRODUCTION STATIC SERVER

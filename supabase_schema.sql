@@ -78,6 +78,7 @@ create table public.articles (
     tags text[] default '{}'::text[],
     status text default 'draft'::text check (status in ('draft', 'published')),
     featured_image text,
+    featured_image_alt text,
     seo_title text,
     meta_description text,
     canonical_url text,

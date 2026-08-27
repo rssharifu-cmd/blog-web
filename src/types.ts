@@ -8,6 +8,7 @@ export interface Article {
   tags: string[];
   status: 'draft' | 'published';
   featuredImage: string;
+  featuredImageAlt?: string;
   seoTitle: string;
   seoDescription: string;
   canonicalUrl: string;
@@ -57,6 +58,7 @@ export interface ArticleInput {
   tags: string[];
   status: 'draft' | 'published';
   featuredImage: string;
+  featuredImageAlt?: string;
   seoTitle: string;
   seoDescription: string;
   canonicalUrl: string;
