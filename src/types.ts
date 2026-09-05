@@ -37,6 +37,7 @@ export interface SiteSettings {
   siteDescription: string;
   contactEmail: string;
   logoUrl: string;
+  founderImageUrl?: string;
   footerText: string;
   affiliateDisclosure: string;
   googleAnalyticsId?: string;
