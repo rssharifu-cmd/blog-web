@@ -774,7 +774,7 @@ export default function App() {
                 <div className="rounded-2xl overflow-hidden aspect-video bg-zinc-100 dark:bg-zinc-900">
                   <img 
                     src={article.featuredImage} 
-                    alt={article.title || 'Article cover'} 
+                    alt={article.featuredImageAlt || article.title || 'Article cover'} 
                     className="w-full h-full object-cover" 
                     referrerPolicy="no-referrer"
                   />
@@ -1603,7 +1603,7 @@ export default function App() {
                   {featuredArticle.featuredImage ? (
                     <img 
                       src={featuredArticle.featuredImage} 
-                      alt={featuredArticle.title || 'Featured article'} 
+                      alt={featuredArticle.featuredImageAlt || featuredArticle.title || 'Featured article'} 
                       loading="lazy"
                       decoding="async"
                       className="w-full h-full object-cover transform group-hover:scale-103 transition-transform duration-500" 

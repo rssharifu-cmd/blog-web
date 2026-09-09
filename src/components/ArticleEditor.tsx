@@ -27,6 +27,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [status, setStatus] = useState<'draft' | 'published'>('published');
   const [featuredImage, setFeaturedImage] = useState('');
+  const [featuredImageAlt, setFeaturedImageAlt] = useState('');
   const [author, setAuthor] = useState('Stefan Sharf');
 
   // SEO Fields
@@ -63,6 +64,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
           setSelectedTags(data.tags);
           setStatus(data.status);
           setFeaturedImage(data.featuredImage);
+          setFeaturedImageAlt(data.featuredImageAlt || '');
           setAuthor(data.author);
           setSeoTitle(data.seoTitle || '');
           setSeoDescription(data.seoDescription || '');
@@ -137,6 +139,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
       tags: selectedTags,
       status: finalStatus,
       featuredImage,
+      featuredImageAlt,
       author,
       seoTitle: seoTitle || `${title} - NetVentures`,
       seoDescription: seoDescription || shortDescription,
@@ -432,6 +435,18 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Image Alt Text</label>
+                <input
+                  type="text"
+                  value={featuredImageAlt}
+                  onChange={(e) => setFeaturedImageAlt(e.target.value)}
+                  placeholder="Descriptive alt text for the image (defaults to title if empty)..."
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-gray-750 dark:text-gray-300 focus:ring-1 focus:ring-gold-500"
+                />
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Improves accessibility and image SEO search rankings.</p>
+              </div>
+
               {/* Cover Presets */}
               <div>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Or Choose Premium Cover Cover Preset</p>
@@ -526,7 +541,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
         <div className="space-y-6">
           <div className="relative aspect-video rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-900">
             {featuredImage ? (
-              <img src={featuredImage} alt={title || 'Draft cover'} className="object-cover w-full h-full" referrerPolicy="no-referrer" />
+              <img src={featuredImage} alt={featuredImageAlt || title || 'Draft cover'} className="object-cover w-full h-full" referrerPolicy="no-referrer" />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-zinc-500">
                 <span className="text-xs font-mono uppercase tracking-wider">No Cover Image Selected</span>

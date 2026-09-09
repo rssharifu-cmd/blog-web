@@ -31,7 +31,7 @@ export default function ArticleCard({ article, category, onClick }: ArticleCardP
         {article.featuredImage ? (
           <img 
             src={article.featuredImage} 
-            alt={article.title || 'Article cover'}
+            alt={article.featuredImageAlt || article.title || 'Article cover'}
             loading="lazy"
             decoding="async"
             className="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500"
