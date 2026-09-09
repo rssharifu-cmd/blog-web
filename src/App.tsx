@@ -12,8 +12,6 @@ import Chatbot from './components/Chatbot.js';
 import Toc from './components/Toc.js';
 import AdminLayout from './components/AdminLayout.js';
 import SocialShare from './components/SocialShare.js';
-import FounderPhotoUpload from './components/FounderPhotoUpload.js';
-import DOMPurify from 'dompurify';
 import { Article, Category, Tag, SiteSettings } from './types.js';
 import { 
   getArticles, 
@@ -42,14 +40,6 @@ const sanitizePath = (path: string): string => {
   // Remove trailing slash if it is not just "/"
   if (cleaned.length > 1 && cleaned.endsWith('/')) {
     cleaned = cleaned.slice(0, -1);
-  }
-
-  // Permanent redirects resolution
-  const REDIRECT_MAP: Record<string, string> = {
-    '/blog/how-to-automate-small-business-without-losing-human-touch': '/blog/small-business-automation-2026-workflows-automate-first'
-  };
-  if (REDIRECT_MAP[cleaned]) {
-    cleaned = REDIRECT_MAP[cleaned];
   }
   
   return cleaned;
@@ -91,20 +81,6 @@ const renderTextWithLinks = (text: string): React.ReactNode => {
   }
 
   return elements.length > 0 ? elements : text;
-};
-
-// Helper to detect if a chunk is formatted as raw HTML
-const isHtmlChunk = (str: string): boolean => {
-  const trimmed = str.trim();
-  return /^<[a-zA-Z][\s\S]*>/i.test(trimmed);
-};
-
-// Sanitize raw HTML chunks before rendering
-const sanitizeHtml = (htmlContent: string): string => {
-  return DOMPurify.sanitize(htmlContent, {
-    ADD_TAGS: ['iframe'],
-    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'target', 'rel', 'class', 'style', 'id']
-  });
 };
 
 export default function App() {
@@ -272,7 +248,6 @@ export default function App() {
     siteDescription: 'Premium digital business strategies and insights.',
     contactEmail: 'editor@netventures.online',
     logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80',
-    founderImageUrl: '',
     footerText: '© 2026 NetVentures.',
     affiliateDisclosure: 'Disclosure: Some links are affiliate links.'
   };
@@ -402,14 +377,14 @@ export default function App() {
         description = "The requested consulting blueprint was archived or relocated to safeguard semantic site architecture.";
       }
     } else if (currentPath === '/blog') {
-      title = "NetVentures Blog — Digital Business Strategy Articles";
+      title = `Library Columns - ${siteName}`;
       description = `Browse our premium library of digital strategies, SaaS case studies, and passive income blueprints.`;
       
       // 1. Blog Schema
       const blogSchema = {
         "@type": "Blog",
         "@id": `${origin}/blog/#blog`,
-        "name": "NetVentures Blog — Digital Business Strategy Articles",
+        "name": `Library Columns - ${siteName}`,
         "description": description,
         "publisher": {
           "@id": `${origin}/#organization`
@@ -796,7 +771,7 @@ export default function App() {
                 <div className="rounded-2xl overflow-hidden aspect-video bg-zinc-100 dark:bg-zinc-900">
                   <img 
                     src={article.featuredImage} 
-                    alt={article.featuredImageAlt || article.title || 'Article cover'} 
+                    alt={article.title || 'Article cover'} 
                     className="w-full h-full object-cover" 
                     referrerPolicy="no-referrer"
                   />
@@ -861,16 +836,6 @@ export default function App() {
                             </tbody>
                           </table>
                         </div>
-                      );
-                    }
-                    // Raw HTML chunk detector & sanitizer fallback
-                    if (isHtmlChunk(chunk)) {
-                      return (
-                        <div 
-                          key={index} 
-                          className="space-y-4"
-                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(chunk) }} 
-                        />
                       );
                     }
                     return <p key={index}>{renderTextWithLinks(chunk)}</p>;
@@ -1315,7 +1280,7 @@ export default function App() {
           <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
               <img
-                src={currentSettings.founderImageUrl || "/stefan-sharf.jpg"}
+                src="/stefan-sharf.jpg"
                 alt="Stefan Sharf - Founder & CEO, NetVentures"
                 loading="lazy"
                 decoding="async"
@@ -1349,12 +1314,6 @@ export default function App() {
               </div>
             </div>
           </div>
-
-          {/* Founder Photo Admin Upload Section */}
-          <FounderPhotoUpload 
-            currentSettings={currentSettings}
-            onSettingsUpdated={(newSet) => setSettings(newSet)}
-          />
 
           {/* 4. Stefan Sharf on YouTube */}
           <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-linear-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900/50 shadow-xs space-y-4">
@@ -1641,7 +1600,7 @@ export default function App() {
                   {featuredArticle.featuredImage ? (
                     <img 
                       src={featuredArticle.featuredImage} 
-                      alt={featuredArticle.featuredImageAlt || featuredArticle.title || 'Featured article'} 
+                      alt={featuredArticle.title || 'Featured article'} 
                       loading="lazy"
                       decoding="async"
                       className="w-full h-full object-cover transform group-hover:scale-103 transition-transform duration-500" 

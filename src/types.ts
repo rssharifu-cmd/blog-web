@@ -8,7 +8,6 @@ export interface Article {
   tags: string[];
   status: 'draft' | 'published';
   featuredImage: string;
-  featuredImageAlt?: string;
   seoTitle: string;
   seoDescription: string;
   canonicalUrl: string;
@@ -37,7 +36,6 @@ export interface SiteSettings {
   siteDescription: string;
   contactEmail: string;
   logoUrl: string;
-  founderImageUrl?: string;
   footerText: string;
   affiliateDisclosure: string;
   googleAnalyticsId?: string;
@@ -59,7 +57,6 @@ export interface ArticleInput {
   tags: string[];
   status: 'draft' | 'published';
   featuredImage: string;
-  featuredImageAlt?: string;
   seoTitle: string;
   seoDescription: string;
   canonicalUrl: string;

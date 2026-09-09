@@ -71,7 +71,6 @@ const DEFAULT_SETTINGS: SiteSettings = {
   siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.',
   contactEmail: 'editor@netventures.online',
   logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80',
-  founderImageUrl: '',
   footerText: '© 2026 NetVentures. Premium digital business strategies and insights.',
   affiliateDisclosure: 'Affiliate Disclosure: Some of the links on this website are affiliate links, meaning we may earn a small commission if you make a purchase through them, at no extra cost to you. We only recommend products we have personally tested and trust.',
   googleAnalyticsId: '',
@@ -193,7 +192,6 @@ const mapArticleFromDb = (dbArt: any): Article => {
     tags: dbArt.tags || [],
     status: (dbArt.status && dbArt.status.toString().toLowerCase() === 'draft') ? 'draft' : 'published',
     featuredImage: dbArt.featured_image || '',
-    featuredImageAlt: dbArt.featured_image_alt || dbArt.featuredImageAlt || '',
     seoTitle: dbArt.seo_title || '',
     seoDescription: dbArt.seo_description || dbArt.meta_description || '',
     canonicalUrl: dbArt.canonical_url || '',
@@ -212,7 +210,6 @@ const mapArticleToDbForInsert = (art: Partial<ArticleInput>) => {
     author: art.author || 'Stefan Sharf',
     content: art.content,
     featured_image: art.featuredImage,
-    featured_image_alt: art.featuredImageAlt || '',
     seo_title: art.seoTitle,
     canonical_url: art.canonicalUrl,
     status: art.status || 'published',
@@ -233,7 +230,6 @@ const mapArticleToDbForUpdate = (art: Partial<ArticleInput> & { id?: string }) =
     author: art.author,
     content: art.content,
     featured_image: art.featuredImage,
-    featured_image_alt: art.featuredImageAlt || '',
     seo_title: art.seoTitle,
     canonical_url: art.canonicalUrl,
     status: art.status,
@@ -250,7 +246,6 @@ const mapSettingsFromDb = (dbSet: any): SiteSettings => ({
   siteDescription: dbSet.site_description || '',
   contactEmail: dbSet.contact_email || '',
   logoUrl: dbSet.logo_url || '',
-  founderImageUrl: dbSet.founder_image_url || '',
   footerText: dbSet.footer_text || '',
   affiliateDisclosure: dbSet.affiliate_disclosure || '',
   googleAnalyticsId: dbSet.google_analytics_id || '',
@@ -263,7 +258,6 @@ const mapSettingsToDb = (set: SiteSettings) => ({
   site_description: set.siteDescription,
   contact_email: set.contactEmail,
   logo_url: set.logoUrl,
-  founder_image_url: set.founderImageUrl || '',
   footer_text: set.footerText,
   affiliate_disclosure: set.affiliateDisclosure,
   google_analytics_id: set.googleAnalyticsId || '',
@@ -324,7 +318,7 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
 
 export const getArticleSummaries = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
   if (isSupabaseConfigured && supabase) {
-    const selectFields = 'id, title, slug, short_description, category_id, tags, status, featured_image, featured_image_alt, seo_title, seo_description, canonical_url, created_at, published_at, reading_time, views, author, faq';
+    const selectFields = 'id, title, slug, short_description, category_id, tags, status, featured_image, seo_title, seo_description, canonical_url, created_at, published_at, reading_time, views, author, faq';
 
     let query = supabase.from('articles').select(selectFields).order('created_at', { ascending: false }).limit(200);
     if (options?.status) {
