@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, Calendar, Clock, Eye, Sparkles, BookOpen, ChevronRight, 
   ArrowLeft, Mail, ArrowRight, Compass, ShieldAlert, FileCheck, HelpCircle, Send, Globe, ChevronLeft,
-  Youtube, ExternalLink
+  Youtube, ExternalLink, User
 } from 'lucide-react';
 import Header from './components/Header.js';
 import Footer from './components/Footer.js';
@@ -1282,14 +1282,21 @@ export default function App() {
           {/* 1 & 2 & 3. Stefan Sharf Profile Photo, Identity & Introduction */}
           <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
-              <img
-                src={currentSettings.founderImageUrl || "/stefan-sharf.jpg"}
-                alt="Stefan Sharf - Founder & CEO, NetVentures"
-                loading="lazy"
-                decoding="async"
-                referrerPolicy="no-referrer"
-                className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl object-cover border-2 border-gold-500/30 shadow-md flex-shrink-0"
-              />
+              {currentSettings.founderImageUrl ? (
+                <img
+                  src={currentSettings.founderImageUrl}
+                  alt="Stefan Sharf - Founder & CEO, NetVentures"
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl object-cover border-2 border-gold-500/30 shadow-md flex-shrink-0"
+                />
+              ) : (
+                <div className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border-2 border-gold-500/30 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600 flex-shrink-0 shadow-inner">
+                  <User className="w-14 h-14 stroke-1 mb-1 text-zinc-400 dark:text-zinc-500" />
+                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Stefan Sharf</span>
+                </div>
+              )}
               <div className="space-y-4 text-center sm:text-left">
                 <div>
                   <h2 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 dark:text-white">

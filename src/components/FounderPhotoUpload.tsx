@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Camera, CheckCircle2, AlertCircle, Loader2, Trash2, Link as LinkIcon } from 'lucide-react';
 import { SiteSettings } from '../types.js';
 import { uploadFeaturedImage, saveSettings, getSettings } from '../lib/supabase.js';
 
@@ -9,7 +9,7 @@ interface FounderPhotoUploadProps {
   className?: string;
 }
 
-// Client-side image optimizer to keep avatars fast, crisp, and within localStorage quotas
+// Client-side image optimizer to keep avatars fast, crisp, and within storage quotas
 const optimizePortrait = async (file: File): Promise<File> => {
   if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
     return file;
@@ -68,8 +68,10 @@ export default function FounderPhotoUpload({ settings, onSettingsSaved, classNam
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [customUrl, setCustomUrl] = useState('');
 
-  const currentPreview = localPreview || settings?.founderImageUrl || '/stefan-sharf.jpg';
+  const currentPreview = localPreview !== null ? localPreview : (settings?.founderImageUrl || '');
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,6 +121,63 @@ export default function FounderPhotoUpload({ settings, onSettingsSaved, classNam
     }
   };
 
+  const handleSaveCustomUrl = async () => {
+    try {
+      setError(null);
+      setSuccess(false);
+      const urlToSave = customUrl.trim();
+      setLocalPreview(urlToSave);
+
+      const baseSettings = settings || await getSettings();
+      const updatedSettings: SiteSettings = {
+        ...baseSettings,
+        founderImageUrl: urlToSave
+      };
+
+      const saved = await saveSettings(updatedSettings);
+      if (saved) {
+        setSuccess(true);
+        setShowUrlInput(false);
+        if (onSettingsSaved) {
+          onSettingsSaved();
+        }
+        setTimeout(() => setSuccess(false), 4000);
+      } else {
+        throw new Error('Failed to save photo URL.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to save URL');
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    try {
+      setError(null);
+      setSuccess(false);
+      setLocalPreview('');
+      setCustomUrl('');
+
+      const baseSettings = settings || await getSettings();
+      const updatedSettings: SiteSettings = {
+        ...baseSettings,
+        founderImageUrl: ''
+      };
+
+      const saved = await saveSettings(updatedSettings);
+      if (saved) {
+        setSuccess(true);
+        if (onSettingsSaved) {
+          onSettingsSaved();
+        }
+        setTimeout(() => setSuccess(false), 4000);
+      } else {
+        throw new Error('Failed to remove photo.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to remove photo');
+    }
+  };
+
   return (
     <div className={`p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 shadow-xs ${className}`}>
       <div className="flex items-center justify-between mb-3">
@@ -134,44 +193,98 @@ export default function FounderPhotoUpload({ settings, onSettingsSaved, classNam
 
       <div className="flex items-center gap-4">
         {/* Small Preview */}
-        <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 flex-shrink-0 shadow-xs">
-          <img
-            src={currentPreview}
-            alt="Founder portrait preview"
-            loading="lazy"
-            decoding="async"
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover"
-          />
+        <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 flex-shrink-0 shadow-xs flex items-center justify-center">
+          {currentPreview ? (
+            <img
+              src={currentPreview}
+              alt="Founder portrait preview"
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <Camera className="h-6 w-6 text-gray-400 dark:text-gray-500" />
+          )}
         </div>
 
         {/* Upload Control */}
         <div className="flex-1 space-y-2">
-          <label className="inline-flex items-center px-3 py-2 bg-zinc-900 hover:bg-zinc-850 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-xl text-xs font-semibold cursor-pointer transition-all disabled:opacity-50">
-            {uploading ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Camera className="h-3.5 w-3.5 mr-1.5" />
-                Upload File
-              </>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex items-center px-3 py-2 bg-zinc-900 hover:bg-zinc-850 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-xl text-xs font-semibold cursor-pointer transition-all disabled:opacity-50">
+              {uploading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Camera className="h-3.5 w-3.5 mr-1.5" />
+                  Upload Photo
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploading}
+                onChange={handleFileChange}
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowUrlInput(!showUrlInput);
+                setCustomUrl(currentPreview);
+              }}
+              className="inline-flex items-center px-3 py-2 border border-gray-200 dark:border-zinc-700 text-gray-750 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+            >
+              <LinkIcon className="h-3.5 w-3.5 mr-1.5 text-gray-400" />
+              Direct URL
+            </button>
+
+            {currentPreview && (
+              <button
+                type="button"
+                onClick={handleRemovePhoto}
+                className="inline-flex items-center px-2.5 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                title="Remove photo"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Remove
+              </button>
             )}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled={uploading}
-              onChange={handleFileChange}
-            />
-          </label>
+          </div>
           <p className="text-[11px] text-gray-400 dark:text-gray-500">
-            JPEG, PNG or WebP square portrait recommended.
+            Upload from device or paste direct image URL. Square portrait recommended.
           </p>
         </div>
       </div>
+
+      {showUrlInput && (
+        <div className="mt-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 space-y-2 animate-fade-in">
+          <label className="block text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+            Paste Public Photo URL
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={customUrl}
+              onChange={(e) => setCustomUrl(e.target.value)}
+              placeholder="https://example.com/my-photo.jpg"
+              className="flex-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-gray-900 dark:text-white focus:ring-1 focus:ring-gold-500"
+            />
+            <button
+              type="button"
+              onClick={handleSaveCustomUrl}
+              className="px-3 py-1.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 rounded-lg text-xs font-semibold hover:opacity-90 transition-all cursor-pointer"
+            >
+              Save URL
+            </button>
+          </div>
+        </div>
+      )}
 
       {success && (
         <div className="mt-3 flex items-center gap-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs animate-fade-in">
