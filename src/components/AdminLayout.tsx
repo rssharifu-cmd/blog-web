@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Article, Category, Tag, SiteSettings } from '../types.js';
 import ArticleEditor from './ArticleEditor.js';
+import FounderPhotoUpload from './FounderPhotoUpload.js';
 import { 
   getArticles, 
   getArticleSummaries,
@@ -905,7 +906,16 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
 
             {/* 4. SETTINGS VIEW */}
             {activeTab === 'settings' && siteSettings && (
-              <form onSubmit={handleSaveSettings} className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-xs space-y-6 animate-fade-in">
+              <div className="space-y-6 animate-fade-in">
+                <FounderPhotoUpload 
+                  settings={siteSettings} 
+                  onSettingsSaved={() => {
+                    onRefreshData();
+                    getSettings().then(setSiteSettings);
+                  }} 
+                />
+
+                <form onSubmit={handleSaveSettings} className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-xs space-y-6">
                 <div>
                   <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Site Settings</h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Configure public metadata, footers, logos, and disclosure notices.</p>
@@ -1004,7 +1014,8 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                   <Save className="h-4 w-4" /> Save Configuration
                 </button>
               </form>
-            )}
+            </div>
+          )}
 
             {/* 4.5. GOOGLE SEARCH CONSOLE INTEGRATION VIEW */}
             {activeTab === 'gsc' && siteSettings && (

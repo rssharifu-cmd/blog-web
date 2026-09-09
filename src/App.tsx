@@ -12,7 +12,6 @@ import Chatbot from './components/Chatbot.js';
 import Toc from './components/Toc.js';
 import AdminLayout from './components/AdminLayout.js';
 import SocialShare from './components/SocialShare.js';
-import FounderPhotoUpload from './components/FounderPhotoUpload.js';
 import { Article, Category, Tag, SiteSettings } from './types.js';
 import { 
   getArticles, 
@@ -660,7 +659,6 @@ export default function App() {
 
   // Render Hidden CMS View (Strictly separated from the public layouts)
   if (currentPath === '/secret-cms-login') {
-    const hasAdminToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('net_admin_token'));
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-zinc-950">
         <AdminLayout 
@@ -669,14 +667,6 @@ export default function App() {
           tags={tags}
           onRefreshData={fetchAllData}
         />
-        {hasAdminToken && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-            <FounderPhotoUpload 
-              settings={settings} 
-              onSettingsSaved={fetchAllData} 
-            />
-          </div>
-        )}
       </div>
     );
   }
@@ -1326,12 +1316,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-
-            {typeof window !== 'undefined' && Boolean(localStorage.getItem('net_admin_token')) && (
-              <div className="mt-8 pt-6 border-t border-gray-100 dark:border-zinc-850">
-                <FounderPhotoUpload settings={settings} onSettingsSaved={fetchAllData} />
-              </div>
-            )}
           </div>
 
           {/* 4. Stefan Sharf on YouTube */}
