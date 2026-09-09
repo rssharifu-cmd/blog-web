@@ -12,6 +12,7 @@ import Chatbot from './components/Chatbot.js';
 import Toc from './components/Toc.js';
 import AdminLayout from './components/AdminLayout.js';
 import SocialShare from './components/SocialShare.js';
+import FounderPhotoUpload from './components/FounderPhotoUpload.js';
 import { Article, Category, Tag, SiteSettings } from './types.js';
 import { 
   getArticles, 
@@ -248,6 +249,7 @@ export default function App() {
     siteDescription: 'Premium digital business strategies and insights.',
     contactEmail: 'editor@netventures.online',
     logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80',
+    founderImageUrl: '',
     footerText: '© 2026 NetVentures.',
     affiliateDisclosure: 'Disclosure: Some links are affiliate links.'
   };
@@ -658,13 +660,24 @@ export default function App() {
 
   // Render Hidden CMS View (Strictly separated from the public layouts)
   if (currentPath === '/secret-cms-login') {
+    const hasAdminToken = typeof window !== 'undefined' && Boolean(localStorage.getItem('net_admin_token'));
     return (
-      <AdminLayout 
-        navigate={navigate}
-        categories={categories}
-        tags={tags}
-        onRefreshData={fetchAllData}
-      />
+      <div className="min-h-screen bg-gray-50 dark:bg-zinc-950">
+        <AdminLayout 
+          navigate={navigate}
+          categories={categories}
+          tags={tags}
+          onRefreshData={fetchAllData}
+        />
+        {hasAdminToken && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+            <FounderPhotoUpload 
+              settings={settings} 
+              onSettingsSaved={fetchAllData} 
+            />
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -1280,7 +1293,7 @@ export default function App() {
           <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
               <img
-                src="/stefan-sharf.jpg"
+                src={currentSettings.founderImageUrl || "/stefan-sharf.jpg"}
                 alt="Stefan Sharf - Founder & CEO, NetVentures"
                 loading="lazy"
                 decoding="async"
@@ -1313,6 +1326,12 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {typeof window !== 'undefined' && Boolean(localStorage.getItem('net_admin_token')) && (
+              <div className="mt-8 pt-6 border-t border-gray-100 dark:border-zinc-850">
+                <FounderPhotoUpload settings={settings} onSettingsSaved={fetchAllData} />
+              </div>
+            )}
           </div>
 
           {/* 4. Stefan Sharf on YouTube */}
