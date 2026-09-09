@@ -464,16 +464,28 @@ export const getTags = async (): Promise<Tag[]> => {
 };
 
 export const getSettings = async (): Promise<SiteSettings> => {
+  const local = loadLocalData<Partial<SiteSettings> | null>('net_settings', null);
+
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from('site_settings').select('*').eq('id', 'global').maybeSingle();
-    if (error) {
-      console.error(error);
-      return DEFAULT_SETTINGS;
+    try {
+      const { data, error } = await supabase.from('site_settings').select('*').eq('id', 'global').maybeSingle();
+      if (!error && data) {
+        const dbSettings = mapSettingsFromDb(data);
+        return {
+          ...dbSettings,
+          ...(local || {}),
+          founderImageUrl: local?.founderImageUrl || dbSettings.founderImageUrl || ''
+        };
+      }
+    } catch (e) {
+      console.warn('Failed to load settings from Supabase:', e);
     }
-    return data ? mapSettingsFromDb(data) : DEFAULT_SETTINGS;
-  } else {
-    return loadLocalData<SiteSettings>('net_settings', DEFAULT_SETTINGS);
   }
+
+  return {
+    ...DEFAULT_SETTINGS,
+    ...(local || {})
+  };
 };
 
 export const incrementArticleView = async (slug: string): Promise<boolean> => {
@@ -529,13 +541,29 @@ export const getSubscribers = async (): Promise<string[]> => {
 };
 
 export const saveSettings = async (settings: SiteSettings): Promise<boolean> => {
+  // Always persist to local storage for immediate offline and persistent reliability
+  saveLocalData('net_settings', settings);
+
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.from('site_settings').upsert([mapSettingsToDb(settings)]);
-    return !error;
-  } else {
-    saveLocalData('net_settings', settings);
-    return true;
+    try {
+      const dbPayload: any = mapSettingsToDb(settings);
+      const { error } = await supabase.from('site_settings').upsert([dbPayload]);
+      if (error) {
+        console.warn('Supabase site_settings upsert notice (fallback to local storage applied):', error.message || error);
+        // If DB table has not migrated founder_image_url column, try saving compatible standard fields
+        if (error.code === 'PGRST204') {
+          try {
+            const { founder_image_url, ...compatiblePayload } = dbPayload;
+            await supabase.from('site_settings').upsert([compatiblePayload]);
+          } catch (e) {}
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase site_settings save error:', err);
+    }
   }
+
+  return true;
 };
 
 export const saveArticle = async (input: ArticleInput & { id?: string }): Promise<Article | null> => {

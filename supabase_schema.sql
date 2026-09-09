@@ -123,6 +123,7 @@ create table public.site_settings (
     site_description text,
     contact_email text,
     logo_url text,
+    founder_image_url text,
     footer_text text,
     affiliate_disclosure text,
     google_analytics_id text,

@@ -9,12 +9,67 @@ interface FounderPhotoUploadProps {
   className?: string;
 }
 
+// Client-side image optimizer to keep avatars fast, crisp, and within localStorage quotas
+const optimizePortrait = async (file: File): Promise<File> => {
+  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+    return file;
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const maxDimension = 1000;
+      let { width, height } = img;
+
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(file);
+
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (blob && blob.size < file.size) {
+            resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+          } else {
+            resolve(file);
+          }
+        },
+        'image/jpeg',
+        0.88
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file);
+    };
+
+    img.src = objectUrl;
+  });
+};
+
 export default function FounderPhotoUpload({ settings, onSettingsSaved, className = '' }: FounderPhotoUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
 
-  const currentPreview = settings?.founderImageUrl || '/stefan-sharf.jpg';
+  const currentPreview = localPreview || settings?.founderImageUrl || '/stefan-sharf.jpg';
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -25,8 +80,18 @@ export default function FounderPhotoUpload({ settings, onSettingsSaved, classNam
       setSuccess(false);
       setUploading(true);
 
+      // Pre-optimize portrait if large
+      const readyFile = await optimizePortrait(file);
+
       // 1. Call existing uploadFeaturedImage() function from src/lib/supabase.ts
-      const publicUrl = await uploadFeaturedImage(file);
+      const publicUrl = await uploadFeaturedImage(readyFile);
+
+      if (!publicUrl) {
+        throw new Error('Could not process photo upload. Please choose another file.');
+      }
+
+      // Update immediate local preview
+      setLocalPreview(publicUrl);
 
       // 2. Save returned URL into settings.founderImageUrl via existing saveSettings()
       const baseSettings = settings || await getSettings();
