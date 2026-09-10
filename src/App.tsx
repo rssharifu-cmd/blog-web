@@ -375,18 +375,18 @@ export default function App() {
           schemas.push(faqSchema);
         }
       } else {
-        title = `Route Missing - ${siteName}`;
-        description = "The requested consulting blueprint was archived or relocated to safeguard semantic site architecture.";
+        title = `Page Not Found (404) - ${siteName}`;
+        description = "The requested page was archived or relocated. Search our active library instead.";
       }
     } else if (currentPath === '/blog') {
-      title = `Library Columns - ${siteName}`;
+      title = `The NetVentures Library - ${siteName}`;
       description = `Browse our premium library of digital strategies, SaaS case studies, and passive income blueprints.`;
       
       // 1. Blog Schema
       const blogSchema = {
         "@type": "Blog",
         "@id": `${origin}/blog/#blog`,
-        "name": `Library Columns - ${siteName}`,
+        "name": `The NetVentures Library - ${siteName}`,
         "description": description,
         "publisher": {
           "@id": `${origin}/#organization`
@@ -1758,9 +1758,9 @@ export default function App() {
           404
         </div>
         <div className="space-y-2">
-          <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Consulting Route Missing</h2>
+          <h1 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Page Not Found (404)</h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-            The requested consulting blueprint was archived or relocated to safeguard semantic site architecture. Search our active index instead:
+            The requested page or consulting blueprint was archived or relocated. Search our active library instead:
           </p>
         </div>
 

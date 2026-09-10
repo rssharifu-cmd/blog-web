@@ -185,6 +185,15 @@ async function start() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+  // Protection against search engine crawling & duplicate content on dev/staging URLs (.run.app)
+  app.use((req, res, next) => {
+    const host = req.get('host') || '';
+    if (host.includes('run.app') || host.includes('aistudio')) {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+    }
+    next();
+  });
+
   // Serve uploads directory statically
   app.use('/uploads', express.static(PUBLIC_UPLOADS_DIR));
   app.use('/uploads', express.static(DIST_UPLOADS_DIR));
@@ -192,6 +201,8 @@ async function start() {
   // ==========================================
   // HELPER METADATA & SEO UTILITIES
   // ==========================================
+
+  const CANONICAL_SITE_URL = 'https://www.netventures.online';
 
   // Clean slugify utility
   const slugify = (text: string): string => {
@@ -232,7 +243,7 @@ async function start() {
 
   // Automatic SEO calculations helper (Canonical, OpenGraph, JSON-LD)
   const computeArticleSEO = (article: any) => {
-    const baseDomain = (process.env.APP_URL || 'https://www.netventures.online').trim().replace(/\/$/, '');
+    const baseDomain = CANONICAL_SITE_URL;
     const canonicalUrl = article.canonicalUrl || article.canonical_url || `${baseDomain}/blog/${article.slug}`;
 
     // OpenGraph structure
@@ -1539,14 +1550,26 @@ async function start() {
   app.get('/docs', (req, res) => res.redirect('/api/v1/docs'));
 
   // ==========================================
-  // DYNAMIC SITEMAP & RSS SYNDICATION GENERATION
+  // DYNAMIC SITEMAP, ROBOTS.TXT & RSS SYNDICATION
   // ==========================================
+
+  app.get('/robots.txt', (req, res) => {
+    const host = req.get('host') || '';
+    if (host.includes('run.app') || host.includes('aistudio')) {
+      res.type('text/plain');
+      return res.send(`User-agent: *\nDisallow: /\n`);
+    }
+    const robotsPath = path.resolve(process.cwd(), 'public', 'robots.txt');
+    if (fs.existsSync(robotsPath)) {
+      return res.sendFile(robotsPath);
+    }
+    res.type('text/plain').send(`User-agent: *\nAllow: /\nSitemap: https://www.netventures.online/sitemap.xml\n`);
+  });
 
   app.get('/sitemap.xml', async (req, res) => {
     try {
       const articles = await getAllArticlesCombined();
-      const SITE_BASE_URL = (process.env.APP_URL || 'https://www.netventures.online').trim();
-      const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+      const baseDomain = CANONICAL_SITE_URL;
       const currentDate = new Date().toISOString().split('T')[0];
 
       let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -1627,8 +1650,7 @@ async function start() {
         siteName: 'NetVentures',
         siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.'
       };
-      const SITE_BASE_URL = (process.env.APP_URL || 'https://www.netventures.online').trim();
-      const baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
+      const baseDomain = CANONICAL_SITE_URL;
 
       if (isSupabaseConfigured && supabaseClient) {
         const { data: settingsData } = await supabaseClient
@@ -1689,6 +1711,129 @@ async function start() {
     }
   });
 
+  // ==========================================
+  // SERVER-SIDE HTML SEO & 404 STATUS INJECTION
+  // ==========================================
+
+  const renderHtmlWithSeo = async (reqPath: string, templateHtml: string): Promise<{ html: string; status: number }> => {
+    const baseDomain = CANONICAL_SITE_URL;
+    const cleanPath = reqPath.split('?')[0].replace(/\/$/, '') || '/';
+    let status = 200;
+
+    let pageTitle = 'NetVentures - AI & Online Business Magazine';
+    let pageDesc = 'A premium online business magazine and publishing platform focused on making money online, AI tools, SaaS reviews, affiliate marketing, and automation.';
+    let canonicalUrl = `${baseDomain}${cleanPath === '/' ? '/' : cleanPath}`;
+    let ogImage = `${baseDomain}/uploads/stefan-sharf.jpg`;
+    let ogType = 'website';
+
+    if (cleanPath === '/') {
+      pageTitle = 'NetVentures - AI & Online Business Magazine';
+      pageDesc = 'A premium online business magazine and publishing platform focused on making money online, AI tools, SaaS reviews, affiliate marketing, and automation.';
+      canonicalUrl = `${baseDomain}/`;
+    } else if (cleanPath === '/blog') {
+      pageTitle = 'The NetVentures Library - NetVentures';
+      pageDesc = 'Browse our premium library of digital strategies, SaaS case studies, and passive income blueprints.';
+      canonicalUrl = `${baseDomain}/blog`;
+    } else if (cleanPath === '/about') {
+      pageTitle = 'About Stefan Sharf & NetVentures';
+      pageDesc = 'Learn about Stefan Sharf, our digital business philosophy, editorial process, and mission to deliver actionable AI and SaaS business models.';
+      canonicalUrl = `${baseDomain}/about`;
+      ogType = 'profile';
+    } else if (cleanPath === '/contact') {
+      pageTitle = 'Contact Inquiries - NetVentures';
+      pageDesc = 'Get in touch with our administrative or editorial desk for general inquiries, SaaS reviews, or sponsorships.';
+      canonicalUrl = `${baseDomain}/contact`;
+    } else if (cleanPath === '/privacy') {
+      pageTitle = 'Privacy Protocol - NetVentures';
+      pageDesc = 'Our clear data storage, cookie transparency, and editorial security parameters.';
+      canonicalUrl = `${baseDomain}/privacy`;
+    } else if (cleanPath === '/terms') {
+      pageTitle = 'Terms & Conditions - NetVentures';
+      pageDesc = 'Intellectual property, compliance mandates, and consulting liability limitations.';
+      canonicalUrl = `${baseDomain}/terms`;
+    } else if (cleanPath === '/disclosure') {
+      pageTitle = 'Affiliate Marketing Disclosure - NetVentures';
+      pageDesc = 'FTC disclosure and partnership details explaining digital server asset funding.';
+      canonicalUrl = `${baseDomain}/disclosure`;
+    } else if (cleanPath === '/search' || cleanPath === '/secret-cms-login') {
+      pageTitle = cleanPath === '/search' ? 'Search Library - NetVentures' : 'CMS Portal - NetVentures';
+      canonicalUrl = `${baseDomain}${cleanPath}`;
+    } else if (cleanPath.startsWith('/blog/')) {
+      const slug = cleanPath.replace('/blog/', '').trim();
+      const articles = await getAllArticlesCombined();
+      const article = articles.find((a: any) => 
+        (a.slug && (a.slug === slug || slugify(a.slug) === slugify(slug))) || 
+        (a.id && a.id === slug) ||
+        (a.title && slugify(a.title) === slugify(slug))
+      );
+
+      if (article) {
+        pageTitle = `${article.seoTitle || article.title} - NetVentures`;
+        const rawDesc = article.seoDescription || article.shortDescription || article.excerpt || article.content || '';
+        pageDesc = rawDesc.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 160);
+        canonicalUrl = `${baseDomain}/blog/${article.slug || slug}`;
+        ogImage = article.featuredImage || `${baseDomain}/uploads/stefan-sharf.jpg`;
+        ogType = 'article';
+      } else {
+        status = 404;
+        pageTitle = 'Page Not Found (404) - NetVentures';
+        pageDesc = 'The requested article or page could not be found on NetVentures.';
+        canonicalUrl = `${baseDomain}/404`;
+      }
+    } else {
+      // Unknown route -> 404 (eliminates Soft 404s)
+      status = 404;
+      pageTitle = 'Page Not Found (404) - NetVentures';
+      pageDesc = 'The requested page could not be found on NetVentures.';
+      canonicalUrl = `${baseDomain}/404`;
+    }
+
+    const escapeAttr = (str: string) => (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const escapeContent = (str: string) => (str || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    let html = templateHtml;
+
+    // Replace <title>
+    html = html.replace(/<title>.*?<\/title>/i, `<title>${escapeContent(pageTitle)}</title>`);
+
+    // Replace or inject meta description
+    if (/<meta\s+name="description"\s+content=".*?"\s*\/?>/i.test(html)) {
+      html = html.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/i, `<meta name="description" content="${escapeAttr(pageDesc)}" />`);
+    } else {
+      html = html.replace('</head>', `  <meta name="description" content="${escapeAttr(pageDesc)}" />\n  </head>`);
+    }
+
+    // Replace or inject canonical link
+    if (/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/i.test(html)) {
+      html = html.replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/i, `<link rel="canonical" href="${canonicalUrl}" />`);
+    } else {
+      html = html.replace('</head>', `  <link rel="canonical" href="${canonicalUrl}" />\n  </head>`);
+    }
+
+    // Replace existing og & twitter tags
+    html = html.replace(/<meta\s+property="og:[^>]*>/gi, '');
+    html = html.replace(/<meta\s+name="twitter:[^>]*>/gi, '');
+
+    const ogTags = `
+    <!-- Open Graph Dynamic Metadata -->
+    <meta property="og:site_name" content="NetVentures" />
+    <meta property="og:title" content="${escapeAttr(pageTitle)}" />
+    <meta property="og:description" content="${escapeAttr(pageDesc)}" />
+    <meta property="og:type" content="${ogType}" />
+    <meta property="og:url" content="${canonicalUrl}" />
+    <meta property="og:image" content="${escapeAttr(ogImage)}" />
+
+    <!-- Twitter Cards Dynamic Metadata -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeAttr(pageTitle)}" />
+    <meta name="twitter:description" content="${escapeAttr(pageDesc)}" />
+    <meta name="twitter:image" content="${escapeAttr(ogImage)}" />
+`;
+
+    html = html.replace('</head>', `${ogTags}\n  </head>`);
+
+    return { html, status };
+  };
 
   // ==========================================
   // VITE DEV SERVER & PRODUCTION STATIC SERVER
@@ -1700,13 +1845,42 @@ async function start() {
       server: { middlewareMode: true },
       appType: 'spa'
     });
+
+    // Custom HTML SEO middleware for Vite development mode
+    app.get('*all', async (req, res, next) => {
+      // Skip static assets, APIs, Vite internals
+      if (
+        req.path.startsWith('/api') || 
+        req.path.startsWith('/@') || 
+        req.path.startsWith('/src') || 
+        req.path.startsWith('/node_modules') || 
+        req.path.includes('.')
+      ) {
+        return next();
+      }
+      try {
+        const rawIndex = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+        const viteTransformed = await vite.transformIndexHtml(req.originalUrl, rawIndex);
+        const { html, status } = await renderHtmlWithSeo(req.path, viteTransformed);
+        res.status(status).set({ 'Content-Type': 'text/html; charset=utf-8' }).send(html);
+      } catch (e) {
+        next(e);
+      }
+    });
+
     app.use(vite.middlewares);
   } else {
     console.log('🚀 Starting server in production mode...');
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.use(express.static(distPath, { index: false }));
+    app.get('*all', async (req, res) => {
+      try {
+        const rawIndex = fs.readFileSync(path.join(distPath, 'index.html'), 'utf-8');
+        const { html, status } = await renderHtmlWithSeo(req.path, rawIndex);
+        res.status(status).set({ 'Content-Type': 'text/html; charset=utf-8' }).send(html);
+      } catch (e) {
+        res.sendFile(path.join(distPath, 'index.html'));
+      }
     });
   }
 

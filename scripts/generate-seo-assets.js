@@ -37,8 +37,8 @@ if (rawSupabaseUrl) {
 }
 const SUPABASE_URL = rawSupabaseUrl;
 const SUPABASE_ANON_KEY = (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-// Base URL for links. Default to NetVentures primary URL.
-const SITE_BASE_URL = process.env.APP_URL || 'https://www.netventures.online';
+// Base URL for links. Strictly canonical NetVentures production domain.
+const SITE_BASE_URL = 'https://www.netventures.online';
 
 const DEFAULT_SETTINGS = {
   siteName: 'NetVentures',

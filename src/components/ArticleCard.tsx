@@ -74,9 +74,9 @@ export default function ArticleCard({ article, category, onClick }: ArticleCardP
         </div>
 
         {/* Title */}
-        <h3 className="font-display font-bold text-lg sm:text-xl text-gray-900 dark:text-white group-hover:text-gold-500 transition-colors duration-200 line-clamp-2 leading-snug">
+        <h2 className="font-display font-bold text-lg sm:text-xl text-gray-900 dark:text-white group-hover:text-gold-500 transition-colors duration-200 line-clamp-2 leading-snug">
           {article.title}
-        </h3>
+        </h2>
 
         {/* Short Description */}
         <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 line-clamp-3 leading-relaxed flex-1">
