@@ -1334,24 +1334,25 @@ async function start() {
       // Attempt Supabase sync if configured
       if (isSupabaseConfigured && supabaseClient) {
         try {
-          const dbPayload = {
+          const dbPayload: any = {
             title: article.title,
             slug: article.slug,
             content: article.content,
-            excerpt: article.shortDescription || article.excerpt,
-            category: article.categoryId || null,
+            short_description: article.shortDescription || article.short_description || '',
+            category_id: article.categoryId || article.category_id || null,
             tags: article.tags || [],
-            status: 'published',
-            featured_image: article.featuredImage,
+            status: article.status || 'published',
+            featured_image: article.featuredImage || article.featured_image || '',
             seo_title: article.seoTitle || article.title,
-            meta_description: article.seoDescription || article.shortDescription,
-            canonical_url: article.canonicalUrl,
+            seo_description: article.seoDescription || article.shortDescription || '',
+            canonical_url: article.canonicalUrl || '',
             reading_time: article.readingTime || 5,
-            author: article.author || 'Elena Rostova',
-            faq: article.faq || [],
-            created_at: article.publishedAt || new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            author: article.author || 'Stefan Sharf',
+            faq: article.faq || []
           };
+          if (article.id) {
+            dbPayload.id = article.id;
+          }
           await supabaseClient.from('articles').upsert([dbPayload], { onConflict: 'slug' });
         } catch (dbErr) {
           console.warn('Supabase sync warning:', dbErr);

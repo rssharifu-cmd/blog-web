@@ -212,7 +212,6 @@ const mapArticleToDbForInsert = (art: Partial<ArticleInput>) => {
     author: art.author || 'Stefan Sharf',
     content: art.content,
     featured_image: art.featuredImage,
-    featured_image_alt: art.featuredImageAlt || '',
     seo_title: art.seoTitle,
     canonical_url: art.canonicalUrl,
     status: art.status || 'published',
@@ -233,7 +232,6 @@ const mapArticleToDbForUpdate = (art: Partial<ArticleInput> & { id?: string }) =
     author: art.author,
     content: art.content,
     featured_image: art.featuredImage,
-    featured_image_alt: art.featuredImageAlt,
     seo_title: art.seoTitle,
     canonical_url: art.canonicalUrl,
     status: art.status,
@@ -661,26 +659,30 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
         const dbPayload: any = mapArticleToDbForUpdate(normalizedInput);
         dbPayload.reading_time = readingTime;
         
-        const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', normalizedInput.id).select().single();
+        const { data, error } = await supabase.from('articles').update(dbPayload).eq('id', normalizedInput.id).select().maybeSingle();
         if (!error && data) {
           savedArticle = mapArticleFromDb(data);
+        } else if (error) {
+          console.warn('Supabase article update notice:', error.message || error);
         }
       } else {
         // Insert
         const dbPayload: any = mapArticleToDbForInsert(normalizedInput);
         
-        const { data, error } = await supabase.from('articles').insert([dbPayload]).select().single();
+        const { data, error } = await supabase.from('articles').insert([dbPayload]).select().maybeSingle();
         if (!error && data) {
           savedArticle = mapArticleFromDb(data);
+        } else if (error) {
+          console.warn('Supabase article insert notice:', error.message || error);
         }
       }
     } catch (e) {
-      console.warn('Supabase save failed, falling back to local storage:', e);
+      console.warn('Supabase save exception, falling back to local & server persistence:', e);
     }
   }
 
-  // Only perform local storage caching when Supabase save did not return an article and Supabase is not configured
-  if (!savedArticle && !isSupabaseConfigured) {
+  // Always ensure local storage persistence when Supabase write was not completed (e.g. RLS restrictions or network issues)
+  if (!savedArticle) {
     const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
     const targetArt: Article = {
       ...normalizedInput,
@@ -689,7 +691,7 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
       publishedAt: new Date().toISOString(),
       views: 0
     };
-    targetArt.status = 'published';
+    targetArt.status = normalizedInput.status || 'published';
 
     const idx = list.findIndex(a => (targetArt.id && a.id === targetArt.id) || (targetArt.slug && a.slug === targetArt.slug));
     if (idx !== -1) {
@@ -699,10 +701,6 @@ export const saveArticle = async (input: ArticleInput & { id?: string }): Promis
     }
     saveLocalData('net_articles', list);
     savedArticle = targetArt;
-  } else if (isSupabaseConfigured) {
-    try {
-      localStorage.removeItem('net_articles');
-    } catch (e) {}
   }
 
   // Always sync saved article to server so sitemap.xml and RSS update immediately
