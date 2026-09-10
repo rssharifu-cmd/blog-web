@@ -99,6 +99,7 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [founderImageFailed, setFounderImageFailed] = useState(false);
 
   // Active full article state for single post views
   const [activeFullArticle, setActiveFullArticle] = useState<Article | null>(null);
@@ -1282,13 +1283,14 @@ export default function App() {
           {/* 1 & 2 & 3. Stefan Sharf Profile Photo, Identity & Introduction */}
           <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
-              {currentSettings.founderImageUrl ? (
+              {currentSettings.founderImageUrl && !founderImageFailed ? (
                 <img
                   src={currentSettings.founderImageUrl}
                   alt="Stefan Sharf - Founder & CEO, NetVentures"
                   loading="lazy"
                   decoding="async"
                   referrerPolicy="no-referrer"
+                  onError={() => setFounderImageFailed(true)}
                   className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl object-cover border-2 border-gold-500/30 shadow-md flex-shrink-0"
                 />
               ) : (

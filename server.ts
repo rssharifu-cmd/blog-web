@@ -14,6 +14,7 @@ const DIST_UPLOADS_DIR = path.join(process.cwd(), 'dist', UPLOADS_DIR_NAME);
 const LOCAL_DATA_DIR = path.join(process.cwd(), 'src', 'data');
 const LOCAL_ARTICLES_FILE = path.join(LOCAL_DATA_DIR, 'local_articles.json');
 const LOCAL_CATEGORIES_FILE = path.join(LOCAL_DATA_DIR, 'local_categories.json');
+const LOCAL_SETTINGS_FILE = path.join(LOCAL_DATA_DIR, 'local_settings.json');
 
 // Ensure necessary directories exist
 [PUBLIC_UPLOADS_DIR, DIST_UPLOADS_DIR, LOCAL_DATA_DIR].forEach(dir => {
@@ -82,6 +83,19 @@ const DEFAULT_ARTICLES = [
     content: 'In 2026, the landscape of digital publishing is undergoing an unprecedented shift...'
   }
 ];
+
+const DEFAULT_SITE_SETTINGS = {
+  id: 'global',
+  siteName: 'NetVentures',
+  siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.',
+  contactEmail: 'editor@netventures.online',
+  logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80',
+  founderImageUrl: '',
+  footerText: '© 2026 NetVentures. Premium digital business strategies and insights.',
+  affiliateDisclosure: 'Affiliate Disclosure: Some of the links on this website are affiliate links, meaning we may earn a small commission if you make a purchase through them, at no extra cost to you. We only recommend products we have personally tested and trust.',
+  googleAnalyticsId: '',
+  googleSearchConsoleVerification: ''
+};
 
 // Helper to load/save JSON database fallbacks
 function loadLocalFile<T>(filePath: string, defaultValue: T): T {
@@ -1372,6 +1386,145 @@ async function start() {
     } catch (err: any) {
       return res.status(500).json({ success: false, error: err.message });
     }
+  });
+
+  // Endpoints for site settings persistence across all devices (Desktop, Mobile, etc.)
+  app.get(['/api/settings', '/api/v1/settings'], async (req, res) => {
+    try {
+      let settings = loadLocalFile(LOCAL_SETTINGS_FILE, DEFAULT_SITE_SETTINGS);
+      if (isSupabaseConfigured && supabaseClient) {
+        try {
+          const { data } = await supabaseClient.from('site_settings').select('*').eq('id', 'global').maybeSingle();
+          if (data) {
+            settings = {
+              ...settings,
+              siteName: data.site_name || settings.siteName,
+              siteDescription: data.site_description || settings.siteDescription,
+              contactEmail: data.contact_email || settings.contactEmail,
+              logoUrl: data.logo_url || settings.logoUrl,
+              footerText: data.footer_text || settings.footerText,
+              affiliateDisclosure: data.affiliate_disclosure || settings.affiliateDisclosure,
+            };
+          }
+        } catch (dbErr) {
+          // ignore Supabase query error
+        }
+      }
+      return res.json({ success: true, settings });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  app.post(['/api/settings', '/api/v1/settings'], express.json({ limit: '50mb' }), async (req, res) => {
+    try {
+      const incoming = req.body;
+      if (!incoming || typeof incoming !== 'object') {
+        return res.status(400).json({ success: false, error: 'Invalid settings payload' });
+      }
+
+      const existing = loadLocalFile(LOCAL_SETTINGS_FILE, DEFAULT_SITE_SETTINGS);
+      let founderImageUrl = incoming.founderImageUrl !== undefined ? incoming.founderImageUrl : existing.founderImageUrl;
+
+      // Automatically convert base64 image data into a permanent public static upload file
+      if (founderImageUrl && typeof founderImageUrl === 'string' && founderImageUrl.startsWith('data:image/')) {
+        try {
+          const mimeMatch = founderImageUrl.match(/^data:(image\/\w+);base64,/);
+          const ext = mimeMatch ? (mimeMatch[1].split('/')[1] === 'jpeg' ? 'jpg' : mimeMatch[1].split('/')[1]) : 'jpg';
+          const base64Clean = founderImageUrl.replace(/^data:image\/\w+;base64,/, '');
+          const buffer = Buffer.from(base64Clean, 'base64');
+          const fileName = `founder-portrait-${Date.now()}.${ext}`;
+
+          fs.writeFileSync(path.join(PUBLIC_UPLOADS_DIR, fileName), buffer);
+          if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
+            fs.writeFileSync(path.join(DIST_UPLOADS_DIR, fileName), buffer);
+          }
+          founderImageUrl = `/uploads/${fileName}`;
+        } catch (imgErr) {
+          console.warn('Could not write base64 portrait to uploads:', imgErr);
+        }
+      }
+
+      const mergedSettings = {
+        ...existing,
+        ...incoming,
+        founderImageUrl
+      };
+
+      saveLocalFile(LOCAL_SETTINGS_FILE, mergedSettings);
+
+      // Also persist standard text settings to Supabase if configured
+      if (isSupabaseConfigured && supabaseClient) {
+        try {
+          const dbPayload = {
+            id: 'global',
+            site_name: mergedSettings.siteName,
+            site_description: mergedSettings.siteDescription,
+            contact_email: mergedSettings.contactEmail,
+            logo_url: mergedSettings.logoUrl,
+            footer_text: mergedSettings.footerText,
+            affiliate_disclosure: mergedSettings.affiliateDisclosure,
+            updated_at: new Date().toISOString()
+          };
+          await supabaseClient.from('site_settings').upsert([dbPayload]);
+        } catch (dbErr) {
+          console.warn('Supabase site_settings sync notice:', dbErr);
+        }
+      }
+
+      return res.json({ success: true, settings: mergedSettings });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  // Dedicated media upload endpoint for UI/Admin without requiring agent key
+  app.post(['/api/upload-media', '/api/v1/upload-media', '/api/upload-image'], (req, res) => {
+    upload.single('image')(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+
+      try {
+        if (req.file) {
+          const fileName = req.file.filename;
+          if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
+            fs.copyFileSync(
+              path.join(PUBLIC_UPLOADS_DIR, fileName),
+              path.join(DIST_UPLOADS_DIR, fileName)
+            );
+          }
+          const fileUrl = `/uploads/${fileName}`;
+          return res.status(201).json({
+            success: true,
+            url: fileUrl,
+            filename: fileName
+          });
+        } else if (req.body && req.body.image && typeof req.body.image === 'string' && req.body.image.startsWith('data:image')) {
+          const base64Data = req.body.image;
+          const mimeMatch = base64Data.match(/^data:(image\/\w+);base64,/);
+          const ext = mimeMatch ? (mimeMatch[1].split('/')[1] === 'jpeg' ? 'jpg' : mimeMatch[1].split('/')[1]) : 'jpg';
+          const dataBuffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+          const fileName = `image-${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+
+          fs.writeFileSync(path.join(PUBLIC_UPLOADS_DIR, fileName), dataBuffer);
+          if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
+            fs.writeFileSync(path.join(DIST_UPLOADS_DIR, fileName), dataBuffer);
+          }
+
+          const fileUrl = `/uploads/${fileName}`;
+          return res.status(201).json({
+            success: true,
+            url: fileUrl,
+            filename: fileName
+          });
+        } else {
+          return res.status(400).json({ success: false, error: 'No image file or base64 provided' });
+        }
+      } catch (uploadErr: any) {
+        return res.status(500).json({ success: false, error: uploadErr.message });
+      }
+    });
   });
 
   // Mount the versioned API router under /api/v1

@@ -469,26 +469,83 @@ export const getTags = async (): Promise<Tag[]> => {
 export const getSettings = async (): Promise<SiteSettings> => {
   const local = loadLocalData<Partial<SiteSettings> | null>('net_settings', null);
 
+  // 1. Fetch server-persisted settings across all devices
+  let serverSettings: Partial<SiteSettings> | null = null;
+  try {
+    const res = await fetch('/api/settings');
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.settings) {
+        serverSettings = json.settings;
+      }
+    }
+  } catch (e) {
+    // Network or offline fallback
+  }
+
+  // 2. Fetch Supabase if configured
+  let dbSettings: Partial<SiteSettings> | null = null;
   if (isSupabaseConfigured && supabase) {
     try {
       const { data, error } = await supabase.from('site_settings').select('*').eq('id', 'global').maybeSingle();
       if (!error && data) {
-        const dbSettings = mapSettingsFromDb(data);
-        return {
-          ...dbSettings,
-          ...(local || {}),
-          founderImageUrl: local?.founderImageUrl || dbSettings.founderImageUrl || ''
-        };
+        dbSettings = mapSettingsFromDb(data);
       }
     } catch (e) {
       console.warn('Failed to load settings from Supabase:', e);
     }
   }
 
-  return {
+  // 3. Resolve founderImageUrl
+  const serverImg = serverSettings?.founderImageUrl || '';
+  const dbImg = dbSettings?.founderImageUrl || '';
+  const localImg = local?.founderImageUrl || '';
+
+  let finalFounderImg = serverImg || dbImg;
+
+  // AUTO-SYNC: If current device (e.g. laptop) has a photo in local storage,
+  // but server doesn't have it yet, immediately push it to server so mobile can load it!
+  if (!serverImg && localImg) {
+    finalFounderImg = localImg;
+    try {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...DEFAULT_SETTINGS,
+          ...(dbSettings || {}),
+          ...(local || {}),
+          founderImageUrl: localImg
+        })
+      })
+        .then(r => r.json())
+        .then(resp => {
+          if (resp.success && resp.settings?.founderImageUrl) {
+            const updated = {
+              ...DEFAULT_SETTINGS,
+              ...(local || {}),
+              founderImageUrl: resp.settings.founderImageUrl
+            };
+            saveLocalData('net_settings', updated);
+          }
+        })
+        .catch(() => {});
+    } catch (e) {}
+  }
+
+  const combined: SiteSettings = {
     ...DEFAULT_SETTINGS,
-    ...(local || {})
+    ...(dbSettings || {}),
+    ...(serverSettings || {}),
+    ...(local || {}),
+    founderImageUrl: finalFounderImg
   };
+
+  if (serverSettings?.founderImageUrl && serverSettings.founderImageUrl !== local?.founderImageUrl) {
+    saveLocalData('net_settings', combined);
+  }
+
+  return combined;
 };
 
 export const incrementArticleView = async (slug: string): Promise<boolean> => {
@@ -547,22 +604,32 @@ export const saveSettings = async (settings: SiteSettings): Promise<boolean> => 
   // Always persist to local storage for immediate offline and persistent reliability
   saveLocalData('net_settings', settings);
 
+  // 1. Sync to server so all devices (mobile, laptop, etc.) share the same settings and founder photo
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.settings) {
+        saveLocalData('net_settings', data.settings);
+      }
+    }
+  } catch (err) {
+    console.warn('Server settings sync notice:', err);
+  }
+
+  // 2. Persist compatible standard fields to Supabase if configured
   if (isSupabaseConfigured && supabase) {
     try {
       const dbPayload: any = mapSettingsToDb(settings);
-      const { error } = await supabase.from('site_settings').upsert([dbPayload]);
-      if (error) {
-        console.warn('Supabase site_settings upsert notice (fallback to local storage applied):', error.message || error);
-        // If DB table has not migrated founder_image_url column, try saving compatible standard fields
-        if (error.code === 'PGRST204') {
-          try {
-            const { founder_image_url, ...compatiblePayload } = dbPayload;
-            await supabase.from('site_settings').upsert([compatiblePayload]);
-          } catch (e) {}
-        }
-      }
+      // Omit founder_image_url to prevent error 42703 (column not in DB schema)
+      const { founder_image_url, ...compatiblePayload } = dbPayload;
+      await supabase.from('site_settings').upsert([compatiblePayload]);
     } catch (err) {
-      console.warn('Supabase site_settings save error:', err);
+      console.warn('Supabase site_settings save notice:', err);
     }
   }
 
@@ -742,8 +809,27 @@ export const createTag = async (name: string): Promise<Tag | null> => {
 // ==========================================
 
 export const uploadFeaturedImage = async (file: File): Promise<string> => {
+  // 1. Direct server upload to persistent disk (/uploads/...)
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+    const res = await fetch('/api/upload-media', {
+      method: 'POST',
+      body: formData
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.url) {
+        return data.url;
+      }
+    }
+  } catch (err) {
+    console.warn('Server direct upload-media error, checking fallbacks:', err);
+  }
+
+  // 2. Try Supabase storage if configured
   if (isSupabaseConfigured && supabase) {
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name.split('.').pop() || 'jpg';
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
     const filePath = `covers/${fileName}`;
 
@@ -752,35 +838,25 @@ export const uploadFeaturedImage = async (file: File): Promise<string> => {
         .from('media')
         .upload(filePath, file);
 
-      if (uploadError) {
-        console.warn('Supabase storage upload failed, falling back to base64 DataURL:', uploadError.message);
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+      if (!uploadError) {
+        const { data } = supabase.storage.from('media').getPublicUrl(filePath);
+        if (data && data.publicUrl) {
+          return data.publicUrl;
+        }
       }
-
-      const { data } = supabase.storage.from('media').getPublicUrl(filePath);
-      return data.publicUrl;
     } catch (err: any) {
-      console.warn('Supabase storage upload threw error, falling back to base64 DataURL:', err);
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
+      console.warn('Supabase storage upload notice:', err);
     }
-  } else {
-    // In fallback mode, simulate image upload by converting to DataURL or using Unsplash
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    });
   }
+
+  // 3. Fallback to client base64 DataURL (which server /api/settings automatically writes to /uploads/ on disk)
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      resolve(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  });
 };
 
 // ==========================================
