@@ -5,7 +5,9 @@ const SUPABASE_KEY = (
   process.env.SUPABASE_ANON_KEY ||
   ''
 ).trim();
-const SITE_BASE_URL = (process.env.APP_URL || 'https://www.netventures.online').trim();
+const CANONICAL_SITE_URL = 'https://www.netventures.online';
+const rawAppUrl = (process.env.APP_URL || '').trim();
+const SITE_BASE_URL = (rawAppUrl && !rawAppUrl.includes('run.app') && !rawAppUrl.includes('aistudio')) ? rawAppUrl : CANONICAL_SITE_URL;
 
 const DEFAULT_SETTINGS = {
   siteName: 'NetVentures',
@@ -43,7 +45,7 @@ export default async function handler(req: any, res: any) {
   try {
     let reqHost = (req?.headers?.['x-forwarded-host'] || req?.headers?.host || '').toString().split(',')[0].trim();
     let baseDomain = SITE_BASE_URL.endsWith('/') ? SITE_BASE_URL.slice(0, -1) : SITE_BASE_URL;
-    if (reqHost && !reqHost.includes('localhost') && !reqHost.includes('127.0.0.1')) {
+    if (reqHost && !reqHost.includes('localhost') && !reqHost.includes('127.0.0.1') && !reqHost.includes('run.app') && !reqHost.includes('aistudio')) {
       const proto = (req?.headers?.['x-forwarded-proto'] || 'https').toString().split(',')[0].trim();
       baseDomain = `${proto}://${reqHost}`;
     }
@@ -114,7 +116,30 @@ export default async function handler(req: any, res: any) {
         console.error('Supabase articles fetch failed:', articlesRes.status, await articlesRes.text());
       }
     } else {
-      console.warn('Supabase env vars not set — RSS feed will be empty.');
+      console.warn('Supabase env vars not set — falling back to local articles repository.');
+    }
+
+    if (articles.length === 0) {
+      try {
+        const fs = await import('fs');
+        const path = await import('path');
+        const localPath = path.resolve(process.cwd(), 'src', 'data', 'local_articles.json');
+        if (fs.existsSync(localPath)) {
+          const localArts = JSON.parse(fs.readFileSync(localPath, 'utf-8'));
+          articles = localArts.map((a: any) => ({
+            slug: a.slug,
+            title: a.title,
+            excerpt: a.excerpt || a.shortDescription,
+            short_description: a.shortDescription || a.excerpt,
+            author: a.author,
+            categoryName: a.categoryName,
+            published_at: a.publishedAt,
+            created_at: a.publishedAt
+          }));
+        }
+      } catch (e) {
+        console.error('Local articles fallback error:', e);
+      }
     }
 
     let rssXml = `<?xml version="1.0" encoding="UTF-8" ?>

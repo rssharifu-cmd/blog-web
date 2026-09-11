@@ -5,6 +5,8 @@ import { exec } from 'child_process';
 import { createServer as createViteServer } from 'vite';
 import multer from 'multer';
 import { createClient } from '@supabase/supabase-js';
+import sitemapHandler from './api/sitemap.xml';
+import rssHandler from './api/rss.xml';
 
 // Setup file paths and directories
 const PORT = 3000;
@@ -196,7 +198,6 @@ async function start() {
 
   // Serve uploads directory statically
   app.use('/uploads', express.static(PUBLIC_UPLOADS_DIR));
-  app.use('/uploads', express.static(DIST_UPLOADS_DIR));
 
   // ==========================================
   // HELPER METADATA & SEO UTILITIES
@@ -1566,150 +1567,9 @@ async function start() {
     res.type('text/plain').send(`User-agent: *\nAllow: /\nSitemap: https://www.netventures.online/sitemap.xml\n`);
   });
 
-  app.get('/sitemap.xml', async (req, res) => {
-    try {
-      const articles = await getAllArticlesCombined();
-      const baseDomain = CANONICAL_SITE_URL;
-      const currentDate = new Date().toISOString().split('T')[0];
-
-      let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-  <!-- Core Static Pages -->
-  <url>
-    <loc>${baseDomain}/</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/blog</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/about</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/contact</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/privacy</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/terms</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/disclosure</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-`;
-
-      articles.forEach((art: any) => {
-        const artDate = art.publishedAt ? new Date(art.publishedAt).toISOString().split('T')[0] : currentDate;
-        const slug = art.slug || art.id;
-        sitemapXml += `  <url>
-    <loc>${baseDomain}/blog/${slug}</loc>
-    <lastmod>${artDate}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>\n`;
-      });
-
-      sitemapXml += `</urlset>`;
-
-      res.header('Content-Type', 'application/xml; charset=utf-8');
-      res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-      return res.send(sitemapXml);
-    } catch (err: any) {
-      console.error('Error generating sitemap dynamically:', err);
-      return res.status(500).send('Error generating sitemap');
-    }
-  });
-
-  app.get('/rss.xml', async (req, res) => {
-    try {
-      const articles = await getAllArticlesCombined();
-      let settings = {
-        siteName: 'NetVentures',
-        siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.'
-      };
-      const baseDomain = CANONICAL_SITE_URL;
-
-      if (isSupabaseConfigured && supabaseClient) {
-        const { data: settingsData } = await supabaseClient
-          .from('site_settings')
-          .select('*')
-          .eq('id', 'global')
-          .maybeSingle();
-
-        if (settingsData) {
-          settings.siteName = settingsData.site_name || settings.siteName;
-          settings.siteDescription = settingsData.site_description || settings.siteDescription;
-        }
-      }
-
-      const escapeXml = (unsafe: string) => {
-        if (!unsafe) return '';
-        return unsafe
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&apos;');
-      };
-
-      let rssXml = `<?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-<channel>
-  <title>${escapeXml(settings.siteName)}</title>
-  <link>${baseDomain}</link>
-  <description>${escapeXml(settings.siteDescription)}</description>
-  <language>en-us</language>
-  <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-  <atom:link href="${baseDomain}/rss.xml" rel="self" type="application/rss+xml" />
-`;
-
-      articles.forEach(art => {
-        const pubDateFormatted = new Date(art.publishedAt || new Date()).toUTCString();
-        rssXml += `  <item>
-    <title>${escapeXml(art.title)}</title>
-    <link>${baseDomain}/blog/${art.slug}</link>
-    <description>${escapeXml(art.shortDescription)}</description>
-    <author>${escapeXml(art.author)}</author>
-    <category>${escapeXml(art.categoryName)}</category>
-    <pubDate>${pubDateFormatted}</pubDate>
-    <guid isPermaLink="true">${baseDomain}/blog/${art.slug}</guid>
-  </item>\n`;
-      });
-
-      rssXml += `</channel>
-</rss>`;
-
-      res.header('Content-Type', 'application/xml; charset=utf-8');
-      res.header('Cache-Control', 'no-cache, no-store, must-revalidate');
-      return res.send(rssXml);
-    } catch (err: any) {
-      console.error('Error generating rss dynamically:', err);
-      return res.status(500).send('Error generating RSS feed');
-    }
-  });
+  // Sitemap & RSS handlers (delegated to canonical api/ handlers to prevent duplicate logic)
+  app.all(['/sitemap.xml', '/api/sitemap.xml'], (req, res) => sitemapHandler(req, res));
+  app.all(['/rss.xml', '/api/rss.xml'], (req, res) => rssHandler(req, res));
 
   // ==========================================
   // SERVER-SIDE HTML SEO & 404 STATUS INJECTION
