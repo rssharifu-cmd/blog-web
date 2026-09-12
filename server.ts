@@ -1594,8 +1594,9 @@ async function start() {
       pageTitle = 'The NetVentures Library - NetVentures';
       pageDesc = 'Browse our premium library of digital strategies, SaaS case studies, and passive income blueprints.';
       canonicalUrl = `${baseDomain}/blog`;
+      ogType = 'website';
     } else if (cleanPath === '/about') {
-      pageTitle = 'About Stefan Sharf & NetVentures';
+      pageTitle = 'About Us & Leadership - NetVentures';
       pageDesc = 'Learn about Stefan Sharf, our digital business philosophy, editorial process, and mission to deliver actionable AI and SaaS business models.';
       canonicalUrl = `${baseDomain}/about`;
       ogType = 'profile';
@@ -1619,25 +1620,60 @@ async function start() {
       pageTitle = cleanPath === '/search' ? 'Search Library - NetVentures' : 'CMS Portal - NetVentures';
       canonicalUrl = `${baseDomain}${cleanPath}`;
     } else if (cleanPath.startsWith('/blog/')) {
-      const slug = cleanPath.replace('/blog/', '').trim();
-      const articles = await getAllArticlesCombined();
-      const article = articles.find((a: any) => 
-        (a.slug && (a.slug === slug || slugify(a.slug) === slugify(slug))) || 
-        (a.id && a.id === slug) ||
-        (a.title && slugify(a.title) === slugify(slug))
-      );
+      const slug = cleanPath.replace('/blog/', '').trim().toLowerCase();
+      let article: any = null;
+
+      // 1. Direct Supabase query if configured
+      if (isSupabaseConfigured && supabaseClient) {
+        try {
+          const { data: dbArt, error } = await supabaseClient
+            .from('articles')
+            .select('id, title, slug, short_description, featured_image, seo_title, seo_description, content, status')
+            .or(`slug.eq.${slug},id.eq.${slug}`)
+            .maybeSingle();
+
+          if (!error && dbArt && (dbArt.status || 'published').toString().toLowerCase() !== 'draft') {
+            article = {
+              id: dbArt.id,
+              title: dbArt.title,
+              slug: dbArt.slug,
+              shortDescription: dbArt.short_description,
+              featuredImage: dbArt.featured_image,
+              seoTitle: dbArt.seo_title,
+              seoDescription: dbArt.seo_description,
+              content: dbArt.content,
+            };
+          }
+        } catch (dbErr) {
+          console.warn('Supabase article fetch error:', dbErr);
+        }
+      }
+
+      // 2. Fallback to combined local/cached articles
+      if (!article) {
+        const articles = await getAllArticlesCombined();
+        article = articles.find((a: any) => 
+          (a.slug && (a.slug.toLowerCase() === slug || slugify(a.slug) === slugify(slug))) || 
+          (a.id && a.id.toLowerCase() === slug) ||
+          (a.title && slugify(a.title) === slugify(slug))
+        );
+      }
 
       if (article) {
         pageTitle = `${article.seoTitle || article.title} - NetVentures`;
         const rawDesc = article.seoDescription || article.shortDescription || article.excerpt || article.content || '';
         pageDesc = rawDesc.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 160);
         canonicalUrl = `${baseDomain}/blog/${article.slug || slug}`;
-        ogImage = article.featuredImage || `${baseDomain}/uploads/stefan-sharf.jpg`;
+        let rawImg = article.featuredImage || article.featured_image || `${baseDomain}/uploads/stefan-sharf.jpg`;
+        if (rawImg && rawImg.startsWith('/')) {
+          rawImg = `${baseDomain}${rawImg}`;
+        }
+        ogImage = rawImg;
         ogType = 'article';
       } else {
         status = 404;
-        pageTitle = 'Page Not Found (404) - NetVentures';
-        pageDesc = 'The requested article or page could not be found on NetVentures.';
+        pageTitle = 'Article Not Found (404) - NetVentures';
+        pageDesc = 'The requested article could not be found in the NetVentures library.';
         canonicalUrl = `${baseDomain}/404`;
       }
     } else {
@@ -1651,30 +1687,12 @@ async function start() {
     const escapeAttr = (str: string) => (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const escapeContent = (str: string) => (str || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-    let html = templateHtml;
+    const metaBlock = `
+    <!-- Dynamic Page-Specific Metadata -->
+    <title>${escapeContent(pageTitle)}</title>
+    <meta name="description" content="${escapeAttr(pageDesc)}" />
+    <link rel="canonical" href="${canonicalUrl}" />
 
-    // Replace <title>
-    html = html.replace(/<title>.*?<\/title>/i, `<title>${escapeContent(pageTitle)}</title>`);
-
-    // Replace or inject meta description
-    if (/<meta\s+name="description"\s+content=".*?"\s*\/?>/i.test(html)) {
-      html = html.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/i, `<meta name="description" content="${escapeAttr(pageDesc)}" />`);
-    } else {
-      html = html.replace('</head>', `  <meta name="description" content="${escapeAttr(pageDesc)}" />\n  </head>`);
-    }
-
-    // Replace or inject canonical link
-    if (/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/i.test(html)) {
-      html = html.replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/i, `<link rel="canonical" href="${canonicalUrl}" />`);
-    } else {
-      html = html.replace('</head>', `  <link rel="canonical" href="${canonicalUrl}" />\n  </head>`);
-    }
-
-    // Replace existing og & twitter tags
-    html = html.replace(/<meta\s+property="og:[^>]*>/gi, '');
-    html = html.replace(/<meta\s+name="twitter:[^>]*>/gi, '');
-
-    const ogTags = `
     <!-- Open Graph Dynamic Metadata -->
     <meta property="og:site_name" content="NetVentures" />
     <meta property="og:title" content="${escapeAttr(pageTitle)}" />
@@ -1687,10 +1705,29 @@ async function start() {
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeAttr(pageTitle)}" />
     <meta name="twitter:description" content="${escapeAttr(pageDesc)}" />
-    <meta name="twitter:image" content="${escapeAttr(ogImage)}" />
-`;
+    <meta name="twitter:image" content="${escapeAttr(ogImage)}" />`;
 
-    html = html.replace('</head>', `${ogTags}\n  </head>`);
+    let html = templateHtml;
+
+    if (html.includes('<!--SSR_META-->') && html.includes('<!--/SSR_META-->')) {
+      const startIdx = html.indexOf('<!--SSR_META-->');
+      const endIdx = html.indexOf('<!--/SSR_META-->') + '<!--/SSR_META-->'.length;
+      html = html.slice(0, startIdx) + metaBlock.trim() + html.slice(endIdx);
+    } else if (html.includes('<!--SSR_META-->')) {
+      html = html.replace('<!--SSR_META-->', metaBlock.trim());
+      // Clean duplicate tags that may exist after <!--SSR_META-->
+      html = html.replace(/<title>.*?<\/title>/gi, (match, offset) => (offset < html.indexOf(metaBlock.trim()) + metaBlock.trim().length ? match : ''));
+      html = html.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/gi, (match, offset) => (offset < html.indexOf(metaBlock.trim()) + metaBlock.trim().length ? match : ''));
+      html = html.replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/gi, (match, offset) => (offset < html.indexOf(metaBlock.trim()) + metaBlock.trim().length ? match : ''));
+    } else {
+      // Clean existing fallback tags and inject before </head>
+      html = html.replace(/<title>.*?<\/title>/gi, '');
+      html = html.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/gi, '');
+      html = html.replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/gi, '');
+      html = html.replace(/<meta\s+property="og:[^>]*>/gi, '');
+      html = html.replace(/<meta\s+name="twitter:[^>]*>/gi, '');
+      html = html.replace('</head>', `  ${metaBlock.trim()}\n  </head>`);
+    }
 
     return { html, status };
   };
