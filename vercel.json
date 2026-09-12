@@ -1,16 +1,7 @@
 {
-  "functions": {
-    "api/**": {
-      "includeFiles": "dist/**"
-    }
-  },
   "rewrites": [
-    { "source": "/assets/(.*)", "destination": "/assets/$1" },
-    { "source": "/uploads/(.*)", "destination": "/uploads/$1" },
-    { "source": "/favicon.svg", "destination": "/favicon.svg" },
-    { "source": "/robots.txt", "destination": "/robots.txt" },
-    { "source": "/site.webmanifest", "destination": "/site.webmanifest" },
-    { "source": "/google434e3e2e7cafa73a.html", "destination": "/google434e3e2e7cafa73a.html" },
-    { "source": "/(.*)", "destination": "/api" }
+    { "source": "/sitemap.xml", "destination": "/api/sitemap.xml" },
+    { "source": "/rss.xml", "destination": "/api/rss.xml" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

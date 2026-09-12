@@ -180,11 +180,12 @@ const mapArticleFromDb = (dbArt: any) => {
   };
 };
 
-const app = express();
+async function start() {
+  const app = express();
 
-// Middleware
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+  // Middleware
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Protection against search engine crawling & duplicate content on dev/staging URLs (.run.app)
   app.use((req, res, next) => {
@@ -1736,45 +1737,37 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
   // VITE DEV SERVER & PRODUCTION STATIC SERVER
   // ==========================================
 
-  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  if (process.env.NODE_ENV !== 'production') {
     console.log('🚧 Starting server in development mode with Vite middleware...');
-    createViteServer({
+    const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa'
-    }).then(vite => {
-      // Custom HTML SEO middleware for Vite development mode
-      app.get('*all', async (req, res, next) => {
-        // Skip static assets, APIs, Vite internals
-        if (
-          req.path.startsWith('/api') || 
-          req.path.startsWith('/@') || 
-          req.path.startsWith('/src') || 
-          req.path.startsWith('/node_modules') || 
-          req.path.includes('.')
-        ) {
-          return next();
-        }
-        try {
-          const rawIndex = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
-          const viteTransformed = await vite.transformIndexHtml(req.originalUrl, rawIndex);
-          const targetPath = (req.originalUrl || req.path || '/').split('?')[0];
-          const { html, status } = await renderHtmlWithSeo(targetPath, viteTransformed);
-          res.set('Cache-Control', 'no-store, must-revalidate');
-          res.status(status).set({ 'Content-Type': 'text/html; charset=utf-8' }).send(html);
-        } catch (e) {
-          next(e);
-        }
-      });
-
-      app.use(vite.middlewares);
-
-      app.listen(PORT, '0.0.0.0', () => {
-        console.log(`📡 Full-stack dev server running on http://localhost:${PORT}`);
-        console.log(`🔒 Secure API key: ${process.env.AI_AGENT_API_KEY ? 'Set from env' : 'Using default dev key (netventures-agent-key-2026)'}`);
-      });
-    }).catch(err => {
-      console.error('Fatal Vite dev server boot error:', err);
     });
+
+    // Custom HTML SEO middleware for Vite development mode
+    app.get('*all', async (req, res, next) => {
+      // Skip static assets, APIs, Vite internals
+      if (
+        req.path.startsWith('/api') || 
+        req.path.startsWith('/@') || 
+        req.path.startsWith('/src') || 
+        req.path.startsWith('/node_modules') || 
+        req.path.includes('.')
+      ) {
+        return next();
+      }
+      try {
+        const rawIndex = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
+        const viteTransformed = await vite.transformIndexHtml(req.originalUrl, rawIndex);
+        const { html, status } = await renderHtmlWithSeo(req.path, viteTransformed);
+        res.set('Cache-Control', 'no-store, must-revalidate');
+        res.status(status).set({ 'Content-Type': 'text/html; charset=utf-8' }).send(html);
+      } catch (e) {
+        next(e);
+      }
+    });
+
+    app.use(vite.middlewares);
   } else {
     console.log('🚀 Starting server in production mode...');
     const distPath = path.join(process.cwd(), 'dist');
@@ -1782,21 +1775,21 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
     app.get('*all', async (req, res) => {
       try {
         const rawIndex = fs.readFileSync(path.join(distPath, 'index.html'), 'utf-8');
-        const targetPath = (req.originalUrl || req.path || '/').split('?')[0];
-        const { html, status } = await renderHtmlWithSeo(targetPath, rawIndex);
+        const { html, status } = await renderHtmlWithSeo(req.path, rawIndex);
         res.set('Cache-Control', 'no-store, must-revalidate');
         res.status(status).set({ 'Content-Type': 'text/html; charset=utf-8' }).send(html);
       } catch (e) {
         res.sendFile(path.join(distPath, 'index.html'));
       }
     });
-
-    if (!process.env.VERCEL) {
-      app.listen(PORT, '0.0.0.0', () => {
-        console.log(`📡 Full-stack server running on http://localhost:${PORT}`);
-        console.log(`🔒 Secure API key: ${process.env.AI_AGENT_API_KEY ? 'Set from env' : 'Using default dev key (netventures-agent-key-2026)'}`);
-      });
-    }
   }
 
-export default app;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`📡 Full-stack server running on http://localhost:${PORT}`);
+    console.log(`🔒 Secure API key: ${process.env.AI_AGENT_API_KEY ? 'Set from env' : 'Using default dev key (netventures-agent-key-2026)'}`);
+  });
+}
+
+start().catch(err => {
+  console.error('Fatal server boot error:', err);
+});
