@@ -1660,7 +1660,8 @@ async function start() {
       }
 
       if (article) {
-        pageTitle = `${article.seoTitle || article.title} - NetVentures`;
+        const baseTitle = (article.seoTitle || article.title || '').trim();
+        pageTitle = baseTitle.toLowerCase().includes('netventures') ? baseTitle : `${baseTitle} - NetVentures`;
         const rawDesc = article.seoDescription || article.shortDescription || article.excerpt || article.content || '';
         pageDesc = rawDesc.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 160);
         canonicalUrl = `${baseDomain}/blog/${article.slug || slug}`;
@@ -1759,6 +1760,7 @@ async function start() {
         const rawIndex = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
         const viteTransformed = await vite.transformIndexHtml(req.originalUrl, rawIndex);
         const { html, status } = await renderHtmlWithSeo(req.path, viteTransformed);
+        res.set('Cache-Control', 'no-store, must-revalidate');
         res.status(status).set({ 'Content-Type': 'text/html; charset=utf-8' }).send(html);
       } catch (e) {
         next(e);
@@ -1774,6 +1776,7 @@ async function start() {
       try {
         const rawIndex = fs.readFileSync(path.join(distPath, 'index.html'), 'utf-8');
         const { html, status } = await renderHtmlWithSeo(req.path, rawIndex);
+        res.set('Cache-Control', 'no-store, must-revalidate');
         res.status(status).set({ 'Content-Type': 'text/html; charset=utf-8' }).send(html);
       } catch (e) {
         res.sendFile(path.join(distPath, 'index.html'));
