@@ -337,6 +337,38 @@ async function generatePages() {
     console.log(`📝 Generated: dist/blog/${slug}/index.html`);
   }
 
+  // 3. Generate valid-routes.json for Vercel Edge Middleware
+  const staticPaths = [
+    '/',
+    '/search',
+    '/admin',
+    ...staticRoutes.map(page => `/${page.routePath}`)
+  ];
+  const blogPaths = Array.from(articleMap.keys()).map(slug => `/blog/${slug}`);
+  const allValidRoutes = Array.from(new Set([...staticPaths, ...blogPaths])).sort();
+
+  // Write to public/valid-routes.json (for repo and middleware build-time import)
+  const publicDir = path.resolve(process.cwd(), 'public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+  const publicRoutesFile = path.join(publicDir, 'valid-routes.json');
+  fs.writeFileSync(publicRoutesFile, JSON.stringify(allValidRoutes, null, 2), 'utf-8');
+  console.log(`📋 Generated: public/valid-routes.json (${allValidRoutes.length} valid routes)`);
+
+  // Write to dist/valid-routes.json (for build output)
+  const distRoutesFile = path.join(distDir, 'valid-routes.json');
+  fs.writeFileSync(distRoutesFile, JSON.stringify(allValidRoutes, null, 2), 'utf-8');
+  console.log(`📋 Generated: dist/valid-routes.json (${allValidRoutes.length} valid routes)`);
+
+  // 4. Ensure 404.html exists in dist/
+  const public404File = path.join(publicDir, '404.html');
+  const dist404File = path.join(distDir, '404.html');
+  if (fs.existsSync(public404File) && !fs.existsSync(dist404File)) {
+    fs.copyFileSync(public404File, dist404File);
+    console.log('📄 Copied: public/404.html -> dist/404.html');
+  }
+
   console.log(`\n🎉 Successfully generated ${generatedCount} static HTML pages in dist/!`);
 }
 
