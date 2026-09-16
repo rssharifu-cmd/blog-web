@@ -274,6 +274,8 @@ const mapSettingsToDb = (set: SiteSettings) => ({
 // PUBLIC DATABASE ACTIONS
 // ==========================================
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const getArticles = async (options?: { status?: 'draft' | 'published' }): Promise<Article[]> => {
   // Trigger background sync of local articles to server sitemap if in browser and Supabase is not configured
   if (typeof window !== 'undefined' && !isSupabaseConfigured) {
@@ -298,13 +300,27 @@ export const getArticles = async (options?: { status?: 'draft' | 'published' }):
   }
 
   if (isSupabaseConfigured && supabase) {
-    let query = supabase.from('articles').select('*').order('created_at', { ascending: false }).limit(200);
-    if (options?.status) {
-      query = query.eq('status', options.status);
-    }
-    const { data, error } = await query;
+    const runQuery = async () => {
+      let query = supabase.from('articles').select('*').order('created_at', { ascending: false }).limit(200);
+      if (options?.status) {
+        query = query.eq('status', options.status);
+      }
+      return await query;
+    };
+
+    let { data, error } = await runQuery();
+
+    // If first attempt fails, retry once after a 500ms delay to handle transient network issues
     if (error) {
-      console.warn('Supabase fetch error, using local fallback:', error.message || error);
+      console.warn('Initial Supabase getArticles query failed, retrying in 500ms...', error.message || error);
+      await sleep(500);
+      const retryResult = await runQuery();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
+
+    if (error) {
+      console.warn('Supabase fetch error after retry, using local fallback:', error.message || error);
       const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
       if (options?.status) {
         return list.filter(a => a.status === options.status);
@@ -326,13 +342,27 @@ export const getArticleSummaries = async (options?: { status?: 'draft' | 'publis
   if (isSupabaseConfigured && supabase) {
     const selectFields = 'id, title, slug, short_description, category_id, tags, status, featured_image, seo_title, seo_description, canonical_url, created_at, published_at, reading_time, views, author, faq';
 
-    let query = supabase.from('articles').select(selectFields).order('created_at', { ascending: false }).limit(200);
-    if (options?.status) {
-      query = query.eq('status', options.status);
-    }
-    const { data, error } = await query;
+    const runQuery = async () => {
+      let query = supabase.from('articles').select(selectFields).order('created_at', { ascending: false }).limit(200);
+      if (options?.status) {
+        query = query.eq('status', options.status);
+      }
+      return await query;
+    };
+
+    let { data, error } = await runQuery();
+
+    // If first attempt fails, retry once after a 500ms delay to handle transient network glitches
     if (error) {
-      console.warn('Supabase fetch error, using local fallback:', error.message || error);
+      console.warn('Initial Supabase article summaries query failed, retrying in 500ms...', error.message || error);
+      await sleep(500);
+      const retryResult = await runQuery();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
+
+    if (error) {
+      console.warn('Supabase fetch error after retry, using local fallback:', error.message || error);
       const list = loadLocalData<Article[]>('net_articles', DEFAULT_ARTICLES);
       let res = options?.status ? list.filter(a => a.status === options.status) : list;
       return res.map(a => ({ ...a, content: '' }));

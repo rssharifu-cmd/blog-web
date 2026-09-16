@@ -256,76 +256,19 @@ Sitemap: ${baseDomain}/sitemap.xml
   console.log('📄 Generated /robots.txt successfully.');
 
   // ----------------------------------------
-  // 2. GENERATE SITEMAP.XML
+  // 2. SITEMAP.XML (Dynamic via api/sitemap.xml.ts)
   // ----------------------------------------
-  const currentDate = new Date().toISOString().split('T')[0];
-  let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-  <!-- Core Static Pages -->
-  <url>
-    <loc>${baseDomain}/</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/blog</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/about</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/contact</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/privacy</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/terms</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/disclosure</loc>
-    <lastmod>2026-07-19</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.4</priority>
-  </url>
-`;
-
-  // Append articles dynamically
-  articles.forEach(art => {
-    const artDate = art.publishedAt ? new Date(art.publishedAt).toISOString().split('T')[0] : currentDate;
-    sitemapXml += `  <url>
-    <loc>${baseDomain}/blog/${art.slug}</loc>
-    <lastmod>${artDate}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>\n`;
-  });
-
-  sitemapXml += `</urlset>`;
-
-  fs.writeFileSync(path.join(outDir, 'sitemap.xml'), sitemapXml);
-  if (fs.existsSync(publicDir)) {
-    fs.writeFileSync(path.join(publicDir, 'sitemap.xml'), sitemapXml);
+  // /sitemap.xml is dynamically served via api/sitemap.xml.ts (configured in vercel.json rewrites)
+  // To allow Vercel to route /sitemap.xml to /api/sitemap.xml, no static sitemap.xml is created.
+  const distSitemapFile = path.join(outDir, 'sitemap.xml');
+  if (fs.existsSync(distSitemapFile)) {
+    fs.unlinkSync(distSitemapFile);
   }
-  console.log('🗺️ Generated /sitemap.xml containing all live columns.');
+  const publicSitemapFile = path.join(publicDir, 'sitemap.xml');
+  if (fs.existsSync(publicSitemapFile)) {
+    fs.unlinkSync(publicSitemapFile);
+  }
+  console.log('🗺️ /sitemap.xml is dynamically served via api/sitemap.xml.ts (no static sitemap file).');
 
   // ----------------------------------------
   // 3. GENERATE RSS.XML (Rich Feed)
