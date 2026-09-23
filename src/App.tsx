@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, Calendar, Clock, Eye, Sparkles, BookOpen, ChevronRight, 
   ArrowLeft, Mail, ArrowRight, Compass, ShieldAlert, FileCheck, HelpCircle, Send, Globe, ChevronLeft,
-  Youtube, ExternalLink, User
+  User
 } from 'lucide-react';
 import Header from './components/Header.js';
 import Footer from './components/Footer.js';
@@ -470,10 +470,7 @@ export default function App() {
           "@type": "Organization",
           "name": "NetVentures",
           "url": origin
-        },
-        "sameAs": [
-          "https://www.youtube.com/@Stefansharf"
-        ]
+        }
       };
       schemas.push(personSchema);
     } else if (currentPath === '/contact') {
@@ -1319,42 +1316,12 @@ export default function App() {
                   <p>
                     NetVentures is built and operated with an editorial and research team that researches, analyzes, and publishes practical guides, comparisons, reviews, and insights to help readers make better technology decisions.
                   </p>
-                  <p>
-                    Stefan also creates YouTube videos covering technology, AI, online business, software, and related topics.
-                  </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 4. Stefan Sharf on YouTube */}
-          <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-linear-to-b from-white to-zinc-50 dark:from-zinc-950 dark:to-zinc-900/50 shadow-xs space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-red-500/10 text-red-600 dark:text-red-500">
-                <Youtube className="h-5 w-5" />
-              </div>
-              <h3 className="font-display font-bold text-xl text-gray-900 dark:text-white">
-                Stefan Sharf on YouTube
-              </h3>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-              Stefan Sharf also creates videos about AI, technology, SaaS, online business, and useful digital tools.
-            </p>
-            <div className="pt-2">
-              <a
-                href="https://www.youtube.com/@Stefansharf"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-colors cursor-pointer"
-              >
-                <Youtube className="h-4 w-4" />
-                <span>Watch on YouTube</span>
-                <ExternalLink className="h-3.5 w-3.5 opacity-80" />
-              </a>
-            </div>
-          </div>
-
-          {/* 5. How We Work */}
+          {/* How We Work */}
           <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs space-y-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-gold-500/10 text-gold-600 dark:text-gold-500">
