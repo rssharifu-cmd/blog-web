@@ -50,6 +50,13 @@ export interface UserSession {
   expiresAt: string;
 }
 
+export interface AdminAccessRequest {
+  id: string;
+  email: string;
+  status: 'pending' | 'approved' | 'denied';
+  requested_at: string;
+}
+
 export interface ArticleInput {
   title: string;
   slug: string;

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Article, Category, Tag, SiteSettings, ArticleInput } from '../types.js';
+import { Article, Category, Tag, SiteSettings, ArticleInput, AdminAccessRequest } from '../types.js';
 
 let rawSupabaseUrl = (import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_UR || '').trim();
 let rawSupabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANO || '').trim();
@@ -165,6 +165,7 @@ const initFallbackState = () => {
   loadLocalData('net_tags', DEFAULT_TAGS);
   loadLocalData('net_settings', DEFAULT_SETTINGS);
   loadLocalData('net_subscribers', [] as string[]);
+  loadLocalData('net_pending_admin_requests', [] as AdminAccessRequest[]);
 };
 
 if (!isSupabaseConfigured) {
@@ -894,9 +895,11 @@ export const uploadFeaturedImage = async (file: File): Promise<string> => {
 // ==========================================
 
 export const loginAdmin = async (email: string, password: string): Promise<{ token: string; username: string }> => {
+  const normalizedEmail = email.trim().toLowerCase();
+
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password
     });
 
@@ -904,30 +907,86 @@ export const loginAdmin = async (email: string, password: string): Promise<{ tok
       throw new Error(error.message);
     }
 
+    // Check if this account has an approval request entry
+    let requestStatus: string | null = null;
+    try {
+      const { data: requestData, error: reqError } = await supabase
+        .from('pending_admin_requests')
+        .select('status')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+
+      if (!reqError && requestData) {
+        requestStatus = requestData.status;
+      }
+    } catch (e) {
+      console.warn('Error checking pending admin request status from database:', e);
+    }
+
+    // Also check local storage for requests
+    if (!requestStatus) {
+      const localReqs = loadLocalData<AdminAccessRequest[]>('net_pending_admin_requests', []);
+      const match = localReqs.find(r => r.email.toLowerCase() === normalizedEmail);
+      if (match) {
+        requestStatus = match.status;
+      }
+    }
+
+    // If an approval record exists and is NOT approved, block access
+    if (requestStatus && requestStatus !== 'approved') {
+      await supabase.auth.signOut();
+      try {
+        localStorage.removeItem('net_admin_token');
+      } catch (e) {}
+      throw new Error('Your account is pending approval.');
+    }
+
+    // Pre-existing single admin (no request row) OR approved user: login permitted
     return {
       token: data.session?.access_token || 'mock_token',
-      username: data.user?.email || 'admin'
+      username: data.user?.email || normalizedEmail
     };
   } else {
     // Fallback mode password validation
     const storedEmail = localStorage.getItem('net_admin_email_fallback') || 'admin@netventures.online';
     const storedPass = localStorage.getItem('net_admin_pass_fallback') || 'admin123';
     
-    if (email.trim().toLowerCase() === storedEmail.trim().toLowerCase() && password === storedPass) {
+    // 1. Existing original single-admin login
+    if (normalizedEmail === storedEmail.trim().toLowerCase() && password === storedPass) {
       return {
         token: 'fallback-token-' + Date.now(),
         username: email
       };
-    } else {
-      throw new Error('Incorrect email or password. (Default: admin@netventures.online / admin123)');
     }
+
+    // 2. Newly registered account check in fallback mode
+    const localReqs = loadLocalData<AdminAccessRequest[]>('net_pending_admin_requests', []);
+    const match = localReqs.find(r => r.email.toLowerCase() === normalizedEmail);
+    const pendingCreds = loadLocalData<Record<string, string>>('net_pending_creds', {});
+
+    if (match) {
+      if (match.status !== 'approved') {
+        throw new Error('Your account is pending approval.');
+      }
+      if (pendingCreds[normalizedEmail] === password) {
+        return {
+          token: 'fallback-token-' + Date.now(),
+          username: email
+        };
+      }
+    }
+
+    throw new Error('Incorrect email or password. (Default: admin@netventures.online / admin123)');
   }
 };
 
 export const registerAdmin = async (email: string, password: string): Promise<{ success: boolean; message: string }> => {
+  const normalizedEmail = email.trim().toLowerCase();
+
   if (isSupabaseConfigured && supabase) {
+    // 1. Sign up the user in Supabase Auth
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         emailRedirectTo: window.location.origin + '/secret-cms-login'
@@ -938,21 +997,163 @@ export const registerAdmin = async (email: string, password: string): Promise<{ 
       throw new Error(error.message);
     }
 
-    const checkConfirmed = data.user?.identities?.length === 0 || data.session;
+    // 2. Add entry to pending_admin_requests table
+    try {
+      const { error: insertError } = await supabase
+        .from('pending_admin_requests')
+        .upsert(
+          [
+            {
+              email: normalizedEmail,
+              status: 'pending',
+              requested_at: new Date().toISOString()
+            }
+          ],
+          { onConflict: 'email' }
+        );
+
+      if (insertError) {
+        console.warn('Notice saving to pending_admin_requests in Supabase:', insertError.message || insertError);
+      }
+    } catch (e) {
+      console.warn('Exception recording pending admin request:', e);
+    }
+
+    // Always record in local storage as well for backup and instant responsiveness
+    const localRequests = loadLocalData<AdminAccessRequest[]>('net_pending_admin_requests', []);
+    const newEntry: AdminAccessRequest = {
+      id: `req-${Date.now()}`,
+      email: normalizedEmail,
+      status: 'pending',
+      requested_at: new Date().toISOString()
+    };
+    const existingIdx = localRequests.findIndex(r => r.email.toLowerCase() === normalizedEmail);
+    if (existingIdx >= 0) {
+      localRequests[existingIdx] = newEntry;
+    } else {
+      localRequests.unshift(newEntry);
+    }
+    saveLocalData('net_pending_admin_requests', localRequests);
+
+    // 3. Immediately log out so user is NOT authenticated in the CMS
+    await supabase.auth.signOut();
+    try {
+      localStorage.removeItem('net_admin_token');
+    } catch (e) {}
+
     return {
       success: true,
-      message: checkConfirmed 
-        ? 'Account registered successfully!' 
-        : 'Registration confirmation sent! Please check your email inbox to verify.'
+      message: 'Registration submitted. Waiting for admin approval.'
     };
   } else {
-    localStorage.setItem('net_admin_email_fallback', email);
-    localStorage.setItem('net_admin_pass_fallback', password);
+    // Offline / fallback mode
+    const localRequests = loadLocalData<AdminAccessRequest[]>('net_pending_admin_requests', []);
+    const newEntry: AdminAccessRequest = {
+      id: `req-${Date.now()}`,
+      email: normalizedEmail,
+      status: 'pending',
+      requested_at: new Date().toISOString()
+    };
+    const existingIdx = localRequests.findIndex(r => r.email.toLowerCase() === normalizedEmail);
+    if (existingIdx >= 0) {
+      localRequests[existingIdx] = newEntry;
+    } else {
+      localRequests.unshift(newEntry);
+    }
+    saveLocalData('net_pending_admin_requests', localRequests);
+
+    // Save pending credentials for fallback password matching after approval
+    const pendingCreds = loadLocalData<Record<string, string>>('net_pending_creds', {});
+    pendingCreds[normalizedEmail] = password;
+    saveLocalData('net_pending_creds', pendingCreds);
+
     return {
       success: true,
-      message: 'Offline admin account configured successfully in local storage!'
+      message: 'Registration submitted. Waiting for admin approval.'
     };
   }
+};
+
+export const getPendingAdminRequests = async (): Promise<AdminAccessRequest[]> => {
+  let dbRequests: AdminAccessRequest[] = [];
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('pending_admin_requests')
+        .select('*')
+        .order('requested_at', { ascending: false });
+      if (!error && data) {
+        dbRequests = data;
+      }
+    } catch (e) {
+      console.warn('Could not fetch pending admin requests from Supabase:', e);
+    }
+  }
+
+  const localRequests = loadLocalData<AdminAccessRequest[]>('net_pending_admin_requests', []);
+  const map = new Map<string, AdminAccessRequest>();
+  localRequests.forEach(r => map.set(r.email.toLowerCase(), r));
+  dbRequests.forEach(r => map.set(r.email.toLowerCase(), r));
+
+  return Array.from(map.values());
+};
+
+export const approveAdminRequest = async (id: string, email: string): Promise<boolean> => {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { error } = await supabase
+        .from('pending_admin_requests')
+        .update({ status: 'approved' })
+        .eq('email', normalizedEmail);
+      if (error) {
+        console.warn('Notice approving admin request in Supabase:', error.message || error);
+      }
+    } catch (e) {
+      console.warn('Exception updating pending_admin_requests:', e);
+    }
+  }
+
+  const localRequests = loadLocalData<AdminAccessRequest[]>('net_pending_admin_requests', []);
+  const updated = localRequests.map(r => 
+    r.email.toLowerCase() === normalizedEmail ? { ...r, status: 'approved' as const } : r
+  );
+  if (!localRequests.some(r => r.email.toLowerCase() === normalizedEmail)) {
+    updated.push({
+      id: id || `req-${Date.now()}`,
+      email: normalizedEmail,
+      status: 'approved',
+      requested_at: new Date().toISOString()
+    });
+  }
+  saveLocalData('net_pending_admin_requests', updated);
+
+  return true;
+};
+
+export const denyAdminRequest = async (id: string, email: string): Promise<boolean> => {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { error } = await supabase
+        .from('pending_admin_requests')
+        .delete()
+        .eq('email', normalizedEmail);
+      if (error) {
+        console.warn('Notice deleting from pending_admin_requests in Supabase:', error.message || error);
+      }
+    } catch (e) {
+      console.warn('Exception deleting from pending_admin_requests:', e);
+    }
+  }
+
+  const localRequests = loadLocalData<AdminAccessRequest[]>('net_pending_admin_requests', []);
+  const filtered = localRequests.filter(r => r.email.toLowerCase() !== normalizedEmail);
+  saveLocalData('net_pending_admin_requests', filtered);
+
+  return true;
 };
 
 export const requestPasswordReset = async (email: string): Promise<boolean> => {
@@ -975,7 +1176,34 @@ export const verifySession = async (token: string): Promise<boolean> => {
   if (isSupabaseConfigured && supabase) {
     try {
       const { data: { user } } = await supabase.auth.getUser(token);
-      return Boolean(user);
+      if (!user) return false;
+
+      // Ensure user is not an unapproved pending user
+      if (user.email) {
+        const normalized = user.email.toLowerCase().trim();
+        try {
+          const { data: req } = await supabase
+            .from('pending_admin_requests')
+            .select('status')
+            .eq('email', normalized)
+            .maybeSingle();
+
+          if (req && req.status !== 'approved') {
+            await supabase.auth.signOut();
+            return false;
+          }
+        } catch (e) {
+          // Table check fallback
+        }
+
+        const localReqs = loadLocalData<AdminAccessRequest[]>('net_pending_admin_requests', []);
+        const match = localReqs.find(r => r.email.toLowerCase() === normalized);
+        if (match && match.status !== 'approved') {
+          return false;
+        }
+      }
+
+      return true;
     } catch {
       return false;
     }

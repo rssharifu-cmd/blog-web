@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, FolderKanban, Settings, Key, LogOut, 
   Plus, Edit, Trash2, Eye, EyeOff, Save, CheckCircle2, AlertCircle, Sparkles, TrendingUp,
-  Globe, Copy, ExternalLink, Check
+  Globe, Copy, ExternalLink, Check, Clock, UserCheck, ShieldAlert
 } from 'lucide-react';
-import { Article, Category, Tag, SiteSettings } from '../types.js';
+import { Article, Category, Tag, SiteSettings, AdminAccessRequest } from '../types.js';
 import ArticleEditor from './ArticleEditor.js';
 import FounderPhotoUpload from './FounderPhotoUpload.js';
 import { 
@@ -21,6 +21,9 @@ import {
   requestPasswordReset,
   verifySession, 
   changeAdminPassword, 
+  getPendingAdminRequests,
+  approveAdminRequest,
+  denyAdminRequest,
   isSupabaseConfigured
 } from '../lib/supabase.js';
 
@@ -76,6 +79,11 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const [copiedFeedFull, setCopiedFeedFull] = useState(false);
   const [categorySuccess, setCategorySuccess] = useState(false);
   const [tagSuccess, setTagSuccess] = useState(false);
+
+  // Pending admin registration requests
+  const [pendingRequests, setPendingRequests] = useState<AdminAccessRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestActionMsg, setRequestActionMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Token management
   const getToken = () => localStorage.getItem('net_admin_token') || '';
@@ -138,17 +146,66 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
     }
   }, []);
 
+  const fetchPendingRequests = async () => {
+    setRequestsLoading(true);
+    try {
+      const reqs = await getPendingAdminRequests();
+      setPendingRequests(reqs);
+    } catch (err) {
+      console.warn('Error fetching pending admin requests:', err);
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
   const fetchAdminData = async () => {
     try {
-      const [artData, setData] = await Promise.all([
+      const [artData, setData, reqData] = await Promise.all([
         getArticleSummaries(),
-        getSettings()
+        getSettings(),
+        getPendingAdminRequests()
       ]);
 
       setArticles(artData);
       setSiteSettings(setData);
+      setPendingRequests(reqData);
     } catch (err) {
       console.error('Error fetching admin details:', err);
+    }
+  };
+
+  const handleApproveRequest = async (id: string, reqEmail: string) => {
+    try {
+      await approveAdminRequest(id, reqEmail);
+      setRequestActionMsg({ 
+        text: `Approved access for ${reqEmail}. They can now sign in to the CMS.`, 
+        type: 'success' 
+      });
+      fetchPendingRequests();
+      setTimeout(() => setRequestActionMsg(null), 4000);
+    } catch (err: any) {
+      setRequestActionMsg({ 
+        text: err.message || 'Failed to approve request.', 
+        type: 'error' 
+      });
+    }
+  };
+
+  const handleDenyRequest = async (id: string, reqEmail: string) => {
+    if (!window.confirm(`Are you sure you want to deny and remove the access request for ${reqEmail}?`)) return;
+    try {
+      await denyAdminRequest(id, reqEmail);
+      setRequestActionMsg({ 
+        text: `Access request for ${reqEmail} denied and deleted.`, 
+        type: 'success' 
+      });
+      fetchPendingRequests();
+      setTimeout(() => setRequestActionMsg(null), 4000);
+    } catch (err: any) {
+      setRequestActionMsg({ 
+        text: err.message || 'Failed to deny request.', 
+        type: 'error' 
+      });
     }
   };
 
@@ -181,10 +238,8 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
       const res = await registerAdmin(email, password);
       if (res.success) {
         setAuthSuccessMsg(res.message);
-        // Switch to login tab on success
-        if (!isSupabaseConfigured) {
-          setPassword('');
-        }
+        setPassword('');
+        setIsAuthenticated(false);
       }
     } catch (err: any) {
       setLoginError(err.message || 'Registration failed.');
@@ -561,13 +616,21 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
 
               <button
                 onClick={() => setActiveTab('settings')}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
                   activeTab === 'settings'
                     ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50'
                 }`}
               >
-                <Settings className="h-4.5 w-4.5" /> Site Configuration
+                <div className="flex items-center gap-2.5">
+                  <Settings className="h-4.5 w-4.5" /> 
+                  <span>Site Configuration</span>
+                </div>
+                {pendingRequests.filter(r => r.status === 'pending').length > 0 && (
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500 text-black">
+                    {pendingRequests.filter(r => r.status === 'pending').length}
+                  </span>
+                )}
               </button>
 
               <button
@@ -914,6 +977,103 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                     getSettings().then(setSiteSettings);
                   }} 
                 />
+
+                {/* 4.1. PENDING ACCESS REQUESTS */}
+                <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-100 dark:border-zinc-800">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg">
+                          <UserCheck className="h-5 w-5" />
+                        </span>
+                        <h2 className="font-display font-bold text-xl text-gray-900 dark:text-white tracking-tight">
+                          Pending Access Requests
+                        </h2>
+                        {pendingRequests.filter(r => r.status === 'pending').length > 0 && (
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            {pendingRequests.filter(r => r.status === 'pending').length} Pending
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Review, approve, or deny registration requests for new admin access to the CMS.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={fetchPendingRequests}
+                      disabled={requestsLoading}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-750 text-gray-700 dark:text-gray-300 transition-colors cursor-pointer self-start sm:self-auto disabled:opacity-50"
+                    >
+                      {requestsLoading ? 'Refreshing...' : 'Refresh List'}
+                    </button>
+                  </div>
+
+                  {requestActionMsg && (
+                    <div className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+                      requestActionMsg.type === 'success'
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                        : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                    }`}>
+                      <CheckCircle2 className="h-4 w-4 shrink-0" />
+                      <span>{requestActionMsg.text}</span>
+                    </div>
+                  )}
+
+                  {pendingRequests.filter(r => r.status === 'pending').length === 0 ? (
+                    <div className="py-8 px-4 text-center rounded-xl bg-gray-50/50 dark:bg-zinc-950/50 border border-dashed border-gray-200 dark:border-zinc-800 text-gray-400 text-xs space-y-1">
+                      <p className="font-semibold text-gray-700 dark:text-gray-300">No pending access requests</p>
+                      <p className="text-gray-400 dark:text-gray-500">
+                        When someone registers via /secret-cms-login, their request will appear here for your review and approval.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100 dark:divide-zinc-800/60 border border-gray-100 dark:border-zinc-800 rounded-xl overflow-hidden">
+                      {pendingRequests
+                        .filter(r => r.status === 'pending')
+                        .map((req) => (
+                          <div
+                            key={req.id || req.email}
+                            className="p-4 bg-white dark:bg-zinc-900 hover:bg-gray-50/50 dark:hover:bg-zinc-850/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-sm text-gray-900 dark:text-white">
+                                  {req.email}
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                  <Clock className="h-3 w-3" /> Pending Approval
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-400 font-mono">
+                                Requested at: {req.requested_at ? new Date(req.requested_at).toLocaleString() : 'Recently'}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                              <button
+                                type="button"
+                                onClick={() => handleApproveRequest(req.id, req.email)}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDenyRequest(req.id, req.email)}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600/10 hover:bg-rose-600 text-rose-600 hover:text-white dark:text-rose-400 dark:hover:text-white border border-rose-600/20 text-xs font-semibold transition-all cursor-pointer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Deny
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
 
                 <form onSubmit={handleSaveSettings} className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-xs space-y-6">
                 <div>

@@ -171,7 +171,38 @@ create policy "Allow authenticated users to view subscribers list"
 
 
 -- ----------------------------------------------------------
--- 6. STORAGE BUCKETS CONFIGURATION (MEDIA)
+-- 6. PENDING ADMIN ACCESS REQUESTS TABLE
+-- ----------------------------------------------------------
+create table if not exists public.pending_admin_requests (
+    id uuid default gen_random_uuid() primary key,
+    email text unique not null,
+    status text default 'pending',
+    requested_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Enable Row Level Security (RLS)
+alter table public.pending_admin_requests enable row level security;
+
+-- Policies:
+create policy "Allow registration insert to pending_admin_requests"
+    on public.pending_admin_requests for insert
+    with check (true);
+
+create policy "Allow reading pending_admin_requests for login verification"
+    on public.pending_admin_requests for select
+    using (true);
+
+create policy "Allow authenticated admin update on pending_admin_requests"
+    on public.pending_admin_requests for update
+    using (auth.role() = 'authenticated');
+
+create policy "Allow authenticated admin delete on pending_admin_requests"
+    on public.pending_admin_requests for delete
+    using (auth.role() = 'authenticated');
+
+
+-- ----------------------------------------------------------
+-- 7. STORAGE BUCKETS CONFIGURATION (MEDIA)
 -- ----------------------------------------------------------
 -- Note: Create the public storage bucket named 'media' if it doesn't exist.
 -- Create bucket automatically:
