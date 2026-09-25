@@ -17,6 +17,12 @@ function devApiRoutesPlugin() {
         ) {
           targetFile = '/api/post-sitemap.ts';
         } else if (
+          url === '/page-sitemap.xml' ||
+          url === '/api/page-sitemap.xml' ||
+          url === '/api/page-sitemap'
+        ) {
+          targetFile = '/api/page-sitemap.ts';
+        } else if (
           url === '/sitemap.xml' ||
           url === '/api/sitemap.xml' ||
           url === '/api/sitemap'
