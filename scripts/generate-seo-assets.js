@@ -245,6 +245,7 @@ User-agent: facebookexternalhit
 Allow: /
 
 # Reference the XML Sitemap
+Sitemap: ${baseDomain}/sitemap_index.xml
 Sitemap: ${baseDomain}/sitemap.xml
 `;
 
@@ -256,19 +257,21 @@ Sitemap: ${baseDomain}/sitemap.xml
   console.log('📄 Generated /robots.txt successfully.');
 
   // ----------------------------------------
-  // 2. SITEMAP.XML (Dynamic via api/sitemap.xml.ts)
+  // 2. SITEMAPS (Dynamic via api/*.xml.ts)
   // ----------------------------------------
-  // /sitemap.xml is dynamically served via api/sitemap.xml.ts (configured in vercel.json rewrites)
-  // To allow Vercel to route /sitemap.xml to /api/sitemap.xml, no static sitemap.xml is created.
-  const distSitemapFile = path.join(outDir, 'sitemap.xml');
-  if (fs.existsSync(distSitemapFile)) {
-    fs.unlinkSync(distSitemapFile);
-  }
-  const publicSitemapFile = path.join(publicDir, 'sitemap.xml');
-  if (fs.existsSync(publicSitemapFile)) {
-    fs.unlinkSync(publicSitemapFile);
-  }
-  console.log('🗺️ /sitemap.xml is dynamically served via api/sitemap.xml.ts (no static sitemap file).');
+  // Sitemaps are dynamically served via api/*.xml.ts (configured in vercel.json rewrites)
+  // To allow Vercel to route /sitemap*.xml to /api/*-sitemap.xml, no static sitemaps are created.
+  ['sitemap.xml', 'sitemap_index.xml', 'sitemap-index.xml', 'post-sitemap.xml', 'page-sitemap.xml', 'category-sitemap.xml'].forEach((file) => {
+    const distFile = path.join(outDir, file);
+    if (fs.existsSync(distFile)) {
+      fs.unlinkSync(distFile);
+    }
+    const pubFile = path.join(publicDir, file);
+    if (fs.existsSync(pubFile)) {
+      fs.unlinkSync(pubFile);
+    }
+  });
+  console.log('🗺️ Sitemaps are dynamically served via /api/*.xml.ts (no static sitemap files).');
 
   // ----------------------------------------
   // 3. GENERATE RSS.XML (Rich Feed)

@@ -32,4 +32,5 @@ User-agent: facebookexternalhit
 Allow: /
 
 # Reference the XML Sitemap
+Sitemap: https://www.netventures.online/sitemap_index.xml
 Sitemap: https://www.netventures.online/sitemap.xml
