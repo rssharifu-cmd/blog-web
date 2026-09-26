@@ -11,6 +11,12 @@ function devApiRoutesPlugin() {
         const url = req.url ? req.url.split('?')[0] : '';
         let targetFile: string | null = null;
         if (
+          url === '/sitemap_index.xml' ||
+          url === '/api/sitemap-index.xml' ||
+          url === '/api/sitemap-index'
+        ) {
+          targetFile = '/api/sitemap-index.ts';
+        } else if (
           url === '/post-sitemap.xml' ||
           url === '/api/post-sitemap.xml' ||
           url === '/api/post-sitemap'
