@@ -205,10 +205,18 @@ async function generatePages() {
   }
 
   // 3. Fetch live Supabase Articles if credentials exist
+  const categorySlugSet = new Set([
+    'ai-tools',
+    'automation',
+    'digital-marketing',
+    'saas-reviews',
+    'case-studies'
+  ]);
+
   if (SUPABASE_URL && SUPABASE_KEY) {
+    const cleanUrl = SUPABASE_URL.endsWith('/') ? SUPABASE_URL.slice(0, -1) : SUPABASE_URL;
     try {
       console.log('🔗 Fetching articles from Supabase REST API...');
-      const cleanUrl = SUPABASE_URL.endsWith('/') ? SUPABASE_URL.slice(0, -1) : SUPABASE_URL;
       const res = await fetch(`${cleanUrl}/rest/v1/articles?select=*&order=created_at.desc&limit=1000`, {
         headers: {
           apikey: SUPABASE_KEY,
@@ -238,6 +246,31 @@ async function generatePages() {
       }
     } catch (err) {
       console.warn('⚠️ Failed to connect to Supabase (using local & fallback articles):', err.message);
+    }
+
+    try {
+      console.log('🔗 Fetching categories from Supabase REST API...');
+      const catRes = await fetch(`${cleanUrl}/rest/v1/categories?select=*&order=name.asc`, {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`
+        }
+      });
+
+      if (catRes.ok) {
+        const catRows = await catRes.json();
+        (catRows || []).forEach(cat => {
+          const catSlug = (cat.slug && cat.slug.trim()) ? cat.slug.trim() : slugify(cat.name);
+          if (catSlug) {
+            categorySlugSet.add(catSlug);
+          }
+        });
+        console.log(`✅ Loaded ${(catRows || []).length} categories from Supabase`);
+      } else {
+        console.warn(`⚠️ Supabase categories returned status ${catRes.status}`);
+      }
+    } catch (err) {
+      console.warn('⚠️ Failed to fetch categories from Supabase (using default categories):', err.message);
     }
   }
 
@@ -344,8 +377,9 @@ async function generatePages() {
     '/admin',
     ...staticRoutes.map(page => `/${page.routePath}`)
   ];
+  const categoryPaths = Array.from(categorySlugSet).map(slug => `/blog/category/${slug}`);
   const blogPaths = Array.from(articleMap.keys()).map(slug => `/blog/${slug}`);
-  const allValidRoutes = Array.from(new Set([...staticPaths, ...blogPaths])).sort();
+  const allValidRoutes = Array.from(new Set([...staticPaths, ...categoryPaths, ...blogPaths])).sort();
 
   // Write to public/valid-routes.json (for repo and middleware build-time import)
   const publicDir = path.resolve(process.cwd(), 'public');
