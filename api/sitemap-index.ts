@@ -23,6 +23,10 @@ export default async function handler(req: any, res: any) {
     <loc>${baseDomain}/page-sitemap.xml</loc>
     <lastmod>${currentDate}</lastmod>
   </sitemap>
+  <sitemap>
+    <loc>${baseDomain}/category-sitemap.xml</loc>
+    <lastmod>${currentDate}</lastmod>
+  </sitemap>
 </sitemapindex>`;
 
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
