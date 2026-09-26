@@ -116,6 +116,13 @@ export default function App() {
     }
     return null;
   });
+  const [selectedTagSlug, setSelectedTagSlug] = useState<string | null>(() => {
+    const clean = sanitizePath(window.location.pathname);
+    if (clean.startsWith('/blog/tag/')) {
+      return clean.slice('/blog/tag/'.length) || null;
+    }
+    return null;
+  });
   const [currentPage, setCurrentPage] = useState(1);
 
   // GDPR Cookie Consent state
@@ -164,8 +171,14 @@ export default function App() {
     if (currentPath.startsWith('/blog/category/')) {
       const catSlug = currentPath.slice('/blog/category/'.length);
       setSelectedCategorySlug(catSlug || null);
+      setSelectedTagSlug(null);
+    } else if (currentPath.startsWith('/blog/tag/')) {
+      const tagSlug = currentPath.slice('/blog/tag/'.length);
+      setSelectedTagSlug(tagSlug || null);
+      setSelectedCategorySlug(null);
     } else if (currentPath === '/blog') {
       setSelectedCategorySlug(null);
+      setSelectedTagSlug(null);
     }
   }, [currentPath]);
 
@@ -216,7 +229,7 @@ export default function App() {
   // Fetch full article content when navigating to a single post page
   useEffect(() => {
     const parts = currentPath.split('/');
-    const isSingle = parts[1] === 'blog' && parts[2] && parts[2] !== 'category';
+    const isSingle = parts[1] === 'blog' && parts[2] && parts[2] !== 'category' && parts[2] !== 'tag';
     const slug = isSingle ? parts[2] : null;
 
     if (slug) {
@@ -252,7 +265,7 @@ export default function App() {
   // Increment article view count when active article slug changes (top-level hook to avoid violations)
   useEffect(() => {
     const parts = currentPath.split('/');
-    const isSingle = parts[1] === 'blog' && parts[2] && parts[2] !== 'category';
+    const isSingle = parts[1] === 'blog' && parts[2] && parts[2] !== 'category' && parts[2] !== 'tag';
     const activeSlug = isSingle ? parts[2] : null;
     if (activeSlug) {
       incrementArticleView(activeSlug);
@@ -309,7 +322,7 @@ export default function App() {
     schemas.push(orgSchema);
 
     const parts = currentPath.split('/');
-    const isBlogSingle = parts[1] === 'blog' && parts[2] && parts[2] !== 'category';
+    const isBlogSingle = parts[1] === 'blog' && parts[2] && parts[2] !== 'category' && parts[2] !== 'tag';
     
     if (isBlogSingle) {
       const summaryArticle = articles.find(a => a.slug === parts[2]);
@@ -394,8 +407,18 @@ export default function App() {
         title = `Page Not Found (404) - ${siteName}`;
         description = "The requested page was archived or relocated. Search our active library instead.";
       }
-    } else if (currentPath === '/blog' || currentPath.startsWith('/blog/category/')) {
-      title = `The NetVentures Library - ${siteName}`;
+    } else if (currentPath === '/blog' || currentPath.startsWith('/blog/category/') || currentPath.startsWith('/blog/tag/')) {
+      if (currentPath.startsWith('/blog/category/')) {
+        const catSlug = currentPath.slice('/blog/category/'.length);
+        const catName = categories.find(c => c.slug === catSlug)?.name || catSlug;
+        title = `${catName} Articles - ${siteName}`;
+      } else if (currentPath.startsWith('/blog/tag/')) {
+        const tagSlug = currentPath.slice('/blog/tag/'.length);
+        const tagName = tags.find(t => t.slug === tagSlug)?.name || tagSlug;
+        title = `#${tagName} Articles - ${siteName}`;
+      } else {
+        title = `The NetVentures Library - ${siteName}`;
+      }
       description = `Browse our premium library of digital strategies, SaaS case studies, and passive income blueprints.`;
       
       // 1. Blog Schema
@@ -668,7 +691,7 @@ export default function App() {
 
   // Detect Route Matches
   const pathParts = currentPath.split('/');
-  const isSingleArticle = pathParts[1] === 'blog' && pathParts[2] && pathParts[2] !== 'category';
+  const isSingleArticle = pathParts[1] === 'blog' && pathParts[2] && pathParts[2] !== 'category' && pathParts[2] !== 'tag';
   const activeArticleSlug = isSingleArticle ? pathParts[2] : null;
 
   // Render Hidden CMS View (Strictly separated from the public layouts)
@@ -867,10 +890,7 @@ export default function App() {
                 {article.tags.map((tag) => (
                   <span 
                     key={tag}
-                    onClick={() => {
-                      setSearchQuery(tag);
-                      navigate('/blog');
-                    }}
+                    onClick={() => navigate(`/blog/tag/${tag}`)}
                     className="cursor-pointer px-3 py-1.5 rounded-lg font-mono text-xs bg-zinc-100 dark:bg-zinc-900 text-gray-600 dark:text-gray-300 hover:text-gold-500 transition-colors capitalize"
                   >
                     #{tag.replace(/-/g, ' ')}
@@ -1133,17 +1153,18 @@ export default function App() {
     // ----------------------------------------
     // 2. BLOG CATALOGUE / SEARCH VIEW
     // ----------------------------------------
-    if (currentPath === '/blog' || currentPath.startsWith('/blog/category/')) {
+    if (currentPath === '/blog' || currentPath.startsWith('/blog/category/') || currentPath.startsWith('/blog/tag/')) {
       const filtered = articles.filter(art => {
         const matchesCategory = selectedCategorySlug 
           ? categories.find(c => c.slug === selectedCategorySlug)?.id === art.categoryId
           : true;
+        const matchesTag = selectedTagSlug ? art.tags.includes(selectedTagSlug) : true;
         const matchesSearch = searchQuery 
           ? art.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             art.shortDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
             art.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
           : true;
-        return matchesCategory && matchesSearch;
+        return matchesCategory && matchesTag && matchesSearch;
       });
 
       const articlesPerPage = 6;
@@ -1156,7 +1177,11 @@ export default function App() {
       return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10 animate-fade-in">
           <div className="space-y-4">
-            <h1 className="font-display font-bold text-3xl sm:text-4xl text-gray-900 dark:text-white tracking-tight">The NetVentures Library</h1>
+            <h1 className="font-display font-bold text-3xl sm:text-4xl text-gray-900 dark:text-white tracking-tight">
+              {selectedTagSlug
+                ? `#${tags.find(t => t.slug === selectedTagSlug)?.name || selectedTagSlug} Articles`
+                : 'The NetVentures Library'}
+            </h1>
             <p className="text-gray-500 dark:text-gray-400 max-w-2xl leading-relaxed">
               Explore professional step-by-step strategies, SaaS reviews, case studies, and monetization Blueprints. Filter by category or search below.
             </p>
