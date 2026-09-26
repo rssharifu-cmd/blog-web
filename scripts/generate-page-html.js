@@ -212,6 +212,8 @@ async function generatePages() {
     ['saas-reviews', { name: 'SaaS Reviews', description: null }],
     ['case-studies', { name: 'Case Studies', description: null }]
   ]);
+  const tagNameMap = new Map();
+  const tagCounts = new Map();
 
   if (SUPABASE_URL && SUPABASE_KEY) {
     const cleanUrl = SUPABASE_URL.endsWith('/') ? SUPABASE_URL.slice(0, -1) : SUPABASE_URL;
@@ -237,6 +239,14 @@ async function generatePages() {
               featured_image: art.featured_image || art.featuredImage || DEFAULT_IMAGE,
               seo_title: art.seo_title || art.seoTitle,
               seo_description: art.seo_description || art.seoDescription || art.meta_description
+            });
+          }
+          if (Array.isArray(art.tags)) {
+            art.tags.forEach(t => {
+              const tSlug = (t || '').toString().trim();
+              if (tSlug) {
+                tagCounts.set(tSlug, (tagCounts.get(tSlug) || 0) + 1);
+              }
             });
           }
         });
@@ -271,6 +281,31 @@ async function generatePages() {
       }
     } catch (err) {
       console.warn('⚠️ Failed to fetch categories from Supabase (using default categories):', err.message);
+    }
+
+    try {
+      console.log('🔗 Fetching tags from Supabase REST API...');
+      const tagRes = await fetch(`${cleanUrl}/rest/v1/tags?select=slug,name&order=name.asc`, {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`
+        }
+      });
+
+      if (tagRes.ok) {
+        const tagRows = await tagRes.json();
+        (tagRows || []).forEach(tag => {
+          const tagSlug = (tag.slug && tag.slug.trim()) ? tag.slug.trim() : slugify(tag.name);
+          if (tagSlug) {
+            tagNameMap.set(tagSlug, tag.name || tagSlug);
+          }
+        });
+        console.log(`✅ Loaded ${(tagRows || []).length} tags from Supabase`);
+      } else {
+        console.warn(`⚠️ Supabase tags returned status ${tagRes.status}`);
+      }
+    } catch (err) {
+      console.warn('⚠️ Failed to fetch tags from Supabase:', err.message);
     }
   }
 
@@ -397,6 +432,37 @@ async function generatePages() {
     console.log(`🏷️ Generated: dist/blog/category/${slug}/index.html`);
   }
 
+  // 2.6. Generate Tag Pages (/blog/tag/:slug)
+  const qualifyingTagSlugs = Array.from(tagCounts.entries())
+    .filter(([, count]) => count >= 3)
+    .map(([slug]) => slug);
+
+  for (const slug of qualifyingTagSlugs) {
+    const tagName = tagNameMap.get(slug) || slug;
+    const title = `#${tagName} Articles - NetVentures`;
+    const description = `Browse all #${tagName} articles and guides on NetVentures.`;
+    const canonicalUrl = `${SITE_BASE_URL}/blog/tag/${slug}`;
+
+    const pageData = {
+      title,
+      description,
+      canonicalUrl,
+      ogType: 'website',
+      ogImage: DEFAULT_IMAGE
+    };
+
+    const pageHtml = applyMetaToTemplate(templateHtml, pageData);
+    const targetDir = path.join(distDir, 'blog', 'tag', slug);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    const targetFile = path.join(targetDir, 'index.html');
+    fs.writeFileSync(targetFile, pageHtml, 'utf-8');
+    generatedCount++;
+    console.log(`#️⃣ Generated: dist/blog/tag/${slug}/index.html`);
+  }
+  console.log(`✅ Generated ${qualifyingTagSlugs.length} tag pages (threshold >= 3 articles)`);
+
   // 3. Generate valid-routes.json for Vercel Edge Middleware
   const staticPaths = [
     '/',
@@ -405,8 +471,9 @@ async function generatePages() {
     ...staticRoutes.map(page => `/${page.routePath}`)
   ];
   const categoryPaths = Array.from(categoryMap.keys()).map(slug => `/blog/category/${slug}`);
+  const tagPaths = qualifyingTagSlugs.map(slug => `/blog/tag/${slug}`);
   const blogPaths = Array.from(articleMap.keys()).map(slug => `/blog/${slug}`);
-  const allValidRoutes = Array.from(new Set([...staticPaths, ...categoryPaths, ...blogPaths])).sort();
+  const allValidRoutes = Array.from(new Set([...staticPaths, ...categoryPaths, ...tagPaths, ...blogPaths])).sort();
 
   // Write to public/valid-routes.json (for repo and middleware build-time import)
   const publicDir = path.resolve(process.cwd(), 'public');
