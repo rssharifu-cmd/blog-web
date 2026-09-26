@@ -205,12 +205,12 @@ async function generatePages() {
   }
 
   // 3. Fetch live Supabase Articles if credentials exist
-  const categorySlugSet = new Set([
-    'ai-tools',
-    'automation',
-    'digital-marketing',
-    'saas-reviews',
-    'case-studies'
+  const categoryMap = new Map([
+    ['ai-tools', { name: 'AI Tools', description: null }],
+    ['automation', { name: 'Automation', description: null }],
+    ['digital-marketing', { name: 'Digital Marketing', description: null }],
+    ['saas-reviews', { name: 'SaaS Reviews', description: null }],
+    ['case-studies', { name: 'Case Studies', description: null }]
   ]);
 
   if (SUPABASE_URL && SUPABASE_KEY) {
@@ -262,7 +262,7 @@ async function generatePages() {
         (catRows || []).forEach(cat => {
           const catSlug = (cat.slug && cat.slug.trim()) ? cat.slug.trim() : slugify(cat.name);
           if (catSlug) {
-            categorySlugSet.add(catSlug);
+            categoryMap.set(catSlug, { name: cat.name, description: cat.description || null });
           }
         });
         console.log(`✅ Loaded ${(catRows || []).length} categories from Supabase`);
@@ -370,6 +370,33 @@ async function generatePages() {
     console.log(`📝 Generated: dist/blog/${slug}/index.html`);
   }
 
+  // 2.5. Generate Category Pages (/blog/category/:slug)
+  for (const [slug, cat] of categoryMap.entries()) {
+    const title = `${cat.name} Articles - NetVentures`;
+    const description = cat.description
+      ? cleanDescription(cat.description)
+      : `Browse all ${cat.name} articles, guides, and case studies on NetVentures.`;
+    const canonicalUrl = `${SITE_BASE_URL}/blog/category/${slug}`;
+
+    const pageData = {
+      title,
+      description,
+      canonicalUrl,
+      ogType: 'website',
+      ogImage: DEFAULT_IMAGE
+    };
+
+    const pageHtml = applyMetaToTemplate(templateHtml, pageData);
+    const targetDir = path.join(distDir, 'blog', 'category', slug);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    const targetFile = path.join(targetDir, 'index.html');
+    fs.writeFileSync(targetFile, pageHtml, 'utf-8');
+    generatedCount++;
+    console.log(`🏷️ Generated: dist/blog/category/${slug}/index.html`);
+  }
+
   // 3. Generate valid-routes.json for Vercel Edge Middleware
   const staticPaths = [
     '/',
@@ -377,7 +404,7 @@ async function generatePages() {
     '/admin',
     ...staticRoutes.map(page => `/${page.routePath}`)
   ];
-  const categoryPaths = Array.from(categorySlugSet).map(slug => `/blog/category/${slug}`);
+  const categoryPaths = Array.from(categoryMap.keys()).map(slug => `/blog/category/${slug}`);
   const blogPaths = Array.from(articleMap.keys()).map(slug => `/blog/${slug}`);
   const allValidRoutes = Array.from(new Set([...staticPaths, ...categoryPaths, ...blogPaths])).sort();
 
