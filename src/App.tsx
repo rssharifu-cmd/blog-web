@@ -109,7 +109,13 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategorySlug, setSelectedCategorySlug] = useState<string | null>(null);
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState<string | null>(() => {
+    const clean = sanitizePath(window.location.pathname);
+    if (clean.startsWith('/blog/category/')) {
+      return clean.slice('/blog/category/'.length) || null;
+    }
+    return null;
+  });
   const [currentPage, setCurrentPage] = useState(1);
 
   // GDPR Cookie Consent state
@@ -152,6 +158,16 @@ export default function App() {
     
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Sync category filter state when path is /blog/category/[slug] or /blog
+  useEffect(() => {
+    if (currentPath.startsWith('/blog/category/')) {
+      const catSlug = currentPath.slice('/blog/category/'.length);
+      setSelectedCategorySlug(catSlug || null);
+    } else if (currentPath === '/blog') {
+      setSelectedCategorySlug(null);
+    }
+  }, [currentPath]);
 
   // Update theme class
   useEffect(() => {
@@ -200,7 +216,7 @@ export default function App() {
   // Fetch full article content when navigating to a single post page
   useEffect(() => {
     const parts = currentPath.split('/');
-    const isSingle = parts[1] === 'blog' && parts[2];
+    const isSingle = parts[1] === 'blog' && parts[2] && parts[2] !== 'category';
     const slug = isSingle ? parts[2] : null;
 
     if (slug) {
@@ -236,7 +252,7 @@ export default function App() {
   // Increment article view count when active article slug changes (top-level hook to avoid violations)
   useEffect(() => {
     const parts = currentPath.split('/');
-    const isSingle = parts[1] === 'blog' && parts[2];
+    const isSingle = parts[1] === 'blog' && parts[2] && parts[2] !== 'category';
     const activeSlug = isSingle ? parts[2] : null;
     if (activeSlug) {
       incrementArticleView(activeSlug);
@@ -293,7 +309,7 @@ export default function App() {
     schemas.push(orgSchema);
 
     const parts = currentPath.split('/');
-    const isBlogSingle = parts[1] === 'blog' && parts[2];
+    const isBlogSingle = parts[1] === 'blog' && parts[2] && parts[2] !== 'category';
     
     if (isBlogSingle) {
       const summaryArticle = articles.find(a => a.slug === parts[2]);
@@ -378,7 +394,7 @@ export default function App() {
         title = `Page Not Found (404) - ${siteName}`;
         description = "The requested page was archived or relocated. Search our active library instead.";
       }
-    } else if (currentPath === '/blog') {
+    } else if (currentPath === '/blog' || currentPath.startsWith('/blog/category/')) {
       title = `The NetVentures Library - ${siteName}`;
       description = `Browse our premium library of digital strategies, SaaS case studies, and passive income blueprints.`;
       
@@ -652,7 +668,7 @@ export default function App() {
 
   // Detect Route Matches
   const pathParts = currentPath.split('/');
-  const isSingleArticle = pathParts[1] === 'blog' && pathParts[2];
+  const isSingleArticle = pathParts[1] === 'blog' && pathParts[2] && pathParts[2] !== 'category';
   const activeArticleSlug = isSingleArticle ? pathParts[2] : null;
 
   // Render Hidden CMS View (Strictly separated from the public layouts)
@@ -724,7 +740,9 @@ export default function App() {
                 <button 
                   onClick={() => {
                     setSelectedCategorySlug(category.slug);
-                    navigate('/blog');
+                    window.history.pushState(null, '', `/blog/category/${category.slug}`);
+                    setCurrentPath(`/blog/category/${category.slug}`);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }} 
                   className="hover:text-gold-500 transition-colors capitalize"
                 >
@@ -1095,7 +1113,9 @@ export default function App() {
                     key={cat.id}
                     onClick={() => {
                       setSelectedCategorySlug(cat.slug);
-                      navigate('/blog');
+                      window.history.pushState(null, '', `/blog/category/${cat.slug}`);
+                      setCurrentPath(`/blog/category/${cat.slug}`);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     className="p-6 rounded-2xl border border-gray-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-gold-500/30 transition-all cursor-pointer text-center space-y-2 flex flex-col justify-between"
                   >
@@ -1113,7 +1133,7 @@ export default function App() {
     // ----------------------------------------
     // 2. BLOG CATALOGUE / SEARCH VIEW
     // ----------------------------------------
-    if (currentPath === '/blog') {
+    if (currentPath === '/blog' || currentPath.startsWith('/blog/category/')) {
       const filtered = articles.filter(art => {
         const matchesCategory = selectedCategorySlug 
           ? categories.find(c => c.slug === selectedCategorySlug)?.id === art.categoryId
@@ -1145,7 +1165,11 @@ export default function App() {
           {/* Category Pill Filters */}
           <div className="flex flex-wrap gap-2 border-b border-gray-100 dark:border-zinc-900 pb-6">
             <button
-              onClick={() => setSelectedCategorySlug(null)}
+              onClick={() => {
+                setSelectedCategorySlug(null);
+                window.history.pushState(null, '', '/blog');
+                setCurrentPath('/blog');
+              }}
               className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
                 selectedCategorySlug === null
                   ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
@@ -1157,7 +1181,11 @@ export default function App() {
             {categories.map(cat => (
               <button
                 key={cat.id}
-                onClick={() => setSelectedCategorySlug(cat.slug)}
+                onClick={() => {
+                  setSelectedCategorySlug(cat.slug);
+                  window.history.pushState(null, '', `/blog/category/${cat.slug}`);
+                  setCurrentPath(`/blog/category/${cat.slug}`);
+                }}
                 className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
                   selectedCategorySlug === cat.slug
                     ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
@@ -1251,7 +1279,12 @@ export default function App() {
                 Try searching a different keyword or check the "All Columns" category. Alternatively, ask our chatbot co-pilot in the floating menu.
               </p>
               <button 
-                onClick={() => { setSearchQuery(''); setSelectedCategorySlug(null); }}
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategorySlug(null);
+                  window.history.pushState(null, '', '/blog');
+                  setCurrentPath('/blog');
+                }}
                 className="text-xs font-semibold text-gold-500 hover:underline"
               >
                 Reset Filters
@@ -1694,7 +1727,9 @@ export default function App() {
                   key={cat.id}
                   onClick={() => {
                     setSelectedCategorySlug(cat.slug);
-                    navigate('/blog');
+                    window.history.pushState(null, '', `/blog/category/${cat.slug}`);
+                    setCurrentPath(`/blog/category/${cat.slug}`);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="p-6 rounded-2xl border border-gray-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-gold-500/30 transition-all cursor-pointer text-center space-y-2 flex flex-col justify-between"
                 >
