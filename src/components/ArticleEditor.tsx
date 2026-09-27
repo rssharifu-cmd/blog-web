@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, ArrowLeft, Plus, Trash2, Eye, FileEdit, Sparkles } from 'lucide-react';
+import { Save, ArrowLeft, Plus, Trash2, Eye, FileEdit, Sparkles, Bold, Italic, Heading2, Heading3, List, Link2, Table } from 'lucide-react';
 import { Category, Tag, ArticleInput, Article } from '../types.js';
 import { getArticleById, saveArticle, uploadFeaturedImage } from '../lib/supabase.js';
 
@@ -311,6 +311,152 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                   </label>
                 </div>
                 <span className="text-[10px] text-gray-400 font-mono">Supports ## headings, tables, lists, and code blocks</span>
+              </div>
+              <div className="flex gap-1 mb-2">
+                <button
+                  type="button"
+                  title="Bold"
+                  onClick={() => {
+                    const ta = contentTextareaRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const text = content.slice(start, end) || 'bold text';
+                    setContent(content.slice(0, start) + `**${text}**` + content.slice(end));
+                    setTimeout(() => {
+                      ta.focus();
+                      ta.setSelectionRange(start + 2, start + 2 + text.length);
+                    }, 0);
+                  }}
+                  className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
+                >
+                  <Bold className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Italic"
+                  onClick={() => {
+                    const ta = contentTextareaRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const text = content.slice(start, end) || 'italic text';
+                    setContent(content.slice(0, start) + `*${text}*` + content.slice(end));
+                    setTimeout(() => {
+                      ta.focus();
+                      ta.setSelectionRange(start + 1, start + 1 + text.length);
+                    }, 0);
+                  }}
+                  className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
+                >
+                  <Italic className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Heading 2"
+                  onClick={() => {
+                    const ta = contentTextareaRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const lineStart = content.lastIndexOf('\n', start - 1) + 1;
+                    const prefix = (lineStart > 0 && content[lineStart - 2] !== '\n') ? '\n## ' : '## ';
+                    setContent(content.slice(0, lineStart) + prefix + content.slice(lineStart));
+                    setTimeout(() => {
+                      ta.focus();
+                      ta.setSelectionRange(start + prefix.length, end + prefix.length);
+                    }, 0);
+                  }}
+                  className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
+                >
+                  <Heading2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Heading 3"
+                  onClick={() => {
+                    const ta = contentTextareaRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const lineStart = content.lastIndexOf('\n', start - 1) + 1;
+                    const prefix = (lineStart > 0 && content[lineStart - 2] !== '\n') ? '\n### ' : '### ';
+                    setContent(content.slice(0, lineStart) + prefix + content.slice(lineStart));
+                    setTimeout(() => {
+                      ta.focus();
+                      ta.setSelectionRange(start + prefix.length, end + prefix.length);
+                    }, 0);
+                  }}
+                  className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
+                >
+                  <Heading3 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Bullet List"
+                  onClick={() => {
+                    const ta = contentTextareaRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const selected = content.slice(start, end);
+                    const replaced = selected
+                      ? selected.split('\n').map((line) => `- ${line}`).join('\n')
+                      : '- list item';
+                    setContent(content.slice(0, start) + replaced + content.slice(end));
+                    setTimeout(() => {
+                      ta.focus();
+                      if (selected) {
+                        ta.setSelectionRange(start, start + replaced.length);
+                      } else {
+                        ta.setSelectionRange(start + 2, start + replaced.length);
+                      }
+                    }, 0);
+                  }}
+                  className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Link"
+                  onClick={() => {
+                    const ta = contentTextareaRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const label = content.slice(start, end) || 'link text';
+                    const replaced = `[${label}](url)`;
+                    setContent(content.slice(0, start) + replaced + content.slice(end));
+                    setTimeout(() => {
+                      ta.focus();
+                      const urlStart = start + label.length + 3;
+                      ta.setSelectionRange(urlStart, urlStart + 3);
+                    }, 0);
+                  }}
+                  className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Table"
+                  onClick={() => {
+                    const ta = contentTextareaRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const tpl = '\n\n| Column 1 | Column 2 |\n|---|---|\n| Row 1 | Row 1 |\n\n';
+                    setContent(content.slice(0, start) + tpl + content.slice(end));
+                    setTimeout(() => {
+                      ta.focus();
+                      ta.setSelectionRange(start + tpl.length, start + tpl.length);
+                    }, 0);
+                  }}
+                  className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
+                >
+                  <Table className="h-3.5 w-3.5" />
+                </button>
               </div>
               <textarea
                 ref={contentTextareaRef}
