@@ -5,6 +5,7 @@
     { "source": "/page-sitemap.xml", "destination": "/api/page-sitemap" },
     { "source": "/category-sitemap.xml", "destination": "/api/category-sitemap" },
     { "source": "/tag-sitemap.xml", "destination": "/api/tag-sitemap" },
+    { "source": "/author-sitemap.xml", "destination": "/api/author-sitemap" },
     { "source": "/sitemap.xml", "destination": "/api/sitemap.xml" },
     { "source": "/rss.xml", "destination": "/api/rss.xml" },
     { "source": "/(.*)", "destination": "/index.html" }

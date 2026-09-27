@@ -14,34 +14,22 @@ export default async function handler(req: any, res: any) {
 
     const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="/sitemap-style.xsl"?>
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap>
-    <loc>${baseDomain}/post-sitemap.xml</loc>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+  <url>
+    <loc>${baseDomain}/about</loc>
     <lastmod>${currentDate}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${baseDomain}/page-sitemap.xml</loc>
-    <lastmod>${currentDate}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${baseDomain}/category-sitemap.xml</loc>
-    <lastmod>${currentDate}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${baseDomain}/tag-sitemap.xml</loc>
-    <lastmod>${currentDate}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${baseDomain}/author-sitemap.xml</loc>
-    <lastmod>${currentDate}</lastmod>
-  </sitemap>
-</sitemapindex>`;
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>`;
 
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
     res.status(200).send(sitemapXml);
   } catch (err: any) {
-    console.error('Error generating sitemap index:', err);
-    res.status(500).send('Error generating sitemap index');
+    console.error('Error generating author sitemap:', err);
+    res.status(500).send('Error generating author sitemap');
   }
 }
