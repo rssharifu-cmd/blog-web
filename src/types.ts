@@ -10,6 +10,7 @@ export interface Article {
   featuredImage: string;
   featuredImageAlt?: string;
   seoTitle: string;
+  focusKeyword: string;
   seoDescription: string;
   canonicalUrl: string;
   publishedAt: string;
@@ -68,6 +69,7 @@ export interface ArticleInput {
   featuredImage: string;
   featuredImageAlt?: string;
   seoTitle: string;
+  focusKeyword: string;
   seoDescription: string;
   canonicalUrl: string;
   author: string;

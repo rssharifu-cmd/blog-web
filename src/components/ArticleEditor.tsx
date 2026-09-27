@@ -32,6 +32,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
 
   // SEO Fields
   const [seoTitle, setSeoTitle] = useState('');
+  const [focusKeyword, setFocusKeyword] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
   const [canonicalUrl, setCanonicalUrl] = useState('');
 
@@ -67,6 +68,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
           setFeaturedImageAlt(data.featuredImageAlt || '');
           setAuthor(data.author);
           setSeoTitle(data.seoTitle || '');
+          setFocusKeyword(data.focusKeyword || '');
           setSeoDescription(data.seoDescription || '');
           setCanonicalUrl(data.canonicalUrl || '');
           setFaq(data.faq || []);
@@ -142,6 +144,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
       featuredImageAlt,
       author,
       seoTitle: seoTitle || `${title} - NetVentures`,
+      focusKeyword,
       seoDescription: seoDescription || shortDescription,
       canonicalUrl: canonicalUrl || `https://netventures.online/blog/${generatedSlug}`,
       faq,
@@ -498,6 +501,17 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
               <h3 className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white flex items-center gap-1">
                 <Sparkles className="h-4 w-4 text-gold-500" /> SEO & Generative Engine Tuning
               </h3>
+
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Focus Keyword</label>
+                <input
+                  type="text"
+                  value={focusKeyword}
+                  onChange={(e) => setFocusKeyword(e.target.value)}
+                  placeholder="e.g. ai content automation"
+                  className="w-full px-3 py-1.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-gray-750 dark:text-gray-300 focus:ring-1 focus:ring-gold-500"
+                />
+              </div>
 
               <div>
                 <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">SEO Title (Ideal: Under 60 Chars)</label>
