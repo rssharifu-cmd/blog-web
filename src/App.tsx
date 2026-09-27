@@ -83,6 +83,87 @@ const renderTextWithLinks = (text: string): React.ReactNode => {
   return elements.length > 0 ? elements : text;
 };
 
+const renderEditorJsBlocks = (blocks: any[]): React.ReactNode => {
+  return blocks.map((block, index) => {
+    const type = block?.type;
+    const data = block?.data || {};
+
+    if (type === 'header') {
+      const txt = (data.text || '').toString();
+      const plainTxt = txt.replace(/<[^>]*>/g, '');
+      const headingId = plainTxt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      if (data.level === 3) {
+        return <h3 key={index} id={headingId} dangerouslySetInnerHTML={{ __html: txt }} />;
+      }
+      return <h2 key={index} id={headingId} dangerouslySetInnerHTML={{ __html: txt }} />;
+    }
+
+    if (type === 'list') {
+      const items = Array.isArray(data.items) ? data.items : [];
+      return (
+        <ul key={index}>
+          {items.map((item: any, i: number) => {
+            const itemHtml = typeof item === 'string' ? item : (item?.content || '');
+            return <li key={i} dangerouslySetInnerHTML={{ __html: itemHtml }} />;
+          })}
+        </ul>
+      );
+    }
+
+    if (type === 'image') {
+      const imgUrl = data.file?.url || data.url || '';
+      return (
+        <img
+          key={index}
+          src={imgUrl}
+          alt={data.caption || ''}
+          className="w-full rounded-2xl my-6"
+          loading="lazy"
+        />
+      );
+    }
+
+    if (type === 'quote') {
+      return (
+        <blockquote
+          key={index}
+          className="border-l-4 border-gold-500 pl-4 italic my-4"
+          dangerouslySetInnerHTML={{ __html: data.text || '' }}
+        />
+      );
+    }
+
+    if (type === 'table') {
+      const rows: string[][] = Array.isArray(data.content) ? data.content : [];
+      if (rows.length === 0) return null;
+      return (
+        <div key={index} className="overflow-x-auto my-6 border border-gray-100 dark:border-zinc-800 rounded-xl">
+          <table className="min-w-full divide-y divide-gray-100 dark:divide-zinc-800">
+            <thead>
+              <tr className="bg-zinc-50 dark:bg-zinc-900/50">
+                {(rows[0] || []).map((th, i) => (
+                  <th key={i} className="px-4 py-2.5 text-xs font-mono font-bold uppercase text-gray-500 dark:text-gray-400" dangerouslySetInnerHTML={{ __html: th }} />
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-zinc-800/60 text-sm text-gray-600 dark:text-gray-300">
+              {rows.slice(1).map((row, rowIdx) => (
+                <tr key={rowIdx}>
+                  {(row || []).map((td, tdIdx) => (
+                    <td key={tdIdx} className="px-4 py-3" dangerouslySetInnerHTML={{ __html: td }} />
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    return <p key={index} dangerouslySetInnerHTML={{ __html: data.text || '' }} />;
+  });
+};
+
 export default function App() {
   // Routing State
   const [currentPath, setCurrentPath] = useState(() => {
@@ -833,7 +914,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className="markdown-body text-gray-700 dark:text-zinc-300 text-base sm:text-lg leading-relaxed space-y-6">
-                  {article.content.split('\n\n').map((chunk, index) => {
+                  {article.contentBlocks?.blocks?.length > 0 ? renderEditorJsBlocks(article.contentBlocks.blocks) : article.content.split('\n\n').map((chunk, index) => {
                     if (chunk.startsWith('## ')) {
                       const txt = chunk.replace('## ', '');
                       const headingId = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');

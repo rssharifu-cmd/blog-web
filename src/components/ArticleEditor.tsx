@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, ArrowLeft, Plus, Trash2, Eye, FileEdit, Sparkles, Bold, Italic, Heading2, Heading3, List, Link2, Table } from 'lucide-react';
+import { Save, ArrowLeft, Plus, Trash2, Eye, FileEdit, Sparkles, Bold, Italic, Heading2, Heading3, List as ListIcon, Link2, Table as TableIcon } from 'lucide-react';
+import EditorJS from '@editorjs/editorjs';
+import Header from '@editorjs/header';
+import List from '@editorjs/list';
+import ImageTool from '@editorjs/image';
+import Quote from '@editorjs/quote';
+import Table from '@editorjs/table';
 import { Category, Tag, ArticleInput, Article } from '../types.js';
 import { getArticleById, saveArticle, uploadFeaturedImage } from '../lib/supabase.js';
 
@@ -17,13 +23,14 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
   const [error, setError] = useState<string | null>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Editor Tabs: 'write' | 'preview'
-  const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
+  // Editor Tabs: 'write' | 'preview' | 'blocks'
+  const [activeTab, setActiveTab] = useState<'write' | 'preview' | 'blocks'>('write');
 
   // Input states
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [content, setContent] = useState('');
+  const [contentBlocks, setContentBlocks] = useState<any>(null);
   const [shortDescription, setShortDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -62,6 +69,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
           setTitle(data.title);
           setSlug(data.slug);
           setContent(data.content);
+          setContentBlocks(data.contentBlocks || null);
           setShortDescription(data.shortDescription);
           setCategoryId(data.categoryId);
           setSelectedTags(data.tags);
@@ -85,6 +93,36 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
       setFeaturedImage(coverOptions[0]);
     }
   }, [articleId, categories]);
+
+  useEffect(() => {
+    if (activeTab !== 'blocks') return;
+    const editor = new EditorJS({
+      holder: 'editorjs-holder',
+      data: contentBlocks || { blocks: [] },
+      tools: {
+        header: Header as any,
+        list: List as any,
+        image: {
+          class: ImageTool as any,
+          config: {
+            uploader: {
+              uploadByFile: async (file: File) => {
+                const url = await uploadFeaturedImage(file);
+                return { success: 1, file: { url } };
+              }
+            }
+          }
+        },
+        quote: Quote as any,
+        table: Table as any
+      },
+      onChange: async () => {
+        const data = await editor.save();
+        setContentBlocks(data);
+      }
+    });
+    return () => { editor.destroy?.(); };
+  }, [activeTab]);
 
   // Handle Title change and auto-slugify
   const handleTitleChange = (val: string) => {
@@ -138,6 +176,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
       title,
       slug: generatedSlug,
       content,
+      contentBlocks,
       shortDescription,
       categoryId,
       tags: selectedTags,
@@ -204,6 +243,14 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
               }`}
             >
               <Eye className="h-3.5 w-3.5" /> Live Preview
+            </button>
+            <button
+              onClick={() => setActiveTab('blocks')}
+              className={`px-3 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                activeTab === 'blocks' ? 'bg-white dark:bg-zinc-900 shadow-xs text-gray-900 dark:text-white' : 'text-gray-500'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Block Editor (Beta)
             </button>
           </div>
 
@@ -415,7 +462,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                   }}
                   className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
                 >
-                  <List className="h-3.5 w-3.5" />
+                  <ListIcon className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
@@ -455,7 +502,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                   }}
                   className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
                 >
-                  <Table className="h-3.5 w-3.5" />
+                  <TableIcon className="h-3.5 w-3.5" />
                 </button>
               </div>
               <textarea
@@ -734,6 +781,11 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
           </div>
 
         </form>
+      ) : activeTab === 'blocks' ? (
+        <div
+          id="editorjs-holder"
+          className="p-6 rounded-2xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 min-h-[400px] prose dark:prose-invert max-w-none"
+        />
       ) : (
         /* Real-time HTML Content preview mode */
         <div className="space-y-6">

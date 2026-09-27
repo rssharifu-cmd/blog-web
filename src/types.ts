@@ -11,6 +11,7 @@ export interface Article {
   featuredImageAlt?: string;
   seoTitle: string;
   focusKeyword: string;
+  contentBlocks?: any;
   seoDescription: string;
   canonicalUrl: string;
   publishedAt: string;
@@ -70,6 +71,7 @@ export interface ArticleInput {
   featuredImageAlt?: string;
   seoTitle: string;
   focusKeyword: string;
+  contentBlocks?: any;
   seoDescription: string;
   canonicalUrl: string;
   author: string;
