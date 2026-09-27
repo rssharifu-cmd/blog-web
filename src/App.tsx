@@ -853,6 +853,18 @@ export default function App() {
                         </ul>
                       );
                     }
+                    const imageMatch = chunk.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+                    if (imageMatch) {
+                      return (
+                        <img
+                          key={index}
+                          src={imageMatch[2]}
+                          alt={imageMatch[1] || ''}
+                          className="w-full rounded-2xl my-6"
+                          loading="lazy"
+                        />
+                      );
+                    }
                     // Table parser
                     if (chunk.startsWith('|')) {
                       const rows = chunk.split('\n').filter(Boolean);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Save, ArrowLeft, Plus, Trash2, Eye, FileEdit, Sparkles } from 'lucide-react';
 import { Category, Tag, ArticleInput, Article } from '../types.js';
 import { getArticleById, saveArticle, uploadFeaturedImage } from '../lib/supabase.js';
@@ -13,7 +13,9 @@ interface ArticleEditorProps {
 
 export default function ArticleEditor({ articleId, categories, tags, onClose, getToken }: ArticleEditorProps) {
   const [loading, setLoading] = useState(false);
+  const [uploadingBodyImage, setUploadingBodyImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Editor Tabs: 'write' | 'preview'
   const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
@@ -270,12 +272,48 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
             {/* Markdown editor */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Article Body (Markdown Enabled)
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Article Body (Markdown Enabled)
+                  </label>
+                  <label className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all">
+                    {uploadingBodyImage ? 'Uploading...' : 'Insert Image'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingBodyImage}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            setError(null);
+                            setUploadingBodyImage(true);
+                            const publicUrl = await uploadFeaturedImage(file);
+                            const insertText = `\n\n![image description](${publicUrl})\n\n`;
+                            const textarea = contentTextareaRef.current;
+                            if (textarea) {
+                              const start = textarea.selectionStart ?? content.length;
+                              const end = textarea.selectionEnd ?? content.length;
+                              setContent((prev) => prev.slice(0, start) + insertText + prev.slice(end));
+                            } else {
+                              setContent((prev) => prev + insertText);
+                            }
+                          } catch (err: any) {
+                            setError('Image upload failed: ' + err.message);
+                          } finally {
+                            setUploadingBodyImage(false);
+                            e.target.value = '';
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
                 <span className="text-[10px] text-gray-400 font-mono">Supports ## headings, tables, lists, and code blocks</span>
               </div>
               <textarea
+                ref={contentTextareaRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Write your high-value article here. Use ## markdown syntax for headings to automatically compile the Table of Contents."
