@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, ArrowLeft, Plus, Trash2, Eye, FileEdit, Sparkles, Bold, Italic, Heading2, Heading3, List as ListIcon, Link2, Table as TableIcon } from 'lucide-react';
+import { Save, ArrowLeft, Plus, Trash2, Eye, FileEdit, Sparkles, Bold, Italic, Heading1, Heading2, Heading3, List as ListIcon, Link2, Table as TableIcon } from 'lucide-react';
 import EditorJS from '@editorjs/editorjs';
 import Header from '@editorjs/header';
 import List from '@editorjs/list';
@@ -100,7 +100,10 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
       holder: 'editorjs-holder',
       data: contentBlocks || { blocks: [] },
       tools: {
-        header: Header as any,
+        header: {
+          class: Header as any,
+          config: { levels: [1, 2, 3], defaultLevel: 2 }
+        },
         list: List as any,
         image: {
           class: ImageTool as any,
@@ -279,7 +282,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
             {/* Title & Slug */}
             <div className="space-y-4 bg-zinc-50/50 dark:bg-zinc-950/20 p-5 rounded-2xl border border-gray-100 dark:border-zinc-800/80">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Article Title</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Article Title (H1)</label>
                 <input
                   type="text"
                   value={title}
@@ -397,6 +400,26 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                   className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
                 >
                   <Italic className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  title="Heading 1"
+                  onClick={() => {
+                    const ta = contentTextareaRef.current;
+                    if (!ta) return;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const lineStart = content.lastIndexOf('\n', start - 1) + 1;
+                    const prefix = (lineStart > 0 && content[lineStart - 2] !== '\n') ? '\n# ' : '# ';
+                    setContent(content.slice(0, lineStart) + prefix + content.slice(lineStart));
+                    setTimeout(() => {
+                      ta.focus();
+                      ta.setSelectionRange(start + prefix.length, end + prefix.length);
+                    }, 0);
+                  }}
+                  className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-lg text-[10px] font-semibold cursor-pointer transition-all"
+                >
+                  <Heading1 className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"

@@ -92,6 +92,9 @@ const renderEditorJsBlocks = (blocks: any[]): React.ReactNode => {
       const txt = (data.text || '').toString();
       const plainTxt = txt.replace(/<[^>]*>/g, '');
       const headingId = plainTxt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      if (data.level === 1) {
+        return <h1 key={index} id={headingId} dangerouslySetInnerHTML={{ __html: txt }} />;
+      }
       if (data.level === 3) {
         return <h3 key={index} id={headingId} dangerouslySetInnerHTML={{ __html: txt }} />;
       }
@@ -915,6 +918,11 @@ export default function App() {
               ) : (
                 <div className="markdown-body text-gray-700 dark:text-zinc-300 text-base sm:text-lg leading-relaxed space-y-6">
                   {article.contentBlocks?.blocks?.length > 0 ? renderEditorJsBlocks(article.contentBlocks.blocks) : article.content.split('\n\n').map((chunk, index) => {
+                    if (chunk.startsWith('# ')) {
+                      const txt = chunk.replace('# ', '');
+                      const headingId = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                      return <h1 key={index} id={headingId}>{txt}</h1>;
+                    }
                     if (chunk.startsWith('## ')) {
                       const txt = chunk.replace('## ', '');
                       const headingId = txt.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
