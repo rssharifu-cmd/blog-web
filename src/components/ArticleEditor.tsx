@@ -208,6 +208,126 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const cleanCellText = (rawText: string): string => {
+      let cleaned = (rawText || '')
+        .replace(/\u00A0/g, ' ')           // replace &nbsp;
+        .replace(/[\r\n]+/g, ' ')          // replace newlines with single space
+        .replace(/\s+/g, ' ')              // collapse multiple spaces into one
+        .trim();
+      cleaned = cleaned.replace(/\|/g, '/'); // replace internal pipes with /
+      return cleaned === '' ? '—' : cleaned; // replace empty cells with em-dash
+    };
+
+    const formatMarkdownTable = (rows: string[][]): string => {
+      if (!rows || rows.length === 0) return '';
+      const maxCols = Math.max(...rows.map(r => r.length), 1);
+      const paddedRows = rows.map(r => {
+        const row = [...r];
+        while (row.length < maxCols) {
+          row.push('—');
+        }
+        return row;
+      });
+
+      const headerLine = `| ${paddedRows[0].join(' | ')} |`;
+      const dividerLine = `| ${Array(maxCols).fill('---').join(' | ')} |`;
+      const dataLines = paddedRows.slice(1).map(r => `| ${r.join(' | ')} |`);
+
+      return [headerLine, dividerLine, ...dataLines].join('\n');
+    };
+
+    const markdownTables: string[] = [];
+    const htmlData = e.clipboardData.getData('text/html');
+
+    if (htmlData && htmlData.includes('<table')) {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlData, 'text/html');
+        const tableElements = Array.from(doc.querySelectorAll('table'));
+
+        if (tableElements.length > 0) {
+          const clone = doc.body.cloneNode(true) as HTMLElement;
+          clone.querySelectorAll('table').forEach(t => t.remove());
+          const textOutside = (clone.textContent || '').replace(/\u00A0/g, ' ').trim();
+
+          if (textOutside === '') {
+            for (const table of tableElements) {
+              const trs = Array.from(table.querySelectorAll('tr'));
+              const rows: string[][] = [];
+              for (const tr of trs) {
+                const cells = Array.from(tr.children).filter(
+                  el => el.tagName === 'TH' || el.tagName === 'TD'
+                );
+                if (cells.length > 0) {
+                  rows.push(cells.map(c => cleanCellText(c.textContent || '')));
+                }
+              }
+              if (rows.length > 0) {
+                markdownTables.push(formatMarkdownTable(rows));
+              }
+            }
+          } else {
+            // Mixed content: text outside table exists, let standard paste proceed
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to parse clipboard HTML table:', err);
+      }
+    }
+
+    // If HTML table was not found or no HTML present, check text/plain for TSV
+    if (markdownTables.length === 0) {
+      const plainData = e.clipboardData.getData('text/plain') || '';
+      const lines = plainData
+        .split(/\r?\n/)
+        .map(l => l.replace(/[\r\n]+$/, ''))
+        .filter(l => l.length > 0 && l.replace(/\t/g, '').trim().length > 0);
+
+      if (lines.length >= 2) {
+        const tabCounts = lines.map(l => (l.match(/\t/g) || []).length);
+        const firstTabCount = tabCounts[0];
+        if (firstTabCount > 0 && tabCounts.every(c => c === firstTabCount)) {
+          const rows = lines.map(line => line.split('\t').map(cleanCellText));
+          if (rows.length > 0) {
+            markdownTables.push(formatMarkdownTable(rows));
+          }
+        }
+      }
+    }
+
+    if (markdownTables.length === 0) {
+      return; // Normal paste
+    }
+
+    e.preventDefault();
+
+    const combinedTables = markdownTables.join('\n\n');
+    const ta = contentTextareaRef.current;
+    if (ta) {
+      const start = ta.selectionStart ?? content.length;
+      const end = ta.selectionEnd ?? content.length;
+      const before = content.slice(0, start);
+      const after = content.slice(end);
+
+      const prefix = before.endsWith('\n\n') ? '' : (before.endsWith('\n') ? '\n' : '\n\n');
+      const suffix = after.startsWith('\n\n') ? '' : (after.startsWith('\n') ? '\n' : '\n\n');
+      const insertText = `${prefix}${combinedTables}${suffix}`;
+
+      const newContent = before + insertText + after;
+      setContent(newContent);
+
+      const newCursorPos = start + insertText.length;
+      setTimeout(() => {
+        ta.focus();
+        ta.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    } else {
+      setContent(prev => (prev ? `${prev}\n\n${combinedTables}\n\n` : `\n\n${combinedTables}\n\n`));
+    }
+  };
+
   return (
     <div className="space-y-6">
       
@@ -532,6 +652,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                 ref={contentTextareaRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
+                onPaste={handlePaste}
                 placeholder="Write your high-value article here. Use ## markdown syntax for headings to automatically compile the Table of Contents."
                 required
                 rows={16}
