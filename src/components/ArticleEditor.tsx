@@ -977,6 +977,33 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                         </ul>
                       );
                     }
+                    // Table parser
+                    if (chunk.startsWith('|')) {
+                      const rows = chunk.split('\n').filter(Boolean);
+                      const parseCols = (rowStr: string) => rowStr.split('|').map(c => c.trim()).filter(Boolean);
+                      return (
+                        <div key={index} className="overflow-x-auto my-6 border border-gray-100 dark:border-zinc-800 rounded-xl">
+                          <table className="min-w-full divide-y divide-gray-100 dark:divide-zinc-800">
+                            <thead>
+                              <tr className="bg-zinc-50 dark:bg-zinc-900/50">
+                                {parseCols(rows[0]).map((th, i) => (
+                                  <th key={i} className="px-4 py-2.5 text-xs font-mono font-bold uppercase text-gray-500 dark:text-gray-400">{th}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-zinc-800/60 text-sm text-gray-600 dark:text-gray-300">
+                              {rows.slice(2).map((row, rowIdx) => (
+                                <tr key={rowIdx}>
+                                  {parseCols(row).map((td, tdIdx) => (
+                                    <td key={tdIdx} className="px-4 py-3">{td}</td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    }
                     return <p key={index}>{chunk}</p>;
                   })
                 ) : (
