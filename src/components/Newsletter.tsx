@@ -44,7 +44,7 @@ export default function Newsletter() {
         {status === 'success' ? (
           <div className="mt-6 flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-400 animate-fade-in">
             <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm font-medium">Subscription confirmed! Welcome to the inside loop. Check your inbox shortly.</span>
+            <span className="text-sm font-medium">You're on the list. Thanks for subscribing!</span>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-6 flex flex-col sm:flex-row gap-3">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, FolderKanban, Settings, Key, LogOut, 
   Plus, Edit, Trash2, Eye, EyeOff, Save, CheckCircle2, AlertCircle, Sparkles, TrendingUp,
-  Globe, Copy, ExternalLink, Check, Clock, UserCheck, ShieldAlert
+  Globe, Copy, ExternalLink, Check, Clock, UserCheck, ShieldAlert, Mail, Download
 } from 'lucide-react';
 import { Article, Category, Tag, SiteSettings, AdminAccessRequest } from '../types.js';
 import ArticleEditor from './ArticleEditor.js';
@@ -24,6 +24,7 @@ import {
   getPendingAdminRequests,
   approveAdminRequest,
   denyAdminRequest,
+  getSubscribers,
   isSupabaseConfigured
 } from '../lib/supabase.js';
 
@@ -43,10 +44,12 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Active admin views: 'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor' | 'gsc' | 'api'
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor' | 'gsc' | 'api'>('dashboard');
+  // Active admin views: 'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor' | 'gsc' | 'api' | 'subscribers'
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'articles' | 'categories' | 'settings' | 'password' | 'editor' | 'gsc' | 'api' | 'subscribers'>('dashboard');
   const [articles, setArticles] = useState<Article[]>([]);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
+  const [subscribers, setSubscribers] = useState<string[]>([]);
+  const [subsLoading, setSubsLoading] = useState(false);
   
   // API connection states
   const [agentApiKey, setAgentApiKey] = useState('');
@@ -402,6 +405,33 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
     onRefreshData();
   };
 
+  const handleLoadSubscribers = async () => {
+    setActiveTab('subscribers');
+    setSubsLoading(true);
+    try {
+      const data = await getSubscribers();
+      setSubscribers(data || []);
+    } catch (err) {
+      console.error('Failed to load subscribers:', err);
+    } finally {
+      setSubsLoading(false);
+    }
+  };
+
+  const handleDownloadCSV = () => {
+    if (subscribers.length === 0) return;
+    const csvContent = ['email', ...subscribers].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'subscribers.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Stats summaries
   const totalViews = articles.reduce((acc, curr) => acc + (curr.views || 0), 0);
   const totalPublished = articles.filter(a => a.status === 'published').length;
@@ -653,6 +683,17 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                 }`}
               >
                 <Key className="h-4.5 w-4.5 text-gold-500" /> API Connection
+              </button>
+
+              <button
+                onClick={handleLoadSubscribers}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all text-left cursor-pointer ${
+                  activeTab === 'subscribers'
+                    ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800/50'
+                }`}
+              >
+                <Mail className="h-4.5 w-4.5" /> Subscribers
               </button>
 
               <button
@@ -1481,6 +1522,55 @@ export default function AdminLayout({ navigate, categories, tags, onRefreshData 
                     </form>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* SUBSCRIBERS VIEW */}
+            {activeTab === 'subscribers' && (
+              <div className="p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 shadow-xs space-y-6 animate-fade-in">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h2 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Newsletter Subscribers</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Total count: {subscribers.length}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadCSV}
+                    disabled={subscribers.length === 0 || subsLoading}
+                    className="px-4 py-2.5 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 font-semibold text-xs uppercase tracking-wider transition-opacity cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 self-start sm:self-auto"
+                  >
+                    <Download className="h-4 w-4" /> Download CSV
+                  </button>
+                </div>
+
+                {subsLoading ? (
+                  <div className="py-12 text-center text-gray-400">
+                    <p className="text-sm">Loading...</p>
+                  </div>
+                ) : subscribers.length === 0 ? (
+                  <div className="py-12 text-center text-gray-400">
+                    <p className="text-sm">No subscribers yet.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-gray-100 dark:border-zinc-800 rounded-xl">
+                    <table className="min-w-full divide-y divide-gray-100 dark:divide-zinc-800">
+                      <thead>
+                        <tr className="bg-zinc-50 dark:bg-zinc-900/50">
+                          <th className="px-4 py-2.5 text-left text-xs font-mono font-bold uppercase text-gray-500 dark:text-gray-400 w-16">#</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-mono font-bold uppercase text-gray-500 dark:text-gray-400">Email</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-zinc-800/60 text-sm text-gray-700 dark:text-gray-300">
+                        {subscribers.map((subEmail, idx) => (
+                          <tr key={idx} className="hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                            <td className="px-4 py-3 font-mono text-xs text-gray-400">{idx + 1}</td>
+                            <td className="px-4 py-3 font-mono text-sm">{subEmail}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
