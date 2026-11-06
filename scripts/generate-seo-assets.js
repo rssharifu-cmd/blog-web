@@ -52,7 +52,7 @@ const DEFAULT_ARTICLES = [
     slug: 'ai-powered-content-empire',
     shortDescription: 'Discover how to leverage state-of-the-art AI systems, automated editors, and predictive search frameworks to build an organic traffic powerhouse.',
     publishedAt: '2026-07-15T09:00:00Z',
-    author: 'Elena Rostova',
+    author: 'NetVentures',
     categoryName: 'AI Tools',
     content: 'In 2026, the landscape of digital publishing is undergoing an unprecedented shift...'
   },
@@ -106,7 +106,7 @@ async function run() {
             slug: slug,
             shortDescription: art.shortDescription || art.title,
             publishedAt: art.publishedAt || new Date().toISOString(),
-            author: art.author || 'Elena Rostova',
+            author: art.author || 'NetVentures',
             categoryName: categoriesMap[art.categoryId] || 'Editorial',
             content: art.content || ''
           });
@@ -179,7 +179,7 @@ async function run() {
                 slug: slug,
                 shortDescription: art.excerpt || art.short_description || art.title,
                 publishedAt: art.published_at || art.created_at || new Date().toISOString(),
-                author: art.author || 'Elena Rostova',
+                author: art.author || 'NetVentures',
                 categoryName: categoriesMap[art.category] || categoriesMap[art.category_id] || 'Editorial',
                 content: art.content || ''
               });
@@ -220,6 +220,8 @@ User-agent: *
 Allow: /
 Allow: /blog
 Allow: /about
+Allow: /projects
+Allow: /services
 Allow: /contact
 Allow: /privacy
 Allow: /terms

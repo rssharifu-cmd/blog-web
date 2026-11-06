@@ -12,6 +12,7 @@ import Chatbot from './components/Chatbot.js';
 import Toc from './components/Toc.js';
 import AdminLayout from './components/AdminLayout.js';
 import SocialShare from './components/SocialShare.js';
+import { PersonalHome, PersonalAbout, PersonalProjects, PersonalServices, PersonalContact } from './components/PersonalPages.js';
 import { Article, Category, Tag, SiteSettings } from './types.js';
 import { 
   getArticles, 
@@ -183,7 +184,6 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
-  const [founderImageFailed, setFounderImageFailed] = useState(false);
 
   // Active full article state for single post views
   const [activeFullArticle, setActiveFullArticle] = useState<Article | null>(null);
@@ -218,10 +218,6 @@ export default function App() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedCategorySlug]);
-
-  // Contact form state
-  const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
-  const [contactSuccess, setContactSuccess] = useState(false);
 
   // Active theme state
   const [darkMode, setDarkMode] = useState(() => {
@@ -375,13 +371,13 @@ export default function App() {
 
     const siteName = currentSettings.siteName || 'NetVentures';
     const siteDesc = currentSettings.siteDescription || 'Premium digital business strategies and insights.';
-    const logoUrl = currentSettings.logoUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80';
     const origin = window.location.origin;
+    const logoUrl = `${origin}/favicon.svg`;
 
-    let title = `${siteName} - Premium Digital Business Strategy & SaaS Magazine`;
-    let description = siteDesc;
+    let title = `MD Sharif Miah | Independent Web & SaaS Builder`;
+    let description = 'Meet MD Sharif Miah, a Bangladeshi independent builder based in Saudi Arabia. Explore his websites, SaaS projects, digital services and NetVentures blog.';
     let canonicalUrl = `${origin}${currentPath}`;
-    let image = logoUrl;
+    let image = `${origin}/personal-og.png`;
     let type = 'website';
     const schemas: any[] = [];
 
@@ -433,7 +429,7 @@ export default function App() {
           "dateModified": article.publishedAt || new Date().toISOString(),
           "author": {
             "@type": "Person",
-            "name": article.author || "Elena Rostova"
+            "name": article.author || "NetVentures"
           },
           "publisher": {
             "@id": `${origin}/#organization`
@@ -561,8 +557,8 @@ export default function App() {
       };
       schemas.push(breadcrumbSchema);
     } else if (currentPath === '/about') {
-      title = `About Stefan Sharf & NetVentures - ${siteName}`;
-      description = "Stefan Sharf is the Founder & CEO of NetVentures, an independent digital publication covering SaaS, AI tools, web hosting, automation, and online business technology.";
+      title = `About MD Sharif Miah | My Story`;
+      description = 'MD Sharif Miah, also known as Sharif, is a Bangladeshi independent builder based in Saudi Arabia. Read about his journey from hospitality to digital products.';
       
       const breadcrumbSchema = {
         "@type": "BreadcrumbList",
@@ -586,9 +582,11 @@ export default function App() {
 
       const personSchema = {
         "@type": "Person",
-        "@id": `${origin}/#stefan-sharf`,
-        "name": "Stefan Sharf",
-        "jobTitle": "Founder & CEO",
+        "@id": `${origin}/#md-sharif-miah`,
+        "name": "MD Sharif Miah",
+        "alternateName": "Sharif",
+        "image": `${origin}/uploads/md-sharif-miah.jpg`,
+        "jobTitle": "Independent web and SaaS builder",
         "worksFor": {
           "@type": "Organization",
           "name": "NetVentures",
@@ -596,9 +594,15 @@ export default function App() {
         }
       };
       schemas.push(personSchema);
+    } else if (currentPath === '/projects') {
+      title = 'Projects by MD Sharif Miah | Sharflow, Soroban & NetVentures';
+      description = 'Explore MD Sharif Miah’s current projects, including Sharflow website monitoring, Soroban parent training and the NetVentures blog.';
+    } else if (currentPath === '/services') {
+      title = 'Website & Digital Services | MD Sharif Miah';
+      description = 'Discuss a business website, practical automation or personalized lead research project with MD Sharif Miah.';
     } else if (currentPath === '/contact') {
-      title = `Contact Inquiries - ${siteName}`;
-      description = "Get in touch with our administrative or editorial desk for general inquiries, SaaS reviews, or sponsorships.";
+      title = 'Contact MD Sharif Miah | Start a Conversation';
+      description = 'Contact MD Sharif Miah about websites, digital tools, outreach research or potential collaborations.';
       
       const breadcrumbSchema = {
         "@type": "BreadcrumbList",
@@ -629,6 +633,15 @@ export default function App() {
       title = `Affiliate Marketing Disclosure - ${siteName}`;
       description = "FTC disclosure and partnership details explaining digital server asset funding.";
     } else if (currentPath === '/') {
+      schemas.push({
+        '@type': 'Person',
+        '@id': `${origin}/#md-sharif-miah`,
+        'name': 'MD Sharif Miah',
+        'alternateName': 'Sharif',
+        'image': `${origin}/uploads/md-sharif-miah.jpg`,
+        'url': origin,
+        'description': 'Independent website and SaaS builder based in Saudi Arabia.'
+      });
       // Home Page WebSite Schema with SearchAction for Sitelinks Search Box
       const websiteSchema = {
         "@type": "WebSite",
@@ -797,6 +810,13 @@ export default function App() {
   // ==========================================
 
   const renderActiveView = () => {
+    // The personal site has its own public-facing views. The existing blog and
+    // publishing system remain untouched under /blog and the CMS route.
+    if (currentPath === '/') return <PersonalHome navigate={navigate} articles={articles} />;
+    if (currentPath === '/about') return <PersonalAbout navigate={navigate} />;
+    if (currentPath === '/projects') return <PersonalProjects navigate={navigate} />;
+    if (currentPath === '/services') return <PersonalServices navigate={navigate} />;
+    if (currentPath === '/contact') return <PersonalContact />;
     
     // ----------------------------------------
     // 1. ARTICLE DETAIL VIEW
@@ -1421,190 +1441,8 @@ export default function App() {
       );
     }
 
-    // ----------------------------------------
-    // 3. ABOUT PAGE (Stefan Sharf & Editorial Transparency)
-    // ----------------------------------------
-    if (currentPath === '/about') {
-      return (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10 animate-fade-in">
-          <div className="space-y-3 text-center">
-            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gold-100 dark:bg-gold-500/10 text-gold-700 dark:text-gold-500">
-              About NetVentures
-            </span>
-            <h1 className="font-display font-bold text-3xl sm:text-4xl text-gray-900 dark:text-white tracking-tight">
-              About Us & Leadership
-            </h1>
-          </div>
+    // About and contact views are rendered by PersonalPages above.
 
-          {/* 1 & 2 & 3. Stefan Sharf Profile Photo, Identity & Introduction */}
-          <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
-              {currentSettings.founderImageUrl && !founderImageFailed ? (
-                <img
-                  src={currentSettings.founderImageUrl}
-                  alt="Stefan Sharf - Founder & CEO, NetVentures"
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                  onError={() => setFounderImageFailed(true)}
-                  className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl object-cover border-2 border-gold-500/30 shadow-md flex-shrink-0"
-                />
-              ) : (
-                <div className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border-2 border-gold-500/30 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600 flex-shrink-0 shadow-inner">
-                  <User className="w-14 h-14 stroke-1 mb-1 text-zinc-400 dark:text-zinc-500" />
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Stefan Sharf</span>
-                </div>
-              )}
-              <div className="space-y-4 text-center sm:text-left">
-                <div>
-                  <h2 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 dark:text-white">
-                    Stefan Sharf
-                  </h2>
-                  <p className="text-gold-600 dark:text-gold-500 font-semibold text-sm mt-0.5">
-                    Founder & CEO, NetVentures
-                  </p>
-                </div>
-
-                <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                  <h3 className="font-display font-bold text-base text-gray-900 dark:text-white pt-1">
-                    About Stefan Sharf
-                  </h3>
-                  <p>
-                    Stefan Sharf is the Founder & CEO of NetVentures, an independent digital publication focused on SaaS, AI tools, web hosting, automation, and online business technology.
-                  </p>
-                  <p>
-                    NetVentures is built and operated with an editorial and research team that researches, analyzes, and publishes practical guides, comparisons, reviews, and insights to help readers make better technology decisions.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* How We Work */}
-          <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gold-500/10 text-gold-600 dark:text-gold-500">
-                <FileCheck className="h-5 w-5" />
-              </div>
-              <h3 className="font-display font-bold text-xl text-gray-900 dark:text-white">
-                How We Work
-              </h3>
-            </div>
-            <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-              <p>
-                NetVentures works with an editorial and research team to research and publish technology content. We use official product information, publicly available data, documentation, independent research, and practical analysis where available.
-              </p>
-              <p>
-                We aim to distinguish verified information from analysis and opinion. When a product has not been personally tested by our team, we do not claim that it has been tested.
-              </p>
-            </div>
-          </div>
-
-          {/* 6. Editorial Transparency / Affiliate Disclosure */}
-          <div className="p-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-xs sm:text-sm text-gray-600 dark:text-gray-300 space-y-2">
-            <h4 className="font-display font-bold text-amber-800 dark:text-amber-400 text-sm">
-              Editorial Transparency & Affiliate Disclosure
-            </h4>
-            <p className="leading-relaxed">
-              NetVentures may receive compensation through affiliate links when readers purchase products mentioned on our site. This helps support our independent research and publishing at no extra cost to you. Read our full{' '}
-              <button onClick={() => navigate('/disclosure')} className="font-semibold text-gold-600 dark:text-gold-500 underline hover:opacity-80 cursor-pointer">
-                Affiliate Disclosure
-              </button>.
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    // ----------------------------------------
-    // 4. CONTACT PAGE
-    // ----------------------------------------
-    if (currentPath === '/contact') {
-      const handleContactSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        setContactSuccess(true);
-        setContactForm({ name: '', email: '', subject: '', message: '' });
-        setTimeout(() => setContactSuccess(false), 4000);
-      };
-
-      return (
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 animate-fade-in">
-          <div className="space-y-3 text-center">
-            <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">Contact NetVentures</h1>
-            <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto leading-relaxed text-sm">
-              Inquiries regarding partnerships, SaaS evaluations, or editorial questions? Drop us a line below.
-            </p>
-          </div>
-
-          {contactSuccess ? (
-            <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-400 flex items-start gap-3 animate-fade-in">
-              <div>
-                <p className="font-bold">Transmission Secured!</p>
-                <p className="text-sm mt-1 leading-relaxed">Our editorial staff filters inquiry emails using AI. We typically reply within 24 business hours.</p>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleContactSubmit} className="space-y-5 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 p-8 rounded-2xl shadow-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Your Name</label>
-                  <input
-                    type="text"
-                    value={contactForm.name}
-                    onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                    required
-                    placeholder="Stefan Sharf"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Email Location</label>
-                  <input
-                    type="email"
-                    value={contactForm.email}
-                    onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                    required
-                    placeholder="stefan@netventures.online"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Subject Outline</label>
-                <input
-                  type="text"
-                  value={contactForm.subject}
-                  onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
-                  required
-                  placeholder="Programmatic SEO consulting request"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Inquiry Details</label>
-                <textarea
-                  value={contactForm.message}
-                  onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                  required
-                  rows={5}
-                  placeholder="Explain your objectives or consulting budgets clearly..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 bg-zinc-950 dark:bg-white hover:bg-zinc-900 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 font-semibold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Send className="h-4 w-4" /> Transmit Secure Message
-              </button>
-            </form>
-          )}
-        </div>
-      );
-    }
 
     // ----------------------------------------
     // 5. PRIVACY POLICY
@@ -1678,201 +1516,8 @@ export default function App() {
       );
     }
 
-    // ----------------------------------------
-    // 8. DEFAULT MAGAZINE HOME PAGE
-    // ----------------------------------------
-    if (currentPath === '/') {
-      const featuredArticle = articles[0];
-      const latestArticles = articles.slice(1, 4);
-      const popularArticles = [...articles].sort((a, b) => b.views - a.views).slice(0, 3);
+    // The homepage is rendered by PersonalHome above.
 
-      return (
-        <div className="space-y-16 animate-fade-in">
-          {/* Hero Section */}
-          <section className="relative overflow-hidden bg-zinc-950 text-white rounded-3xl mx-4 sm:mx-6 lg:mx-8 px-6 sm:px-12 py-16 sm:py-24 shadow-2xl">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_var(--tw-gradient-stops))] from-gold-500/10 via-zinc-950 to-zinc-950" />
-            
-            <div className="relative max-w-3xl space-y-6">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gold-500 text-zinc-950 uppercase tracking-wider">
-                <Sparkles className="h-3.5 w-3.5 fill-current" /> AI & Automation Solopreneurs
-              </span>
-              <h1 className="font-display font-bold text-3xl sm:text-5xl lg:text-6xl tracking-tight leading-tight">
-                Unlock the Automated <span className="text-gold-500">Digital Income</span> Framework
-              </h1>
-              <p className="text-sm sm:text-base text-gray-300 leading-relaxed max-w-xl">
-                We design and publish battle-tested step-by-step blueprints, cold outreach setups, SaaS evaluations, and programmatic SEO guidelines to automate your digital wealth.
-              </p>
-              
-              <div className="flex flex-wrap items-center gap-4 pt-4">
-                <button 
-                  onClick={() => navigate('/blog')}
-                  className="px-6 py-3 rounded-xl bg-white text-zinc-950 font-semibold text-sm hover:bg-gray-100 transition-colors flex items-center gap-2 cursor-pointer group"
-                >
-                  Explore blueprints <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </button>
-                <button 
-                  onClick={() => navigate('/about')}
-                  className="px-6 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-gray-300 font-semibold text-sm hover:text-white transition-all cursor-pointer"
-                >
-                  Editorial Principles
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Featured Article Spot block */}
-          {featuredArticle && (
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h3 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">Featured Editorial Columns</h3>
-                  <p className="text-xs text-gray-400 mt-1 uppercase font-mono tracking-widest">Hand-crafted high value case reviews</p>
-                </div>
-              </div>
-
-              <div 
-                onClick={() => navigate(`/blog/${featuredArticle.slug}`)}
-                className="group grid grid-cols-1 lg:grid-cols-12 gap-8 items-center cursor-pointer p-6 rounded-3xl border border-gray-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-gold-500/20 hover:shadow-xl dark:hover:shadow-gold-500/1 transition-all duration-300"
-              >
-                <div className="lg:col-span-7 aspect-video rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-900">
-                  {featuredArticle.featuredImage ? (
-                    <img 
-                      src={featuredArticle.featuredImage} 
-                      alt={featuredArticle.featuredImageAlt || featuredArticle.title || 'Featured article'} 
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover transform group-hover:scale-103 transition-transform duration-500" 
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 text-zinc-400">
-                      <span className="text-xs font-mono uppercase tracking-wider">Featured Cover</span>
-                    </div>
-                  )}
-                </div>
-                <div className="lg:col-span-5 space-y-4">
-                  <span className="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gold-100 dark:bg-gold-500/10 text-gold-700 dark:text-gold-500">
-                    {categories.find(c => c.id === featuredArticle.categoryId)?.name || 'Featured'}
-                  </span>
-                  
-                  <h4 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 dark:text-white group-hover:text-gold-500 transition-colors leading-tight">
-                    {featuredArticle.title}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                    {featuredArticle.shortDescription}
-                  </p>
-
-                  <div className="flex items-center gap-4 text-xs font-mono text-gray-400">
-                    <span>{featuredArticle.readingTime} min read</span>
-                    <span>•</span>
-                    <span>{featuredArticle.views} views</span>
-                  </div>
-
-                  <div className="pt-4 flex items-center gap-1 text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-gold-500 transition-colors">
-                    Read Column <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Latest and Popular Columns */}
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12">
-            
-            {/* Latest lists */}
-            <div className="lg:col-span-8 space-y-8">
-              <div>
-                <h3 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">The Latest Blueprints</h3>
-                <p className="text-xs text-gray-400 uppercase font-mono tracking-widest mt-1">SaaS, Automation, SEO columns</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {latestArticles.map(art => (
-                  <ArticleCard 
-                    key={art.id} 
-                    article={art} 
-                    category={categories.find(c => c.id === art.categoryId)}
-                    onClick={() => navigate(`/blog/${art.slug}`)} 
-                  />
-                ))}
-              </div>
-
-              <div className="pt-4 text-center">
-                <button 
-                  onClick={() => navigate('/blog')}
-                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-gray-300 text-xs font-semibold uppercase tracking-wider hover:text-gold-500 dark:hover:text-gold-500 transition-colors cursor-pointer"
-                >
-                  Browse Full Library
-                </button>
-              </div>
-            </div>
-
-            {/* Popular columns sidebar list */}
-            <div className="lg:col-span-4 space-y-8">
-              <div>
-                <h3 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">Popular Insights</h3>
-                <p className="text-xs text-gray-400 uppercase font-mono tracking-widest mt-1">High views & click volumes</p>
-              </div>
-
-              <div className="divide-y divide-gray-100 dark:divide-zinc-900/60 space-y-4">
-                {popularArticles.map((art, idx) => (
-                  <div 
-                    key={art.id}
-                    onClick={() => navigate(`/blog/${art.slug}`)}
-                    className="pt-4 flex gap-4 items-start cursor-pointer group"
-                  >
-                    <span className="font-display font-bold text-3xl text-gray-200 dark:text-zinc-800 group-hover:text-gold-500 transition-colors">
-                      0{idx + 1}
-                    </span>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-gold-600 dark:text-gold-500">
-                        {categories.find(c => c.id === art.categoryId)?.name || 'Insight'}
-                      </p>
-                      <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white group-hover:text-gold-500 transition-colors line-clamp-2">
-                        {art.title}
-                      </h4>
-                      <p className="text-[11px] font-mono text-gray-400">{art.views} views</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-          </section>
-
-          {/* Categories visual list */}
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-            <div className="text-center space-y-2">
-              <h3 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">Silo Content Hubs</h3>
-              <p className="text-xs text-gray-400 uppercase font-mono tracking-widest">Generative optimization categories</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-              {categories.map(cat => (
-                <div
-                  key={cat.id}
-                  onClick={() => {
-                    setSelectedCategorySlug(cat.slug);
-                    window.history.pushState(null, '', `/blog/category/${cat.slug}`);
-                    setCurrentPath(`/blog/category/${cat.slug}`);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="p-6 rounded-2xl border border-gray-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-gold-500/30 transition-all cursor-pointer text-center space-y-2 flex flex-col justify-between"
-                >
-                  <p className="font-display font-bold text-sm text-gray-900 dark:text-white capitalize">{cat.name}</p>
-                  <p className="text-[11px] text-gray-400 line-clamp-2 leading-relaxed">{cat.description}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Home Page Newsletter Capture */}
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-            <Newsletter />
-          </section>
-        </div>
-      );
-    }
 
     // Default to 404
     return render404();

@@ -15,6 +15,8 @@ export default async function handler(req: any, res: any) {
     const staticPages = [
       { path: '/', priority: '1.0', changefreq: 'daily' },
       { path: '/about', priority: '0.7', changefreq: 'monthly' },
+      { path: '/projects', priority: '0.8', changefreq: 'monthly' },
+      { path: '/services', priority: '0.8', changefreq: 'monthly' },
       { path: '/blog', priority: '0.9', changefreq: 'daily' },
       { path: '/contact', priority: '0.6', changefreq: 'monthly' },
       { path: '/privacy', priority: '0.4', changefreq: 'yearly' },

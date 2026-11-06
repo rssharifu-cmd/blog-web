@@ -46,7 +46,7 @@ const SUPABASE_KEY = (
 ).trim();
 
 const SITE_BASE_URL = 'https://www.netventures.online';
-const DEFAULT_IMAGE = `${SITE_BASE_URL}/uploads/stefan-sharf.jpg`;
+const DEFAULT_IMAGE = `${SITE_BASE_URL}/personal-og.png`;
 const SITE_NAME = 'NetVentures';
 
 // Default static articles for fallback
@@ -315,10 +315,26 @@ async function generatePages() {
   const staticRoutes = [
     {
       routePath: 'about',
-      title: 'About Us & Leadership - NetVentures',
-      description: 'Stefan Sharf is the Founder & CEO of NetVentures, an independent digital publication covering SaaS, AI tools, web hosting, automation, and online business technology.',
+      title: 'About MD Sharif Miah | My Story',
+      description: 'Meet MD Sharif Miah, a Bangladeshi independent builder based in Saudi Arabia, and learn about his journey from hospitality to digital products.',
       canonicalUrl: `${SITE_BASE_URL}/about`,
       ogType: 'profile',
+      ogImage: DEFAULT_IMAGE
+    },
+    {
+      routePath: 'projects',
+      title: 'Projects by MD Sharif Miah | Sharflow, Soroban & NetVentures',
+      description: 'Explore MD Sharif Miah’s current projects, including Sharflow, Soroban parent training and the NetVentures blog.',
+      canonicalUrl: `${SITE_BASE_URL}/projects`,
+      ogType: 'website',
+      ogImage: DEFAULT_IMAGE
+    },
+    {
+      routePath: 'services',
+      title: 'Website & Digital Services | MD Sharif Miah',
+      description: 'Discuss business websites, practical automation or personalized lead research with MD Sharif Miah.',
+      canonicalUrl: `${SITE_BASE_URL}/services`,
+      ogType: 'website',
       ogImage: DEFAULT_IMAGE
     },
     {
@@ -331,8 +347,8 @@ async function generatePages() {
     },
     {
       routePath: 'contact',
-      title: 'Contact Inquiries - NetVentures',
-      description: 'Get in touch with our administrative or editorial desk for general inquiries, SaaS reviews, or sponsorships.',
+      title: 'Contact MD Sharif Miah | Start a Conversation',
+      description: 'Contact MD Sharif Miah about websites, digital tools, outreach research or potential collaborations.',
       canonicalUrl: `${SITE_BASE_URL}/contact`,
       ogType: 'website',
       ogImage: DEFAULT_IMAGE
@@ -473,14 +489,30 @@ async function generatePages() {
   const categoryPaths = Array.from(categoryMap.keys()).map(slug => `/blog/category/${slug}`);
   const tagPaths = qualifyingTagSlugs.map(slug => `/blog/tag/${slug}`);
   const blogPaths = Array.from(articleMap.keys()).map(slug => `/blog/${slug}`);
-  const allValidRoutes = Array.from(new Set([...staticPaths, ...categoryPaths, ...tagPaths, ...blogPaths])).sort();
+  // Preserve already-published URLs if the build environment cannot reach the
+  // live article database. Dropping those routes could turn working blog links
+  // into middleware 404s during a design-only deployment.
+  const publicRoutesFile = path.resolve(process.cwd(), 'public', 'valid-routes.json');
+  let previouslyPublishedRoutes = [];
+  if (fs.existsSync(publicRoutesFile)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(publicRoutesFile, 'utf-8'));
+      previouslyPublishedRoutes = Array.isArray(parsed)
+        ? parsed.filter(route => typeof route === 'string' && route.startsWith('/') && !route.startsWith('//'))
+        : [];
+    } catch (err) {
+      console.warn('⚠️ Existing valid-routes.json could not be read; using generated routes.', err.message);
+    }
+  }
+  const allValidRoutes = Array.from(new Set([
+    ...previouslyPublishedRoutes, ...staticPaths, ...categoryPaths, ...tagPaths, ...blogPaths
+  ])).sort();
 
   // Write to public/valid-routes.json (for repo and middleware build-time import)
   const publicDir = path.resolve(process.cwd(), 'public');
   if (!fs.existsSync(publicDir)) {
     fs.mkdirSync(publicDir, { recursive: true });
   }
-  const publicRoutesFile = path.join(publicDir, 'valid-routes.json');
   fs.writeFileSync(publicRoutesFile, JSON.stringify(allValidRoutes, null, 2), 'utf-8');
   console.log(`📋 Generated: public/valid-routes.json (${allValidRoutes.length} valid routes)`);
 
