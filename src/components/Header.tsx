@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, X, Sun, Moon, Search, BookOpen, Terminal, Sparkles } from 'lucide-react';
+import { Menu, X, Sun, Moon, Search } from 'lucide-react';
 
 interface HeaderProps {
   currentPath: string;
@@ -14,14 +14,10 @@ export default function Header({ currentPath, navigate, darkMode, setDarkMode, o
 
   const links = [
     { name: 'Home', path: '/' },
-    { name: 'AI Tools', path: '/blog/category/ai-tools' },
-    { name: 'News', path: '/blog/category/news' },
-    { name: 'Making Money Online', path: '/blog/category/making-money-online' },
-    { name: 'Automation', path: '/blog/category/automation' },
-    { name: 'Digital Marketing', path: '/blog/category/digital-marketing' },
-    { name: 'SaaS Reviews', path: '/blog/category/saas-reviews' },
-    { name: 'Case Studies', path: '/blog/category/case-studies' },
     { name: 'About', path: '/about' },
+    { name: 'Projects', path: '/projects' },
+    { name: 'Services', path: '/services' },
+    { name: 'Blog', path: '/blog' },
     { name: 'Contact', path: '/contact' },
   ];
 
@@ -37,12 +33,13 @@ export default function Header({ currentPath, navigate, darkMode, setDarkMode, o
           {/* Logo */}
           <div className="flex items-center cursor-pointer shrink-0" onClick={() => handleLinkClick('/')}>
             <div className="relative flex items-center gap-2">
-              <div className="p-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg flex items-center justify-center">
-                <Sparkles className="h-5 w-5 animate-pulse text-gold-500" />
+              <div className="w-9 h-9 bg-zinc-900 dark:bg-amber-400 text-amber-400 dark:text-zinc-950 rounded-xl flex items-center justify-center font-display font-bold text-sm" aria-hidden="true">
+                SM
               </div>
-              <span className="font-display font-bold text-xl tracking-tight text-gray-900 dark:text-white">
-                Net<span className="text-gold-500">Ventures</span>
-              </span>
+              <div className="flex flex-col leading-tight">
+                <span className="font-display font-bold text-base sm:text-lg tracking-tight text-gray-900 dark:text-white">MD Sharif Miah</span>
+                <span className="text-[10px] uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Websites · SaaS · Learning</span>
+              </div>
             </div>
           </div>
 

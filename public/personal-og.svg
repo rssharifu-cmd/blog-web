@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="glow" cx="83%" cy="32%" r="67%">
+      <stop offset="0" stop-color="#715521" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#09090b" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fde68a"/>
+      <stop offset="1" stop-color="#d8a336"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#09090b"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect x="70" y="75" width="64" height="64" rx="16" fill="#fbbf24"/>
+  <text x="102" y="118" font-family="DejaVu Sans, sans-serif" font-size="30" font-weight="bold" fill="#18181b" text-anchor="middle">SM</text>
+  <text x="157" y="117" font-family="DejaVu Sans, sans-serif" font-size="22" fill="#f4f4f5" letter-spacing="2">PERSONAL PORTFOLIO</text>
+  <text x="70" y="285" font-family="DejaVu Sans, sans-serif" font-size="76" font-weight="bold" fill="#ffffff">MD Sharif Miah</text>
+  <text x="70" y="366" font-family="DejaVu Sans, sans-serif" font-size="38" font-weight="bold" fill="url(#gold)">I build things for the web.</text>
+  <text x="70" y="421" font-family="DejaVu Sans, sans-serif" font-size="26" fill="#d4d4d8">Websites  •  SaaS  •  Digital projects</text>
+  <line x1="70" x2="1130" y1="507" y2="507" stroke="#52525b" stroke-width="2"/>
+  <text x="70" y="559" font-family="DejaVu Sans, sans-serif" font-size="22" fill="#a1a1aa">From Bangladesh  ·  Based in Saudi Arabia</text>
+  <circle cx="1040" cy="320" r="190" fill="none" stroke="#fbbf24" stroke-opacity=".19" stroke-width="2"/>
+  <circle cx="1040" cy="320" r="137" fill="none" stroke="#fbbf24" stroke-opacity=".22" stroke-width="2"/>
+  <circle cx="1040" cy="320" r="81" fill="none" stroke="#fbbf24" stroke-opacity=".27" stroke-width="2"/>
+</svg>

@@ -7,6 +7,8 @@ User-agent: *
 Allow: /
 Allow: /blog
 Allow: /about
+Allow: /projects
+Allow: /services
 Allow: /contact
 Allow: /privacy
 Allow: /terms

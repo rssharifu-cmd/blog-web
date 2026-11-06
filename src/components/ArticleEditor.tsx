@@ -37,7 +37,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
   const [status, setStatus] = useState<'draft' | 'published'>('published');
   const [featuredImage, setFeaturedImage] = useState('');
   const [featuredImageAlt, setFeaturedImageAlt] = useState('');
-  const [author, setAuthor] = useState('Stefan Sharf');
+  const [author, setAuthor] = useState('NetVentures');
 
   // SEO Fields
   const [seoTitle, setSeoTitle] = useState('');
@@ -431,7 +431,7 @@ export default function ArticleEditor({ articleId, categories, tags, onClose, ge
                     type="text"
                     value={author}
                     onChange={(e) => setAuthor(e.target.value)}
-                    placeholder="Elena Rostova"
+                    placeholder="Author name"
                     required
                     className="w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white text-xs focus:ring-1 focus:ring-gold-500"
                   />
