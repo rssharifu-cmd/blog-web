@@ -42,7 +42,7 @@ const SITE_BASE_URL = 'https://www.netventures.online';
 
 const DEFAULT_SETTINGS = {
   siteName: 'NetVentures',
-  siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.',
+  siteDescription: 'Digital agency building customer-facing websites, custom management systems, and local & AI search visibility for hotels and restaurants, alongside an independent technology blog.',
   googleSearchConsoleVerification: '',
 };
 
@@ -213,11 +213,14 @@ async function run() {
   // ----------------------------------------
   const robotsTxtContent = `# ==========================================================
 # Robots.txt — Optimizing AI Discoverability & Search Indexing
-# NetVentures Magazine
+# NetVentures
 # ==========================================================
 
 User-agent: *
 Allow: /
+Allow: /services
+Allow: /products
+Allow: /our-work
 Allow: /blog
 Allow: /about
 Allow: /contact

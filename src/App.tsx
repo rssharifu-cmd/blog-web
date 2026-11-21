@@ -12,7 +12,18 @@ import Chatbot from './components/Chatbot.js';
 import Toc from './components/Toc.js';
 import AdminLayout from './components/AdminLayout.js';
 import SocialShare from './components/SocialShare.js';
+import {
+  HomePage,
+  ServicesPage,
+  OurWorkPage,
+  ProductsPage,
+  ProductDetailPage,
+  AboutPage,
+  ContactPage
+} from './components/AgencyPages.js';
 import { Article, Category, Tag, SiteSettings } from './types.js';
+import { getProductBySlug } from './data/products.js';
+import { BLOG_CATEGORIES_MENU, SERVICES_DATA } from './data/agencyContent.js';
 import { 
   getArticles, 
   getArticleSummaries,
@@ -219,10 +230,6 @@ export default function App() {
     setCurrentPage(1);
   }, [searchQuery, selectedCategorySlug]);
 
-  // Contact form state
-  const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
-  const [contactSuccess, setContactSuccess] = useState(false);
-
   // Active theme state
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || 
@@ -249,6 +256,19 @@ export default function App() {
     
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Handle initial hash anchor after loading completes
+  useEffect(() => {
+    if (!loading && window.location.hash) {
+      const id = window.location.hash.slice(1);
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 80);
+    }
+  }, [loading, currentPath]);
 
   // Sync category filter state when path is /blog/category/[slug] or /blog
   useEffect(() => {
@@ -277,12 +297,25 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Navigate function
+  // Navigate function (supports #hash anchors on pages such as /services#hotel-restaurant-websites)
   const navigate = (path: string) => {
-    const clean = sanitizePath(path);
-    window.history.pushState(null, '', clean);
+    const [rawPathname, hashPart] = path.split('#');
+    const clean = sanitizePath(rawPathname || '/');
+    const targetUrl = hashPart ? `${clean}#${hashPart}` : clean;
+    window.history.pushState(null, '', targetUrl);
     setCurrentPath(clean);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (hashPart) {
+      setTimeout(() => {
+        const el = document.getElementById(hashPart);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 60);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // Fetch initial base details
@@ -359,12 +392,12 @@ export default function App() {
   // Safe fetch for site settings
   const currentSettings = settings || {
     siteName: 'NetVentures',
-    siteDescription: 'Premium digital business strategies and insights.',
+    siteDescription: 'Digital agency building customer-facing websites, custom management systems, and local & AI search visibility for hotels and restaurants, alongside an independent technology blog.',
     contactEmail: 'editor@netventures.online',
     logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80',
-    founderImageUrl: '',
-    footerText: '© 2026 NetVentures.',
-    affiliateDisclosure: 'Disclosure: Some links are affiliate links.'
+    founderImageUrl: '/uploads/stefan-sharf.jpg',
+    footerText: '© 2026 NetVentures. Websites, custom systems & search visibility for hospitality businesses.',
+    affiliateDisclosure: 'Some links inside NetVentures blog articles are affiliate links, meaning we may earn a small commission at no extra cost to you. Client agency projects are scoped independently.'
   };
 
   // ==========================================
@@ -374,14 +407,15 @@ export default function App() {
     if (loading) return;
 
     const siteName = currentSettings.siteName || 'NetVentures';
-    const siteDesc = currentSettings.siteDescription || 'Premium digital business strategies and insights.';
+    const siteDesc = currentSettings.siteDescription || 'Websites, custom management systems, and local & AI search visibility for hotels and restaurants.';
     const logoUrl = currentSettings.logoUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80';
+    const founderPortrait = currentSettings.founderImageUrl || '/uploads/stefan-sharf.jpg';
     const origin = window.location.origin;
 
-    let title = `${siteName} - Premium Digital Business Strategy & SaaS Magazine`;
+    let title = `${siteName} - Websites & Digital Systems for Hotels and Restaurants`;
     let description = siteDesc;
     let canonicalUrl = `${origin}${currentPath}`;
-    let image = logoUrl;
+    let image = founderPortrait;
     let type = 'website';
     const schemas: any[] = [];
 
@@ -761,13 +795,13 @@ export default function App() {
     return (
       <div className="min-h-screen bg-white dark:bg-zinc-950 flex flex-col items-center justify-center transition-colors">
         <div className="flex flex-col items-center gap-4">
-          <div className="p-4 bg-zinc-900 dark:bg-zinc-850 rounded-2xl shadow-xl flex items-center justify-center animate-pulse">
+          <div className="p-4 bg-zinc-900 dark:bg-zinc-850 rounded-2xl shadow-xl flex items-center justify-center">
             <Sparkles className="h-8 w-8 text-gold-500" />
           </div>
           <span className="font-display font-bold text-lg text-gray-900 dark:text-white tracking-wide">
-            Loading Net<span className="text-gold-500">Ventures</span> Magazine
+            Loading Net<span className="text-gold-500">Ventures</span>
           </span>
-          <p className="text-xs text-gray-400 font-mono">Assembling clean semantic layout...</p>
+          <p className="text-xs text-gray-400 font-mono">Loading page content...</p>
         </div>
       </div>
     );
@@ -777,6 +811,8 @@ export default function App() {
   const pathParts = currentPath.split('/');
   const isSingleArticle = pathParts[1] === 'blog' && pathParts[2] && pathParts[2] !== 'category' && pathParts[2] !== 'tag';
   const activeArticleSlug = isSingleArticle ? pathParts[2] : null;
+  const isSingleProduct = pathParts[1] === 'products' && Boolean(pathParts[2]);
+  const activeProductSlug = isSingleProduct ? pathParts[2] : null;
 
   // Render Hidden CMS View (Strictly separated from the public layouts)
   if (currentPath === '/secret-cms-login') {
@@ -1252,12 +1288,31 @@ export default function App() {
     }
 
     // ----------------------------------------
-    // 2. BLOG CATALOGUE / SEARCH VIEW
+    // 2. BLOG CATALOGUE / SEARCH VIEW (With Editorial Columns, 7 Categories & Newsletter)
     // ----------------------------------------
     if (currentPath === '/blog' || currentPath.startsWith('/blog/category/') || currentPath.startsWith('/blog/tag/')) {
+      const mergedCategories: Category[] = BLOG_CATEGORIES_MENU.map((menuCat) => {
+        const matched = categories.find(
+          (c) => c.slug === menuCat.slug || c.name.toLowerCase() === menuCat.name.toLowerCase()
+        );
+        return matched || {
+          id: `menu-${menuCat.slug}`,
+          name: menuCat.name,
+          slug: menuCat.slug,
+          description: `Articles and guides in ${menuCat.name}.`
+        };
+      });
+      // Append any extra custom DB categories not already in the canonical 7
+      categories.forEach((c) => {
+        if (!mergedCategories.some((mc) => mc.slug === c.slug)) {
+          mergedCategories.push(c);
+        }
+      });
+
       const filtered = articles.filter(art => {
+        const matchedCatObj = mergedCategories.find(c => c.slug === selectedCategorySlug);
         const matchesCategory = selectedCategorySlug 
-          ? categories.find(c => c.slug === selectedCategorySlug)?.id === art.categoryId
+          ? (matchedCatObj?.id === art.categoryId || categories.find(c => c.slug === selectedCategorySlug)?.id === art.categoryId)
           : true;
         const matchesTag = selectedTagSlug ? art.tags.includes(selectedTagSlug) : true;
         const matchesSearch = searchQuery 
@@ -1275,51 +1330,70 @@ export default function App() {
         currentPage * articlesPerPage
       );
 
+      const isRootBlogIndex = currentPath === '/blog' && !searchQuery && currentPage === 1;
+      const featuredArticle = isRootBlogIndex ? articles[0] : null;
+      const popularArticles = [...articles].sort((a, b) => b.views - a.views).slice(0, 3);
+
       return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10 animate-fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12 animate-fade-in">
           <div className="space-y-4">
+            <p className="text-xs font-mono uppercase tracking-widest text-gold-600 dark:text-gold-500">
+              NetVentures Editorial Library
+            </p>
             <h1 className="font-display font-bold text-3xl sm:text-4xl text-gray-900 dark:text-white tracking-tight">
               {selectedTagSlug
                 ? `#${tags.find(t => t.slug === selectedTagSlug)?.name || selectedTagSlug} Articles`
-                : 'The NetVentures Library'}
+                : selectedCategorySlug
+                ? `${mergedCategories.find(c => c.slug === selectedCategorySlug)?.name || selectedCategorySlug} Articles`
+                : 'The NetVentures Blog'}
             </h1>
-            <p className="text-gray-500 dark:text-gray-400 max-w-2xl leading-relaxed">
-              Explore professional step-by-step strategies, SaaS reviews, case studies, and monetization Blueprints. Filter by category or search below.
+            <p className="text-gray-600 dark:text-gray-400 max-w-2xl leading-relaxed">
+              Independent guides, SaaS reviews, AI tool evaluations, automation walkthroughs, and digital strategy case studies. Filter by category or search below.
             </p>
           </div>
 
-          {/* Category Pill Filters */}
-          <div className="flex flex-wrap gap-2 border-b border-gray-100 dark:border-zinc-900 pb-6">
-            <button
-              onClick={() => {
-                setSelectedCategorySlug(null);
-                window.history.pushState(null, '', '/blog');
-                setCurrentPath('/blog');
+          {/* 7 Canonical Category Filters (Desktop & Mobile) */}
+          <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-zinc-900 pb-6">
+            <a
+              href="/blog"
+              onClick={(e) => {
+                if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0) {
+                  e.preventDefault();
+                  setSelectedCategorySlug(null);
+                  setSelectedTagSlug(null);
+                  window.history.pushState(null, '', '/blog');
+                  setCurrentPath('/blog');
+                }
               }}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
-                selectedCategorySlug === null
+              className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all ${
+                selectedCategorySlug === null && !selectedTagSlug
                   ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
-                  : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-400 border border-gray-100 dark:border-zinc-800'
+                  : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-zinc-800 hover:border-gold-500/40'
               }`}
             >
               All Columns
-            </button>
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => {
-                  setSelectedCategorySlug(cat.slug);
-                  window.history.pushState(null, '', `/blog/category/${cat.slug}`);
-                  setCurrentPath(`/blog/category/${cat.slug}`);
+            </a>
+            {mergedCategories.map(cat => (
+              <a
+                key={cat.slug}
+                href={`/blog/category/${cat.slug}`}
+                onClick={(e) => {
+                  if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0) {
+                    e.preventDefault();
+                    setSelectedCategorySlug(cat.slug);
+                    setSelectedTagSlug(null);
+                    window.history.pushState(null, '', `/blog/category/${cat.slug}`);
+                    setCurrentPath(`/blog/category/${cat.slug}`);
+                  }
                 }}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all ${
                   selectedCategorySlug === cat.slug
                     ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950'
-                    : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-400 border border-gray-100 dark:border-zinc-800'
+                    : 'bg-white dark:bg-zinc-900 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-zinc-800 hover:border-gold-500/40'
                 }`}
               >
                 {cat.name}
-              </button>
+              </a>
             ))}
           </div>
 
@@ -1343,71 +1417,161 @@ export default function App() {
             )}
           </div>
 
-          {/* Article grid rendering with pagination */}
+          {/* Featured Editorial Column (Shown on Blog index) */}
+          {featuredArticle && (
+            <section className="space-y-4">
+              <div>
+                <h2 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">Featured Editorial Column</h2>
+                <p className="text-xs text-gray-400 mt-1 uppercase font-mono tracking-widest">Highlighted research &amp; analysis</p>
+              </div>
+              <div 
+                onClick={() => navigate(`/blog/${featuredArticle.slug}`)}
+                className="group grid grid-cols-1 lg:grid-cols-12 gap-8 items-center cursor-pointer p-6 rounded-3xl border border-gray-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-gold-500/30 transition-all duration-300"
+              >
+                <div className="lg:col-span-7 aspect-video rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-900">
+                  {featuredArticle.featuredImage ? (
+                    <img 
+                      src={featuredArticle.featuredImage} 
+                      alt={featuredArticle.featuredImageAlt || featuredArticle.title || 'Featured article'} 
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover transform group-hover:scale-103 transition-transform duration-500" 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 text-zinc-400">
+                      <span className="text-xs font-mono uppercase tracking-wider">Featured Cover</span>
+                    </div>
+                  )}
+                </div>
+                <div className="lg:col-span-5 space-y-4">
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-gold-700 dark:text-gold-500">
+                    {categories.find(c => c.id === featuredArticle.categoryId)?.name || 'Featured'}
+                  </span>
+                  <h3 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 dark:text-white group-hover:text-gold-500 transition-colors leading-tight">
+                    {featuredArticle.title}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                    {featuredArticle.shortDescription}
+                  </p>
+                  <div className="flex items-center gap-4 text-xs font-mono text-gray-400">
+                    <span>{featuredArticle.readingTime} min read</span>
+                    <span>•</span>
+                    <span>{featuredArticle.views} views</span>
+                  </div>
+                  <div className="pt-2 flex items-center gap-1 text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-gold-500 transition-colors">
+                    Read Column <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Article grid rendering with pagination + Popular Insights */}
           {paginatedArticles.length > 0 ? (
-            <div className="space-y-12">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-                {paginatedArticles.map(art => (
-                  <ArticleCard 
-                    key={art.id} 
-                    article={art} 
-                    category={categories.find(c => c.id === art.categoryId)}
-                    onClick={() => navigate(`/blog/${art.slug}`)} 
-                  />
-                ))}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+              <div className="lg:col-span-8 space-y-10">
+                <div>
+                  <h2 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">
+                    {isRootBlogIndex ? 'Latest Blueprints & Articles' : 'Published Articles'}
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {paginatedArticles.map(art => (
+                    <ArticleCard 
+                      key={art.id} 
+                      article={art} 
+                      category={categories.find(c => c.id === art.categoryId)}
+                      onClick={() => navigate(`/blog/${art.slug}`)} 
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination controls widget */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-8 border-t border-gray-100 dark:border-zinc-900/60 font-mono text-xs text-gray-500">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-zinc-850 hover:border-gold-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-zinc-950"
+                    >
+                      <ChevronLeft className="h-4 w-4" /> Previous
+                    </button>
+                    
+                    <div className="hidden sm:flex items-center gap-2">
+                      {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold transition-all cursor-pointer ${
+                            currentPage === page
+                              ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950'
+                              : 'hover:bg-zinc-50 dark:hover:bg-zinc-900'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+
+                    <span className="sm:hidden text-xs">
+                      Page {currentPage} of {totalPages}
+                    </span>
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-zinc-850 hover:border-gold-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-zinc-950"
+                    >
+                      Next <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Pagination controls widget */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-8 border-t border-gray-100 dark:border-zinc-900/60 font-mono text-xs text-gray-500">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-100 dark:border-zinc-850 hover:border-gold-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-zinc-950"
-                  >
-                    <ChevronLeft className="h-4 w-4" /> Previous
-                  </button>
-                  
-                  <div className="hidden sm:flex items-center gap-2">
-                    {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(page => (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold transition-all cursor-pointer ${
-                          currentPage === page
-                            ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950'
-                            : 'hover:bg-zinc-50 dark:hover:bg-zinc-900'
-                        }`}
+              {/* Popular Insights sidebar */}
+              <aside className="lg:col-span-4 space-y-6">
+                <div className="p-6 rounded-2xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 space-y-5">
+                  <div>
+                    <h3 className="font-display font-bold text-lg text-gray-900 dark:text-white tracking-tight">Popular Insights</h3>
+                    <p className="text-[11px] text-gray-400 uppercase font-mono tracking-widest mt-0.5">Most read columns</p>
+                  </div>
+                  <div className="divide-y divide-gray-100 dark:divide-zinc-900/60 space-y-4">
+                    {popularArticles.map((art, idx) => (
+                      <div 
+                        key={art.id}
+                        onClick={() => navigate(`/blog/${art.slug}`)}
+                        className="pt-4 flex gap-3.5 items-start cursor-pointer group"
                       >
-                        {page}
-                      </button>
+                        <span className="font-display font-bold text-2xl text-gray-300 dark:text-zinc-700 group-hover:text-gold-500 transition-colors">
+                          0{idx + 1}
+                        </span>
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-gold-600 dark:text-gold-500">
+                            {categories.find(c => c.id === art.categoryId)?.name || 'Insight'}
+                          </p>
+                          <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white group-hover:text-gold-500 transition-colors line-clamp-2">
+                            {art.title}
+                          </h4>
+                          <p className="text-[11px] font-mono text-gray-400">{art.views} views</p>
+                        </div>
+                      </div>
                     ))}
                   </div>
-
-                  <span className="sm:hidden text-xs">
-                    Page {currentPage} of {totalPages}
-                  </span>
-
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-100 dark:border-zinc-850 hover:border-gold-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-white dark:bg-zinc-950"
-                  >
-                    Next <ChevronRight className="h-4 w-4" />
-                  </button>
                 </div>
-              )}
+              </aside>
             </div>
           ) : (
             <div className="p-12 text-center border border-dashed border-gray-200 dark:border-zinc-800 rounded-2xl max-w-xl mx-auto space-y-3">
               <p className="text-gray-400 font-medium">No columns matched your filters.</p>
               <p className="text-xs text-gray-500 leading-relaxed">
-                Try searching a different keyword or check the "All Columns" category. Alternatively, ask our chatbot co-pilot in the floating menu.
+                Try searching a different keyword or select "All Columns" above to view all published articles.
               </p>
               <button 
                 onClick={() => {
                   setSearchQuery('');
                   setSelectedCategorySlug(null);
+                  setSelectedTagSlug(null);
                   window.history.pushState(null, '', '/blog');
                   setCurrentPath('/blog');
                 }}
@@ -1417,193 +1581,99 @@ export default function App() {
               </button>
             </div>
           )}
+
+          {/* Silo Content Hubs inside Blog */}
+          <section className="pt-6 border-t border-gray-200 dark:border-zinc-900 space-y-6">
+            <div className="space-y-1">
+              <h2 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">Silo Content Hubs</h2>
+              <p className="text-xs text-gray-400 uppercase font-mono tracking-widest">Browse by editorial topic</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {mergedCategories.map(cat => (
+                <a
+                  key={cat.slug}
+                  href={`/blog/category/${cat.slug}`}
+                  onClick={(e) => {
+                    if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && e.button === 0) {
+                      e.preventDefault();
+                      setSelectedCategorySlug(cat.slug);
+                      setSelectedTagSlug(null);
+                      window.history.pushState(null, '', `/blog/category/${cat.slug}`);
+                      setCurrentPath(`/blog/category/${cat.slug}`);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                  }}
+                  className="p-5 rounded-2xl border border-gray-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-gold-500/40 transition-all space-y-2 flex flex-col justify-between"
+                >
+                  <p className="font-display font-bold text-sm text-gray-900 dark:text-white">{cat.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">{cat.description}</p>
+                </a>
+              ))}
+            </div>
+          </section>
+
+          {/* Blog Newsletter Capture */}
+          <section className="pt-4">
+            <Newsletter />
+          </section>
         </div>
       );
     }
 
     // ----------------------------------------
-    // 3. ABOUT PAGE (Stefan Sharf & Editorial Transparency)
+    // 3. SERVICES PAGE
+    // ----------------------------------------
+    if (currentPath === '/services') {
+      return <ServicesPage navigate={navigate} />;
+    }
+
+    // ----------------------------------------
+    // 4. OUR WORK PAGE
+    // ----------------------------------------
+    if (currentPath === '/our-work') {
+      return <OurWorkPage navigate={navigate} />;
+    }
+
+    // ----------------------------------------
+    // 5. PRODUCTS LISTING & DETAIL PAGES
+    // ----------------------------------------
+    if (currentPath === '/products') {
+      return <ProductsPage navigate={navigate} />;
+    }
+
+    if (activeProductSlug) {
+      const product = getProductBySlug(activeProductSlug);
+      if (!product) {
+        return render404();
+      }
+      return (
+        <ProductDetailPage
+          navigate={navigate}
+          product={product}
+          contactEmail={currentSettings.contactEmail || 'editor@netventures.online'}
+        />
+      );
+    }
+
+    // ----------------------------------------
+    // 6. ABOUT PAGE
     // ----------------------------------------
     if (currentPath === '/about') {
       return (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10 animate-fade-in">
-          <div className="space-y-3 text-center">
-            <span className="inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gold-100 dark:bg-gold-500/10 text-gold-700 dark:text-gold-500">
-              About NetVentures
-            </span>
-            <h1 className="font-display font-bold text-3xl sm:text-4xl text-gray-900 dark:text-white tracking-tight">
-              About Us & Leadership
-            </h1>
-          </div>
-
-          {/* 1 & 2 & 3. Stefan Sharf Profile Photo, Identity & Introduction */}
-          <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8">
-              {currentSettings.founderImageUrl && !founderImageFailed ? (
-                <img
-                  src={currentSettings.founderImageUrl}
-                  alt="Stefan Sharf - Founder & CEO, NetVentures"
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                  onError={() => setFounderImageFailed(true)}
-                  className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl object-cover border-2 border-gold-500/30 shadow-md flex-shrink-0"
-                />
-              ) : (
-                <div className="w-36 h-36 sm:w-44 sm:h-44 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border-2 border-gold-500/30 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-600 flex-shrink-0 shadow-inner">
-                  <User className="w-14 h-14 stroke-1 mb-1 text-zinc-400 dark:text-zinc-500" />
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 dark:text-zinc-500">Stefan Sharf</span>
-                </div>
-              )}
-              <div className="space-y-4 text-center sm:text-left">
-                <div>
-                  <h2 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 dark:text-white">
-                    Stefan Sharf
-                  </h2>
-                  <p className="text-gold-600 dark:text-gold-500 font-semibold text-sm mt-0.5">
-                    Founder & CEO, NetVentures
-                  </p>
-                </div>
-
-                <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                  <h3 className="font-display font-bold text-base text-gray-900 dark:text-white pt-1">
-                    About Stefan Sharf
-                  </h3>
-                  <p>
-                    Stefan Sharf is the Founder & CEO of NetVentures, an independent digital publication focused on SaaS, AI tools, web hosting, automation, and online business technology.
-                  </p>
-                  <p>
-                    NetVentures is built and operated with an editorial and research team that researches, analyzes, and publishes practical guides, comparisons, reviews, and insights to help readers make better technology decisions.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* How We Work */}
-          <div className="p-8 rounded-3xl border border-gray-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 shadow-xs space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gold-500/10 text-gold-600 dark:text-gold-500">
-                <FileCheck className="h-5 w-5" />
-              </div>
-              <h3 className="font-display font-bold text-xl text-gray-900 dark:text-white">
-                How We Work
-              </h3>
-            </div>
-            <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-              <p>
-                NetVentures works with an editorial and research team to research and publish technology content. We use official product information, publicly available data, documentation, independent research, and practical analysis where available.
-              </p>
-              <p>
-                We aim to distinguish verified information from analysis and opinion. When a product has not been personally tested by our team, we do not claim that it has been tested.
-              </p>
-            </div>
-          </div>
-
-          {/* 6. Editorial Transparency / Affiliate Disclosure */}
-          <div className="p-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 text-xs sm:text-sm text-gray-600 dark:text-gray-300 space-y-2">
-            <h4 className="font-display font-bold text-amber-800 dark:text-amber-400 text-sm">
-              Editorial Transparency & Affiliate Disclosure
-            </h4>
-            <p className="leading-relaxed">
-              NetVentures may receive compensation through affiliate links when readers purchase products mentioned on our site. This helps support our independent research and publishing at no extra cost to you. Read our full{' '}
-              <button onClick={() => navigate('/disclosure')} className="font-semibold text-gold-600 dark:text-gold-500 underline hover:opacity-80 cursor-pointer">
-                Affiliate Disclosure
-              </button>.
-            </p>
-          </div>
-        </div>
+        <AboutPage
+          navigate={navigate}
+          settings={currentSettings}
+          founderImageFailed={founderImageFailed}
+          setFounderImageFailed={setFounderImageFailed}
+        />
       );
     }
 
     // ----------------------------------------
-    // 4. CONTACT PAGE
+    // 7. CONTACT PAGE
     // ----------------------------------------
     if (currentPath === '/contact') {
-      const handleContactSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        setContactSuccess(true);
-        setContactForm({ name: '', email: '', subject: '', message: '' });
-        setTimeout(() => setContactSuccess(false), 4000);
-      };
-
-      return (
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8 animate-fade-in">
-          <div className="space-y-3 text-center">
-            <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">Contact NetVentures</h1>
-            <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto leading-relaxed text-sm">
-              Inquiries regarding partnerships, SaaS evaluations, or editorial questions? Drop us a line below.
-            </p>
-          </div>
-
-          {contactSuccess ? (
-            <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-400 flex items-start gap-3 animate-fade-in">
-              <div>
-                <p className="font-bold">Transmission Secured!</p>
-                <p className="text-sm mt-1 leading-relaxed">Our editorial staff filters inquiry emails using AI. We typically reply within 24 business hours.</p>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleContactSubmit} className="space-y-5 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 p-8 rounded-2xl shadow-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Your Name</label>
-                  <input
-                    type="text"
-                    value={contactForm.name}
-                    onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                    required
-                    placeholder="Stefan Sharf"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Email Location</label>
-                  <input
-                    type="email"
-                    value={contactForm.email}
-                    onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
-                    required
-                    placeholder="stefan@netventures.online"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Subject Outline</label>
-                <input
-                  type="text"
-                  value={contactForm.subject}
-                  onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
-                  required
-                  placeholder="Programmatic SEO consulting request"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Inquiry Details</label>
-                <textarea
-                  value={contactForm.message}
-                  onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                  required
-                  rows={5}
-                  placeholder="Explain your objectives or consulting budgets clearly..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 bg-zinc-950 dark:bg-white hover:bg-zinc-900 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 font-semibold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Send className="h-4 w-4" /> Transmit Secure Message
-              </button>
-            </form>
-          )}
-        </div>
-      );
+      return <ContactPage settings={currentSettings} />;
     }
 
     // ----------------------------------------
@@ -1668,6 +1738,10 @@ export default function App() {
           <p className="text-xs font-mono text-gray-400">Updated: July 2026 | FTC Compliant</p>
 
           <p className="text-sm leading-relaxed">
+            <strong>Scope Note:</strong> This disclosure applies specifically to NetVentures blog articles, reviews, and editorial software recommendations. Client agency work and custom builds are scoped and billed independently.
+          </p>
+
+          <p className="text-sm leading-relaxed">
             In compliance with FTC guidelines, we state clearly that NetVentures participates in various high-ticket software affiliate programs (such as Clay, Make, and cloud infrastructures). This means we receive recurring commission referrals if you sign up using our relative links, at zero additional cost to you.
           </p>
 
@@ -1679,198 +1753,18 @@ export default function App() {
     }
 
     // ----------------------------------------
-    // 8. DEFAULT MAGAZINE HOME PAGE
+    // 8. HOSPITALITY AGENCY HOME PAGE
     // ----------------------------------------
     if (currentPath === '/') {
-      const featuredArticle = articles[0];
-      const latestArticles = articles.slice(1, 4);
-      const popularArticles = [...articles].sort((a, b) => b.views - a.views).slice(0, 3);
-
       return (
-        <div className="space-y-16 animate-fade-in">
-          {/* Hero Section */}
-          <section className="relative overflow-hidden bg-zinc-950 text-white rounded-3xl mx-4 sm:mx-6 lg:mx-8 px-6 sm:px-12 py-16 sm:py-24 shadow-2xl">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_var(--tw-gradient-stops))] from-gold-500/10 via-zinc-950 to-zinc-950" />
-            
-            <div className="relative max-w-3xl space-y-6">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gold-500 text-zinc-950 uppercase tracking-wider">
-                <Sparkles className="h-3.5 w-3.5 fill-current" /> AI & Automation Solopreneurs
-              </span>
-              <h1 className="font-display font-bold text-3xl sm:text-5xl lg:text-6xl tracking-tight leading-tight">
-                Unlock the Automated <span className="text-gold-500">Digital Income</span> Framework
-              </h1>
-              <p className="text-sm sm:text-base text-gray-300 leading-relaxed max-w-xl">
-                We design and publish battle-tested step-by-step blueprints, cold outreach setups, SaaS evaluations, and programmatic SEO guidelines to automate your digital wealth.
-              </p>
-              
-              <div className="flex flex-wrap items-center gap-4 pt-4">
-                <button 
-                  onClick={() => navigate('/blog')}
-                  className="px-6 py-3 rounded-xl bg-white text-zinc-950 font-semibold text-sm hover:bg-gray-100 transition-colors flex items-center gap-2 cursor-pointer group"
-                >
-                  Explore blueprints <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </button>
-                <button 
-                  onClick={() => navigate('/about')}
-                  className="px-6 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-gray-300 font-semibold text-sm hover:text-white transition-all cursor-pointer"
-                >
-                  Editorial Principles
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Featured Article Spot block */}
-          {featuredArticle && (
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h3 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">Featured Editorial Columns</h3>
-                  <p className="text-xs text-gray-400 mt-1 uppercase font-mono tracking-widest">Hand-crafted high value case reviews</p>
-                </div>
-              </div>
-
-              <div 
-                onClick={() => navigate(`/blog/${featuredArticle.slug}`)}
-                className="group grid grid-cols-1 lg:grid-cols-12 gap-8 items-center cursor-pointer p-6 rounded-3xl border border-gray-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-gold-500/20 hover:shadow-xl dark:hover:shadow-gold-500/1 transition-all duration-300"
-              >
-                <div className="lg:col-span-7 aspect-video rounded-2xl overflow-hidden bg-zinc-100 dark:bg-zinc-900">
-                  {featuredArticle.featuredImage ? (
-                    <img 
-                      src={featuredArticle.featuredImage} 
-                      alt={featuredArticle.featuredImageAlt || featuredArticle.title || 'Featured article'} 
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover transform group-hover:scale-103 transition-transform duration-500" 
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-200 dark:bg-zinc-800 text-zinc-400">
-                      <span className="text-xs font-mono uppercase tracking-wider">Featured Cover</span>
-                    </div>
-                  )}
-                </div>
-                <div className="lg:col-span-5 space-y-4">
-                  <span className="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gold-100 dark:bg-gold-500/10 text-gold-700 dark:text-gold-500">
-                    {categories.find(c => c.id === featuredArticle.categoryId)?.name || 'Featured'}
-                  </span>
-                  
-                  <h4 className="font-display font-bold text-2xl sm:text-3xl text-gray-900 dark:text-white group-hover:text-gold-500 transition-colors leading-tight">
-                    {featuredArticle.title}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                    {featuredArticle.shortDescription}
-                  </p>
-
-                  <div className="flex items-center gap-4 text-xs font-mono text-gray-400">
-                    <span>{featuredArticle.readingTime} min read</span>
-                    <span>•</span>
-                    <span>{featuredArticle.views} views</span>
-                  </div>
-
-                  <div className="pt-4 flex items-center gap-1 text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-gold-500 transition-colors">
-                    Read Column <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Latest and Popular Columns */}
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12">
-            
-            {/* Latest lists */}
-            <div className="lg:col-span-8 space-y-8">
-              <div>
-                <h3 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">The Latest Blueprints</h3>
-                <p className="text-xs text-gray-400 uppercase font-mono tracking-widest mt-1">SaaS, Automation, SEO columns</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {latestArticles.map(art => (
-                  <ArticleCard 
-                    key={art.id} 
-                    article={art} 
-                    category={categories.find(c => c.id === art.categoryId)}
-                    onClick={() => navigate(`/blog/${art.slug}`)} 
-                  />
-                ))}
-              </div>
-
-              <div className="pt-4 text-center">
-                <button 
-                  onClick={() => navigate('/blog')}
-                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-gray-300 text-xs font-semibold uppercase tracking-wider hover:text-gold-500 dark:hover:text-gold-500 transition-colors cursor-pointer"
-                >
-                  Browse Full Library
-                </button>
-              </div>
-            </div>
-
-            {/* Popular columns sidebar list */}
-            <div className="lg:col-span-4 space-y-8">
-              <div>
-                <h3 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">Popular Insights</h3>
-                <p className="text-xs text-gray-400 uppercase font-mono tracking-widest mt-1">High views & click volumes</p>
-              </div>
-
-              <div className="divide-y divide-gray-100 dark:divide-zinc-900/60 space-y-4">
-                {popularArticles.map((art, idx) => (
-                  <div 
-                    key={art.id}
-                    onClick={() => navigate(`/blog/${art.slug}`)}
-                    className="pt-4 flex gap-4 items-start cursor-pointer group"
-                  >
-                    <span className="font-display font-bold text-3xl text-gray-200 dark:text-zinc-800 group-hover:text-gold-500 transition-colors">
-                      0{idx + 1}
-                    </span>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-gold-600 dark:text-gold-500">
-                        {categories.find(c => c.id === art.categoryId)?.name || 'Insight'}
-                      </p>
-                      <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white group-hover:text-gold-500 transition-colors line-clamp-2">
-                        {art.title}
-                      </h4>
-                      <p className="text-[11px] font-mono text-gray-400">{art.views} views</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-          </section>
-
-          {/* Categories visual list */}
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-            <div className="text-center space-y-2">
-              <h3 className="font-display font-bold text-xl sm:text-2xl text-gray-900 dark:text-white tracking-tight">Silo Content Hubs</h3>
-              <p className="text-xs text-gray-400 uppercase font-mono tracking-widest">Generative optimization categories</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-              {categories.map(cat => (
-                <div
-                  key={cat.id}
-                  onClick={() => {
-                    setSelectedCategorySlug(cat.slug);
-                    window.history.pushState(null, '', `/blog/category/${cat.slug}`);
-                    setCurrentPath(`/blog/category/${cat.slug}`);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="p-6 rounded-2xl border border-gray-100 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-gold-500/30 transition-all cursor-pointer text-center space-y-2 flex flex-col justify-between"
-                >
-                  <p className="font-display font-bold text-sm text-gray-900 dark:text-white capitalize">{cat.name}</p>
-                  <p className="text-[11px] text-gray-400 line-clamp-2 leading-relaxed">{cat.description}</p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Home Page Newsletter Capture */}
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-            <Newsletter />
-          </section>
-        </div>
+        <HomePage
+          navigate={navigate}
+          articles={articles}
+          categories={categories}
+          settings={currentSettings}
+          founderImageFailed={founderImageFailed}
+          setFounderImageFailed={setFounderImageFailed}
+        />
       );
     }
 
@@ -1888,7 +1782,7 @@ export default function App() {
         <div className="space-y-2">
           <h1 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Page Not Found (404)</h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-            The requested page or consulting blueprint was archived or relocated. Search our active library instead:
+            The requested page was archived or relocated. Browse our hospitality services or search our blog library instead:
           </p>
         </div>
 
@@ -1902,7 +1796,7 @@ export default function App() {
                 navigate('/search');
               }
             }}
-            placeholder="Search active columns..."
+            placeholder="Search blog articles..."
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-900 dark:text-white placeholder-gray-400 text-sm focus:outline-hidden focus:ring-1 focus:ring-gold-500"
           />
           <Search className="absolute left-3.5 top-3 h-4.5 w-4.5 text-gray-400" />
@@ -1910,7 +1804,7 @@ export default function App() {
 
         {recent.length > 0 && (
           <div className="pt-6 border-t border-gray-150 dark:border-zinc-900 space-y-4">
-            <h3 className="font-display font-bold text-sm text-gray-900 dark:text-white uppercase tracking-wider">Active Strategic Columns</h3>
+            <h3 className="font-display font-bold text-sm text-gray-900 dark:text-white uppercase tracking-wider">Recent Blog Articles</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
               {recent.map(art => (
                 <div 
@@ -1926,12 +1820,18 @@ export default function App() {
           </div>
         )}
 
-        <div className="pt-2">
+        <div className="pt-2 flex items-center justify-center gap-3">
           <button 
             onClick={() => navigate('/')}
-            className="px-6 py-2 bg-zinc-950 dark:bg-white hover:bg-zinc-850 dark:hover:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+            className="px-6 py-2 bg-zinc-950 dark:bg-white hover:opacity-90 text-white dark:text-zinc-950 text-xs font-semibold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
           >
-            Return to magazine
+            Return to Homepage
+          </button>
+          <button 
+            onClick={() => navigate('/services')}
+            className="px-6 py-2 border border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-gray-300 text-xs font-semibold uppercase tracking-wider rounded-xl hover:border-gold-500 transition-all cursor-pointer"
+          >
+            Explore Services
           </button>
         </div>
       </div>

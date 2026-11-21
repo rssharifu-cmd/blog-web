@@ -10,13 +10,17 @@ export default async function handler(req: any, res: any) {
       const proto = (req?.headers?.['x-forwarded-proto'] || 'https').toString().split(',')[0].trim();
       baseDomain = `${proto}://${reqHost}`;
     }
-    const currentDate = new Date().toISOString().split('T')[0];
-
     const staticPages = [
-      { path: '/', priority: '1.0', changefreq: 'daily' },
-      { path: '/about', priority: '0.7', changefreq: 'monthly' },
+      { path: '/', priority: '1.0', changefreq: 'weekly' },
+      { path: '/services', priority: '0.9', changefreq: 'monthly' },
+      { path: '/our-work', priority: '0.8', changefreq: 'monthly' },
+      { path: '/products', priority: '0.8', changefreq: 'weekly' },
+      { path: '/products/hospitality-website-starter-kit', priority: '0.6', changefreq: 'monthly' },
+      { path: '/products/local-seo-ai-visibility-audit-workbook', priority: '0.6', changefreq: 'monthly' },
+      { path: '/products/hospitality-enquiry-estimator-widget', priority: '0.6', changefreq: 'monthly' },
       { path: '/blog', priority: '0.9', changefreq: 'daily' },
-      { path: '/contact', priority: '0.6', changefreq: 'monthly' },
+      { path: '/about', priority: '0.7', changefreq: 'monthly' },
+      { path: '/contact', priority: '0.7', changefreq: 'monthly' },
       { path: '/privacy', priority: '0.4', changefreq: 'yearly' },
       { path: '/terms', priority: '0.4', changefreq: 'yearly' },
       { path: '/disclosure', priority: '0.4', changefreq: 'yearly' },
@@ -33,7 +37,6 @@ export default async function handler(req: any, res: any) {
       const pageLoc = page.path === '/' ? `${baseDomain}/` : `${baseDomain}${page.path}`;
       sitemapXml += `  <url>
     <loc>${pageLoc}</loc>
-    <lastmod>${currentDate}</lastmod>
     <changefreq>${page.changefreq}</changefreq>
     <priority>${page.priority}</priority>
   </url>\n`;

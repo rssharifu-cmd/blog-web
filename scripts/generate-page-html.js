@@ -207,6 +207,8 @@ async function generatePages() {
   // 3. Fetch live Supabase Articles if credentials exist
   const categoryMap = new Map([
     ['ai-tools', { name: 'AI Tools', description: null }],
+    ['news', { name: 'News', description: null }],
+    ['making-money-online', { name: 'Making Money Online', description: null }],
     ['automation', { name: 'Automation', description: null }],
     ['digital-marketing', { name: 'Digital Marketing', description: null }],
     ['saas-reviews', { name: 'SaaS Reviews', description: null }],
@@ -214,6 +216,8 @@ async function generatePages() {
   ]);
   const tagNameMap = new Map();
   const tagCounts = new Map();
+
+  let loadedFromSupabase = false;
 
   if (SUPABASE_URL && SUPABASE_KEY) {
     const cleanUrl = SUPABASE_URL.endsWith('/') ? SUPABASE_URL.slice(0, -1) : SUPABASE_URL;
@@ -229,6 +233,9 @@ async function generatePages() {
       if (res.ok) {
         const rows = await res.json();
         const published = (rows || []).filter(a => (a.status || 'published').toString().toLowerCase() !== 'draft');
+        if (published.length > 0) {
+          loadedFromSupabase = true;
+        }
         published.forEach(art => {
           const slug = (art.slug && art.slug.trim()) ? art.slug.trim() : slugify(art.title);
           if (slug) {
@@ -314,32 +321,80 @@ async function generatePages() {
   // -------------------------------------------------------------------------
   const staticRoutes = [
     {
+      routePath: 'services',
+      title: 'Hospitality Websites, Management Apps & Local SEO - NetVentures',
+      description: 'Services for hotels and restaurants: mobile-friendly websites, custom management websites and apps, and evidence-based Local SEO & AI search visibility audits.',
+      canonicalUrl: `${SITE_BASE_URL}/services`,
+      ogType: 'website',
+      ogImage: DEFAULT_IMAGE
+    },
+    {
+      routePath: 'our-work',
+      title: 'Our Work & Reference Systems - NetVentures',
+      description: 'Verified live web platforms and hospitality architecture reference builds from NetVentures.',
+      canonicalUrl: `${SITE_BASE_URL}/our-work`,
+      ogType: 'website',
+      ogImage: DEFAULT_IMAGE
+    },
+    {
+      routePath: 'products',
+      title: 'Digital Products, Templates & Micro Apps - NetVentures',
+      description: 'Self-serve digital templates, local search audit tools, and hospitality micro apps planned for individual one-time purchase.',
+      canonicalUrl: `${SITE_BASE_URL}/products`,
+      ogType: 'website',
+      ogImage: DEFAULT_IMAGE
+    },
+    {
+      routePath: 'products/hospitality-website-starter-kit',
+      title: 'Hospitality Website Starter Kit - NetVentures Products',
+      description: 'A structured website template designed for independent hotels and restaurants covering rooms, menus, directions, and direct enquiry pages.',
+      canonicalUrl: `${SITE_BASE_URL}/products/hospitality-website-starter-kit`,
+      ogType: 'website',
+      ogImage: DEFAULT_IMAGE
+    },
+    {
+      routePath: 'products/local-seo-ai-visibility-audit-workbook',
+      title: 'Local SEO & AI Visibility Audit Workbook - NetVentures Products',
+      description: 'A practical audit spreadsheet and prompt-logging workbook to check Google Business Profile completeness, NAP consistency, and AI search observations.',
+      canonicalUrl: `${SITE_BASE_URL}/products/local-seo-ai-visibility-audit-workbook`,
+      ogType: 'website',
+      ogImage: DEFAULT_IMAGE
+    },
+    {
+      routePath: 'products/hospitality-enquiry-estimator-widget',
+      title: 'Hospitality Group & Event Enquiry Widget - NetVentures Products',
+      description: 'A lightweight embeddable micro app for capturing structured private dining, group stay, and event enquiries ready to send to your inbox.',
+      canonicalUrl: `${SITE_BASE_URL}/products/hospitality-enquiry-estimator-widget`,
+      ogType: 'website',
+      ogImage: DEFAULT_IMAGE
+    },
+    {
       routePath: 'about',
-      title: 'About Us & Leadership - NetVentures',
-      description: 'Stefan Sharf is the Founder & CEO of NetVentures, an independent digital publication covering SaaS, AI tools, web hosting, automation, and online business technology.',
+      title: 'About Stefan Sharf & NetVentures - NetVentures',
+      description: 'Stefan Sharf is the Founder & CEO of NetVentures, a digital agency building websites, custom management systems, and local & AI search visibility for hotels and restaurants alongside our blog.',
       canonicalUrl: `${SITE_BASE_URL}/about`,
       ogType: 'profile',
       ogImage: DEFAULT_IMAGE
     },
     {
       routePath: 'blog',
-      title: 'The NetVentures Library - NetVentures',
-      description: 'Browse our premium library of digital strategies, SaaS case studies, and passive income blueprints.',
+      title: 'The NetVentures Blog - NetVentures',
+      description: 'Browse our library of AI tools, automation workflows, digital marketing guides, and SaaS reviews.',
       canonicalUrl: `${SITE_BASE_URL}/blog`,
       ogType: 'website',
       ogImage: DEFAULT_IMAGE
     },
     {
       routePath: 'contact',
-      title: 'Contact Inquiries - NetVentures',
-      description: 'Get in touch with our administrative or editorial desk for general inquiries, SaaS reviews, or sponsorships.',
+      title: 'Contact NetVentures - Discuss Your Hospitality Project',
+      description: 'Get in touch with NetVentures about hotel and restaurant websites, custom management systems, Local SEO & AI search visibility, or digital product inquiries.',
       canonicalUrl: `${SITE_BASE_URL}/contact`,
       ogType: 'website',
       ogImage: DEFAULT_IMAGE
     },
     {
       routePath: 'privacy',
-      title: 'Privacy Protocol - NetVentures',
+      title: 'Privacy Policy - NetVentures',
       description: 'Our clear data storage, cookie transparency, and editorial security parameters.',
       canonicalUrl: `${SITE_BASE_URL}/privacy`,
       ogType: 'website',
@@ -356,7 +411,7 @@ async function generatePages() {
     {
       routePath: 'disclosure',
       title: 'Affiliate Marketing Disclosure - NetVentures',
-      description: 'FTC disclosure and partnership details explaining digital server asset funding.',
+      description: 'FTC disclosure and partnership details explaining how affiliate links support NetVentures blog publishing.',
       canonicalUrl: `${SITE_BASE_URL}/disclosure`,
       ogType: 'website',
       ogImage: DEFAULT_IMAGE
@@ -464,6 +519,27 @@ async function generatePages() {
   console.log(`✅ Generated ${qualifyingTagSlugs.length} tag pages (threshold >= 3 articles)`);
 
   // 3. Generate valid-routes.json for Vercel Edge Middleware
+  const publicDir = path.resolve(process.cwd(), 'public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+  const publicRoutesFile = path.join(publicDir, 'valid-routes.json');
+
+  let preservedBlogRoutes = [];
+  if (!loadedFromSupabase && fs.existsSync(publicRoutesFile)) {
+    try {
+      const existingRoutes = JSON.parse(fs.readFileSync(publicRoutesFile, 'utf-8'));
+      if (Array.isArray(existingRoutes)) {
+        preservedBlogRoutes = existingRoutes.filter(
+          (r) => typeof r === 'string' && r.startsWith('/blog/')
+        );
+        console.log(`🛡️ Preserved ${preservedBlogRoutes.length} existing /blog/* routes in fallback build mode.`);
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not read existing public/valid-routes.json:', e.message);
+    }
+  }
+
   const staticPaths = [
     '/',
     '/search',
@@ -473,14 +549,10 @@ async function generatePages() {
   const categoryPaths = Array.from(categoryMap.keys()).map(slug => `/blog/category/${slug}`);
   const tagPaths = qualifyingTagSlugs.map(slug => `/blog/tag/${slug}`);
   const blogPaths = Array.from(articleMap.keys()).map(slug => `/blog/${slug}`);
-  const allValidRoutes = Array.from(new Set([...staticPaths, ...categoryPaths, ...tagPaths, ...blogPaths])).sort();
+  const allValidRoutes = Array.from(
+    new Set([...staticPaths, ...categoryPaths, ...tagPaths, ...blogPaths, ...preservedBlogRoutes])
+  ).sort();
 
-  // Write to public/valid-routes.json (for repo and middleware build-time import)
-  const publicDir = path.resolve(process.cwd(), 'public');
-  if (!fs.existsSync(publicDir)) {
-    fs.mkdirSync(publicDir, { recursive: true });
-  }
-  const publicRoutesFile = path.join(publicDir, 'valid-routes.json');
   fs.writeFileSync(publicRoutesFile, JSON.stringify(allValidRoutes, null, 2), 'utf-8');
   console.log(`📋 Generated: public/valid-routes.json (${allValidRoutes.length} valid routes)`);
 
