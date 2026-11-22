@@ -98,18 +98,6 @@ export default async function handler(req: any, res: any) {
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>${baseDomain}/about</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>${baseDomain}/contact</loc>
-    <lastmod>${currentDate}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>${baseDomain}/privacy</loc>
     <lastmod>${currentDate}</lastmod>
     <changefreq>yearly</changefreq>

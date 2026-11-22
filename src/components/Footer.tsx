@@ -1,6 +1,7 @@
 import React from 'react';
-import { Mail, Sparkles, Rss, Map } from 'lucide-react';
+import { Mail, Sparkles, Youtube, Facebook } from 'lucide-react';
 import { SiteSettings } from '../types.js';
+import { SOCIAL_LINKS } from '../data/agencyContent.js';
 
 interface FooterProps {
   navigate: (path: string) => void;
@@ -15,177 +16,132 @@ export default function Footer({ navigate, settings }: FooterProps) {
     }
   };
 
-  const contactEmail = settings.contactEmail || 'editor@netventures.online';
+  const publicEmail =
+    settings.contactEmail && settings.contactEmail !== 'editor@netventures.online'
+      ? settings.contactEmail
+      : 'hello@netventures.online';
 
   return (
     <footer className="w-full bg-zinc-50 dark:bg-zinc-950 border-t border-gray-200 dark:border-zinc-900 transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-10">
-          {/* Brand Col */}
-          <div className="md:col-span-5 space-y-4">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          {/* Brand & Direct Contact */}
+          <div className="space-y-2">
             <a
               href="/"
               onClick={(e) => handleLinkClick(e, '/')}
               className="inline-flex items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
             >
               <div className="p-1.5 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-gold-500" />
+                <Sparkles className="h-3.5 w-3.5 text-gold-500" />
               </div>
-              <span className="font-display font-bold text-lg tracking-tight text-gray-900 dark:text-white">
+              <span className="font-display font-bold text-base tracking-tight text-gray-900 dark:text-white">
                 Net<span className="text-gold-500">Ventures</span>
               </span>
             </a>
-
-            <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm leading-relaxed">
-              Digital agency building customer-facing websites, custom management systems, and local &amp; AI search visibility for hotels and restaurants.
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Stefan Sharf · Founder &amp; CEO
             </p>
+          </div>
 
-            <div className="pt-1">
+          {/* Primary Anchor & Blog Navigation */}
+          <nav aria-label="Footer Navigation" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            {[
+              { label: 'About', path: '/#about' },
+              { label: 'Services', path: '/#services' },
+              { label: 'Work', path: '/#work' },
+              { label: 'Contact', path: '/#contact' },
+              { label: 'Blog', path: '/blog' },
+            ].map((item) => (
               <a
-                href={`mailto:${contactEmail}`}
-                className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
+                key={item.path}
+                href={item.path}
+                onClick={(e) => handleLinkClick(e, item.path)}
+                className="text-gray-600 dark:text-gray-400 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
               >
-                <Mail className="h-4 w-4 text-gold-500 shrink-0" />
-                <span>{contactEmail}</span>
+                {item.label}
               </a>
-            </div>
-          </div>
+            ))}
+          </nav>
 
-          {/* Agency Navigation */}
-          <div className="md:col-span-2 space-y-4">
-            <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-gray-900 dark:text-white">
-              Navigation
-            </h3>
-            <ul className="space-y-2.5 text-sm">
-              {[
-                { label: 'Home', path: '/' },
-                { label: 'Services', path: '/services' },
-                { label: 'Products', path: '/products' },
-                { label: 'Our Work', path: '/our-work' },
-                { label: 'Blog', path: '/blog' },
-                { label: 'About', path: '/about' },
-                { label: 'Contact', path: '/contact' },
-              ].map((item) => (
-                <li key={item.path}>
-                  <a
-                    href={item.path}
-                    onClick={(e) => handleLinkClick(e, item.path)}
-                    className="text-gray-600 dark:text-gray-400 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
-                  >
-                    {item.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Services Navigation */}
-          <div className="md:col-span-3 space-y-4">
-            <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-gray-900 dark:text-white">
-              Hospitality Services
-            </h3>
-            <ul className="space-y-2.5 text-sm">
-              <li>
-                <a
-                  href="/services#hotel-restaurant-websites"
-                  onClick={(e) => handleLinkClick(e, '/services#hotel-restaurant-websites')}
-                  className="text-gray-600 dark:text-gray-400 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
-                >
-                  Hotel &amp; Restaurant Websites
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/services#custom-management-systems"
-                  onClick={(e) => handleLinkClick(e, '/services#custom-management-systems')}
-                  className="text-gray-600 dark:text-gray-400 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
-                >
-                  Custom Management Apps
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/services#local-seo-ai-visibility"
-                  onClick={(e) => handleLinkClick(e, '/services#local-seo-ai-visibility')}
-                  className="text-gray-600 dark:text-gray-400 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
-                >
-                  Local SEO &amp; AI Search Visibility
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* Legal & Compliance Links */}
-          <div className="md:col-span-2 space-y-4">
-            <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-gray-900 dark:text-white">
-              Legal
-            </h3>
-            <ul className="space-y-2.5 text-sm">
-              <li>
-                <a
-                  href="/privacy"
-                  onClick={(e) => handleLinkClick(e, '/privacy')}
-                  className="text-gray-600 dark:text-gray-400 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
-                >
-                  Privacy Policy
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/terms"
-                  onClick={(e) => handleLinkClick(e, '/terms')}
-                  className="text-gray-600 dark:text-gray-400 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
-                >
-                  Terms &amp; Conditions
-                </a>
-              </li>
-              <li>
-                <a
-                  href="/disclosure"
-                  onClick={(e) => handleLinkClick(e, '/disclosure')}
-                  className="text-gray-600 dark:text-gray-400 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
-                >
-                  Affiliate Disclosure
-                </a>
-              </li>
-            </ul>
+          {/* Email & Socials */}
+          <div className="flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
+            <a
+              href={`mailto:${publicEmail}`}
+              className="inline-flex items-center gap-1.5 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
+            >
+              <Mail className="h-3.5 w-3.5 text-gold-500" />
+              <span>{publicEmail}</span>
+            </a>
+            <a
+              href={SOCIAL_LINKS.youtube}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="YouTube"
+              className="inline-flex items-center gap-1 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
+            >
+              <Youtube className="h-4 w-4" />
+              <span>YouTube</span>
+            </a>
+            <a
+              href={SOCIAL_LINKS.facebook}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+              className="inline-flex items-center gap-1 hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
+            >
+              <Facebook className="h-4 w-4" />
+              <span>Facebook</span>
+            </a>
           </div>
         </div>
 
-        {/* Affiliate disclosure disclaimer (explicitly scoped to blog content) */}
-        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-zinc-900 text-xs text-gray-500 dark:text-gray-400 leading-relaxed font-sans">
-          <span className="font-semibold text-gray-700 dark:text-gray-300">Blog Editorial Disclosure:</span>{' '}
-          {settings.affiliateDisclosure}
-        </div>
+        {/* Bottom Copyright & Essential Legal Links */}
+        <div className="pt-5 border-t border-gray-200 dark:border-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <p>© 2026 NetVentures · Stefan Sharf</p>
 
-        {/* Bottom copyright & compact feeds */}
-        <div className="mt-6 pt-6 border-t border-gray-200/70 dark:border-zinc-900/60 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            © 2026 NetVentures. Websites, custom systems &amp; search visibility for hospitality businesses.
-          </p>
-          <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <a
+              href="/privacy"
+              onClick={(e) => handleLinkClick(e, '/privacy')}
+              className="hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
+            >
+              Privacy Policy
+            </a>
+            <a
+              href="/terms"
+              onClick={(e) => handleLinkClick(e, '/terms')}
+              className="hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
+            >
+              Terms &amp; Conditions
+            </a>
+            <a
+              href="/disclosure"
+              onClick={(e) => handleLinkClick(e, '/disclosure')}
+              className="hover:text-gold-600 dark:hover:text-gold-500 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
+            >
+              Affiliate Disclosure
+            </a>
             <a
               href="/rss.xml"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-gold-600 dark:hover:text-gold-500 transition-colors flex items-center gap-1 text-xs font-mono focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
+              className="font-mono hover:text-gold-600 dark:hover:text-gold-500 transition-colors"
             >
-              <Rss className="h-3.5 w-3.5" /> RSS
+              RSS
             </a>
-            <span className="text-gray-300 dark:text-zinc-700">|</span>
             <a
               href="/sitemap.xml"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-gold-600 dark:hover:text-gold-500 transition-colors flex items-center gap-1 text-xs font-mono focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
+              className="font-mono hover:text-gold-600 dark:hover:text-gold-500 transition-colors"
             >
-              <Map className="h-3.5 w-3.5" /> Sitemap
+              Sitemap
             </a>
-            <span className="text-gray-300 dark:text-zinc-700">|</span>
             <a
               href="/secret-cms-login"
               onClick={(e) => handleLinkClick(e, '/secret-cms-login')}
-              className="text-[10px] text-gray-300 dark:text-zinc-800 hover:text-gold-500 transition-colors font-mono select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 rounded-xs"
+              className="text-[10px] text-gray-300 dark:text-zinc-800 hover:text-gold-500 transition-colors font-mono select-none"
               title="CMS Access"
             >
               0000

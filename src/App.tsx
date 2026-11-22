@@ -1,38 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Search, Calendar, Clock, Eye, Sparkles, BookOpen, ChevronRight, 
-  ArrowLeft, Mail, ArrowRight, Compass, ShieldAlert, FileCheck, HelpCircle, Send, Globe, ChevronLeft,
-  User
+  Search, Clock, Eye, Sparkles, ChevronRight, 
+  ArrowRight, HelpCircle, ChevronLeft
 } from 'lucide-react';
 import Header from './components/Header.js';
 import Footer from './components/Footer.js';
 import ArticleCard from './components/ArticleCard.js';
 import Newsletter from './components/Newsletter.js';
-import Chatbot from './components/Chatbot.js';
 import Toc from './components/Toc.js';
 import AdminLayout from './components/AdminLayout.js';
 import SocialShare from './components/SocialShare.js';
-import {
-  HomePage,
-  ServicesPage,
-  OurWorkPage,
-  ProductsPage,
-  ProductDetailPage,
-  AboutPage,
-  ContactPage
-} from './components/AgencyPages.js';
+import PortfolioHome from './components/PortfolioHome.js';
 import { Article, Category, Tag, SiteSettings } from './types.js';
-import { getProductBySlug } from './data/products.js';
-import { BLOG_CATEGORIES_MENU, SERVICES_DATA } from './data/agencyContent.js';
+import { BLOG_CATEGORIES_MENU, SOCIAL_LINKS } from './data/agencyContent.js';
 import { 
-  getArticles, 
   getArticleSummaries,
   getArticleBySlug,
   getCategories, 
   getTags, 
   getSettings, 
   incrementArticleView as sbIncrementArticleView,
-  isSupabaseConfigured,
   isSlugMatch
 } from './lib/supabase.js';
 
@@ -297,7 +284,7 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Navigate function (supports #hash anchors on pages such as /services#hotel-restaurant-websites)
+  // Navigate function (supports #hash anchors on pages such as /#services)
   const navigate = (path: string) => {
     const [rawPathname, hashPart] = path.split('#');
     const clean = sanitizePath(rawPathname || '/');
@@ -392,12 +379,12 @@ export default function App() {
   // Safe fetch for site settings
   const currentSettings = settings || {
     siteName: 'NetVentures',
-    siteDescription: 'Digital agency building customer-facing websites, custom management systems, and local & AI search visibility for hotels and restaurants, alongside an independent technology blog.',
-    contactEmail: 'editor@netventures.online',
+    siteDescription: 'Stefan Sharf — Founder & CEO of NetVentures. Websites, custom management apps, and Local SEO & AI search visibility for hotels and restaurants, alongside the NetVentures blog.',
+    contactEmail: 'hello@netventures.online',
     logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80',
     founderImageUrl: '/uploads/stefan-sharf.jpg',
-    footerText: '© 2026 NetVentures. Websites, custom systems & search visibility for hospitality businesses.',
-    affiliateDisclosure: 'Some links inside NetVentures blog articles are affiliate links, meaning we may earn a small commission at no extra cost to you. Client agency projects are scoped independently.'
+    footerText: '© 2026 NetVentures · Stefan Sharf',
+    affiliateDisclosure: 'Some links inside NetVentures blog articles are affiliate links, meaning we may earn a small commission at no extra cost to you. Client projects are scoped independently.'
   };
 
   // ==========================================
@@ -407,12 +394,12 @@ export default function App() {
     if (loading) return;
 
     const siteName = currentSettings.siteName || 'NetVentures';
-    const siteDesc = currentSettings.siteDescription || 'Websites, custom management systems, and local & AI search visibility for hotels and restaurants.';
+    const siteDesc = currentSettings.siteDescription || 'Stefan Sharf — Founder & CEO of NetVentures. Hospitality websites, custom management apps, Local SEO & AI search visibility, and blog.';
     const logoUrl = currentSettings.logoUrl || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80';
     const founderPortrait = currentSettings.founderImageUrl || '/uploads/stefan-sharf.jpg';
     const origin = window.location.origin;
 
-    let title = `${siteName} - Websites & Digital Systems for Hotels and Restaurants`;
+    let title = `Stefan Sharf · ${siteName} — Hospitality Websites, Custom Apps & Blog`;
     let description = siteDesc;
     let canonicalUrl = `${origin}${currentPath}`;
     let image = founderPortrait;
@@ -594,76 +581,20 @@ export default function App() {
         ]
       };
       schemas.push(breadcrumbSchema);
-    } else if (currentPath === '/about') {
-      title = `About Stefan Sharf & NetVentures - ${siteName}`;
-      description = "Stefan Sharf is the Founder & CEO of NetVentures, an independent digital publication covering SaaS, AI tools, web hosting, automation, and online business technology.";
-      
-      const breadcrumbSchema = {
-        "@type": "BreadcrumbList",
-        "@id": `${origin}/about/#breadcrumb`,
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Home",
-            "item": origin
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "About",
-            "item": `${origin}/about`
-          }
-        ]
-      };
-      schemas.push(breadcrumbSchema);
-
-      const personSchema = {
-        "@type": "Person",
-        "@id": `${origin}/#stefan-sharf`,
-        "name": "Stefan Sharf",
-        "jobTitle": "Founder & CEO",
-        "worksFor": {
-          "@type": "Organization",
-          "name": "NetVentures",
-          "url": origin
-        }
-      };
-      schemas.push(personSchema);
-    } else if (currentPath === '/contact') {
-      title = `Contact Inquiries - ${siteName}`;
-      description = "Get in touch with our administrative or editorial desk for general inquiries, SaaS reviews, or sponsorships.";
-      
-      const breadcrumbSchema = {
-        "@type": "BreadcrumbList",
-        "@id": `${origin}/contact/#breadcrumb`,
-        "itemListElement": [
-          {
-            "@type": "ListItem",
-            "position": 1,
-            "name": "Home",
-            "item": origin
-          },
-          {
-            "@type": "ListItem",
-            "position": 2,
-            "name": "Contact",
-            "item": `${origin}/contact`
-          }
-        ]
-      };
-      schemas.push(breadcrumbSchema);
     } else if (currentPath === '/privacy') {
       title = `Privacy Policy - ${siteName}`;
-      description = "Our clear data storage, cookie transparency, and editorial security parameters.";
+      description = "Data storage, newsletter privacy, and cookie transparency for NetVentures.";
     } else if (currentPath === '/terms') {
       title = `Terms & Conditions - ${siteName}`;
-      description = "Intellectual property, compliance mandates, and consulting liability limitations.";
+      description = "Editorial terms, intellectual property, and liability limitations for NetVentures.";
     } else if (currentPath === '/disclosure') {
       title = `Affiliate Marketing Disclosure - ${siteName}`;
-      description = "FTC disclosure and partnership details explaining digital server asset funding.";
+      description = "FTC disclosure and editorial partnership details for the NetVentures blog.";
     } else if (currentPath === '/') {
-      // Home Page WebSite Schema with SearchAction for Sitelinks Search Box
+      const absoluteFounderImage = founderPortrait.startsWith('http')
+        ? founderPortrait
+        : `${origin}${founderPortrait.startsWith('/') ? '' : '/'}${founderPortrait}`;
+
       const websiteSchema = {
         "@type": "WebSite",
         "@id": `${origin}/#website`,
@@ -683,6 +614,24 @@ export default function App() {
         }
       };
       schemas.push(websiteSchema);
+
+      const personSchema = {
+        "@type": "Person",
+        "@id": `${origin}/#stefan-sharf`,
+        "name": "Stefan Sharf",
+        "jobTitle": "Founder & CEO",
+        "image": absoluteFounderImage,
+        "sameAs": [SOCIAL_LINKS.youtube, SOCIAL_LINKS.facebook],
+        "worksFor": {
+          "@type": "Organization",
+          "name": siteName,
+          "url": origin
+        }
+      };
+      schemas.push(personSchema);
+    } else {
+      title = `Page Not Found (404) - ${siteName}`;
+      description = "The requested page could not be found. Return to the homepage or browse the NetVentures blog.";
     }
 
     // Apply Meta Updates to Document Header
@@ -811,8 +760,6 @@ export default function App() {
   const pathParts = currentPath.split('/');
   const isSingleArticle = pathParts[1] === 'blog' && pathParts[2] && pathParts[2] !== 'category' && pathParts[2] !== 'tag';
   const activeArticleSlug = isSingleArticle ? pathParts[2] : null;
-  const isSingleProduct = pathParts[1] === 'products' && Boolean(pathParts[2]);
-  const activeProductSlug = isSingleProduct ? pathParts[2] : null;
 
   // Render Hidden CMS View (Strictly separated from the public layouts)
   if (currentPath === '/secret-cms-login') {
@@ -1156,13 +1103,6 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="p-6 rounded-2xl border border-gray-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/20 text-center space-y-4">
-                <Compass className="h-8 w-8 text-gold-500 mx-auto" />
-                <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white">Need custom guidance?</h4>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Click the floating <strong>"Ask NetBot"</strong> co-pilot button at the bottom right. Our AI assistant only answers based on published research and facts.
-                </p>
-              </div>
             </aside>
 
           </div>
@@ -1621,146 +1561,88 @@ export default function App() {
     }
 
     // ----------------------------------------
-    // 3. SERVICES PAGE
-    // ----------------------------------------
-    if (currentPath === '/services') {
-      return <ServicesPage navigate={navigate} />;
-    }
-
-    // ----------------------------------------
-    // 4. OUR WORK PAGE
-    // ----------------------------------------
-    if (currentPath === '/our-work') {
-      return <OurWorkPage navigate={navigate} />;
-    }
-
-    // ----------------------------------------
-    // 5. PRODUCTS LISTING & DETAIL PAGES
-    // ----------------------------------------
-    if (currentPath === '/products') {
-      return <ProductsPage navigate={navigate} />;
-    }
-
-    if (activeProductSlug) {
-      const product = getProductBySlug(activeProductSlug);
-      if (!product) {
-        return render404();
-      }
-      return (
-        <ProductDetailPage
-          navigate={navigate}
-          product={product}
-          contactEmail={currentSettings.contactEmail || 'editor@netventures.online'}
-        />
-      );
-    }
-
-    // ----------------------------------------
-    // 6. ABOUT PAGE
-    // ----------------------------------------
-    if (currentPath === '/about') {
-      return (
-        <AboutPage
-          navigate={navigate}
-          settings={currentSettings}
-          founderImageFailed={founderImageFailed}
-          setFounderImageFailed={setFounderImageFailed}
-        />
-      );
-    }
-
-    // ----------------------------------------
-    // 7. CONTACT PAGE
-    // ----------------------------------------
-    if (currentPath === '/contact') {
-      return <ContactPage settings={currentSettings} />;
-    }
-
-    // ----------------------------------------
-    // 5. PRIVACY POLICY
+    // 3. PRIVACY POLICY
     // ----------------------------------------
     if (currentPath === '/privacy') {
       return (
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 prose dark:prose-invert text-gray-600 dark:text-gray-300 space-y-6 animate-fade-in">
-          <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">Privacy Protocol</h1>
-          <p className="text-xs font-mono text-gray-400">Last Modified: July 2026 | EEAT Compliant</p>
+          <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">Privacy Policy</h1>
+          <p className="text-xs font-mono text-gray-400">Last Modified: July 2026</p>
           
           <p className="text-sm">
-            At NetVentures, we prioritize editorial integrity and security. This privacy document outlines how we log, manage, and secure information transmitted via our newsletters, cookie-less search requests, and contact forms.
+            At NetVentures, we respect your privacy. This policy explains what minimal information is collected when you browse the site, subscribe to the newsletter, or email us directly.
           </p>
 
-          <h2 className="font-display font-semibold text-lg text-gray-900 dark:text-white mt-6">1. Data Storage & Local Persistence</h2>
+          <h2 className="font-display font-semibold text-lg text-gray-900 dark:text-white mt-6">1. Newsletter &amp; Contact Information</h2>
           <p className="text-sm leading-relaxed">
-            We store only minimal, necessary information (like name and email addresses for those who explicitly subscribe to the newsletter). We utilize standard client-side state managers and secure, local JSON databases hosted on server containers. We do not sell, rent, or lease subscriber lists to third-party ad exchanges or tracking networks.
+            If you explicitly subscribe to the newsletter or contact us by email, we store and process only the details you provide to send updates or respond to your inquiry. We do not sell, rent, or lease subscriber lists or email addresses to third parties.
           </p>
 
-          <h2 className="font-display font-semibold text-lg text-gray-900 dark:text-white mt-6">2. Conversational Logs Policy</h2>
+          <h2 className="font-display font-semibold text-lg text-gray-900 dark:text-white mt-6">2. Analytics &amp; Essential Storage</h2>
           <p className="text-sm leading-relaxed">
-            The floating AI Co-pilot (NetBot) operates in memory. Chat histories sent to our secure Gemini proxy API endpoints are processed with temperature settings and strict system instructions to guarantee factual responses. No chat logs are stored persistently on third-party servers.
+            We use browser local storage for theme preferences and consent choices, alongside standard privacy-aware traffic analytics to understand readership across published articles.
           </p>
         </div>
       );
     }
 
     // ----------------------------------------
-    // 6. TERMS & CONDITIONS
+    // 4. TERMS & CONDITIONS
     // ----------------------------------------
     if (currentPath === '/terms') {
       return (
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 prose dark:prose-invert text-gray-600 dark:text-gray-300 space-y-6 animate-fade-in">
-          <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">Terms & Conditions</h1>
+          <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">Terms &amp; Conditions</h1>
           <p className="text-xs font-mono text-gray-400">Effective: July 2026</p>
 
           <p className="text-sm">
-            Welcome to NetVentures. By browsing our premium business magazine, consulting posts, and using our floating AI NetBot chatbot co-pilot, you agree to comply with our editorial terms.
+            Welcome to NetVentures. By browsing this portfolio and reading published articles on the NetVentures blog, you agree to these terms.
           </p>
 
-          <h2 className="font-display font-semibold text-lg text-gray-900 dark:text-white mt-6">1. Intellectual Property & Copying</h2>
+          <h2 className="font-display font-semibold text-lg text-gray-900 dark:text-white mt-6">1. Intellectual Property</h2>
           <p className="text-sm leading-relaxed">
-            All original case study graphics, code snippets, automation workflows, and step-by-step drafting parameters published on NetVentures are copy-protected but can be modified for personal development. Programmatic copying, scraper scripts, or using our articles to train unauthorized AI models without citing our canonical URLs is strictly prohibited.
+            All original articles, code snippets, and reference workflows published on NetVentures remain the property of NetVentures and their respective authors. Republishing full articles or scraping content without permission and canonical attribution is prohibited.
           </p>
 
-          <h2 className="font-display font-semibold text-lg text-gray-900 dark:text-white mt-6">2. Liability Limitation</h2>
+          <h2 className="font-display font-semibold text-lg text-gray-900 dark:text-white mt-6">2. Informational Scope</h2>
           <p className="text-sm leading-relaxed">
-            Our columns focus on strategies for making money online and automating pipelines. While we share case study earnings, we offer zero financial warranties. Digital entrepreneurship involves technical risks, and individual conversion rates will fluctuate.
+            Blog articles cover software tools, automation workflows, and digital marketing concepts for informational purposes. Client website and system engagements are scoped and agreed upon separately.
           </p>
         </div>
       );
     }
 
     // ----------------------------------------
-    // 7. AFFILIATE DISCLOSURE
+    // 5. AFFILIATE DISCLOSURE
     // ----------------------------------------
     if (currentPath === '/disclosure') {
       return (
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 prose dark:prose-invert text-gray-600 dark:text-gray-300 space-y-6 animate-fade-in">
-          <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">Affiliate Disclosure Notice</h1>
+          <h1 className="font-display font-bold text-3xl text-gray-900 dark:text-white tracking-tight">Affiliate Disclosure</h1>
           <p className="text-xs font-mono text-gray-400">Updated: July 2026 | FTC Compliant</p>
 
           <p className="text-sm leading-relaxed">
-            <strong>Scope Note:</strong> This disclosure applies specifically to NetVentures blog articles, reviews, and editorial software recommendations. Client agency work and custom builds are scoped and billed independently.
+            <strong>Scope Note:</strong> This disclosure applies specifically to NetVentures blog articles, reviews, and editorial software recommendations. Client website and management app projects are scoped and billed independently.
           </p>
 
           <p className="text-sm leading-relaxed">
-            In compliance with FTC guidelines, we state clearly that NetVentures participates in various high-ticket software affiliate programs (such as Clay, Make, and cloud infrastructures). This means we receive recurring commission referrals if you sign up using our relative links, at zero additional cost to you.
+            In compliance with FTC guidelines, some outbound software and tool links inside NetVentures blog articles are affiliate links. If you sign up or purchase through those links, NetVentures may earn a commission at no additional cost to you.
           </p>
 
           <p className="text-sm leading-relaxed">
-            <strong>Why we use affiliate links:</strong> Running a modern business magazine with dynamic AI co-pilots requires server compute. Affiliate partnerships allow us to provide high-value, code-verified tutorials completely free to beginners without resorting to annoying popup advertisements or paywalls.
+            <strong>Editorial Independence:</strong> Affiliate commissions help support hosting and ongoing blog publishing without paywalls or intrusive advertising.
           </p>
         </div>
       );
     }
 
     // ----------------------------------------
-    // 8. HOSPITALITY AGENCY HOME PAGE
+    // 6. PERSONAL PORTFOLIO HOME PAGE
     // ----------------------------------------
     if (currentPath === '/') {
       return (
-        <HomePage
+        <PortfolioHome
           navigate={navigate}
-          articles={articles}
-          categories={categories}
           settings={currentSettings}
           founderImageFailed={founderImageFailed}
           setFounderImageFailed={setFounderImageFailed}
@@ -1768,7 +1650,7 @@ export default function App() {
       );
     }
 
-    // Default to 404
+    // Default to 404 (including retired /products routes)
     return render404();
   };
 
@@ -1782,7 +1664,7 @@ export default function App() {
         <div className="space-y-2">
           <h1 className="font-display font-bold text-2xl text-gray-900 dark:text-white tracking-tight">Page Not Found (404)</h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-            The requested page was archived or relocated. Browse our hospitality services or search our blog library instead:
+            The requested page was archived, retired, or does not exist. Return to the homepage or browse the blog below:
           </p>
         </div>
 
@@ -1828,10 +1710,10 @@ export default function App() {
             Return to Homepage
           </button>
           <button 
-            onClick={() => navigate('/services')}
+            onClick={() => navigate('/blog')}
             className="px-6 py-2 border border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-gray-300 text-xs font-semibold uppercase tracking-wider rounded-xl hover:border-gold-500 transition-all cursor-pointer"
           >
-            Explore Services
+            Browse Blog
           </button>
         </div>
       </div>
@@ -1850,23 +1732,10 @@ export default function App() {
         onSearchOpen={() => setSearchOpen(true)}
       />
 
-      {/* Supabase Connection Banner Fallback */}
-      {!isSupabaseConfigured && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 py-2 px-4 text-center">
-          <p className="text-xs text-amber-800 dark:text-amber-400 font-mono flex items-center justify-center gap-1.5">
-            <ShieldAlert className="h-4 w-4 text-amber-500" />
-            <span>Supabase is not configured yet. Running in offline fallback mode. Configure <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to enable live Supabase persistence.</span>
-          </p>
-        </div>
-      )}
-
       {/* Main Container View */}
       <main className="flex-1 py-8">
         {renderActiveView()}
       </main>
-
-      {/* Floating conversational co-pilot */}
-      <Chatbot />
 
       {/* Dynamic Footer */}
       <Footer navigate={navigate} settings={currentSettings} />
@@ -1916,7 +1785,7 @@ export default function App() {
           <div className="space-y-1">
             <h4 className="font-display font-bold text-sm text-gray-900 dark:text-white">Cookie Consent Protocol</h4>
             <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-              We utilize technical cookies to enhance site navigation, measure programmatic traffic, and optimize our floating co-pilot. All processing aligns with EEAT standard guidelines.
+              We use essential browser storage and analytics cookies to remember your theme preference and measure readership.
             </p>
           </div>
           <div className="flex items-center gap-3 justify-end text-xs font-semibold">

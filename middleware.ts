@@ -180,7 +180,7 @@ const NOT_FOUND_HTML = `<!DOCTYPE html>
   </main>
 
   <footer class="footer">
-    &copy; NetVentures &middot; Autonomous Intelligence &amp; Digital Strategies
+    &copy; NetVentures &middot; Stefan Sharf
   </footer>
 </body>
 </html>`;
@@ -219,7 +219,19 @@ export function middleware(request: Request): Response {
     });
   }
 
-  // 3. Blog route validation: check if requested article path exists
+  // 3. Retired product routes return HTTP 404 with noindex
+  if (pathname === '/products' || pathname.startsWith('/products/')) {
+    return new Response(NOT_FOUND_HTML, {
+      status: 404,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'X-Robots-Tag': 'noindex, nofollow',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    });
+  }
+
+  // 4. Blog route validation: check if requested article path exists
   if (pathname.startsWith('/blog/')) {
     const isKnownArticle = validRoutes.has(pathname) || validRoutes.has(pathname.toLowerCase());
 
@@ -236,7 +248,7 @@ export function middleware(request: Request): Response {
     }
   }
 
-  // 4. Pass-through all other requests (e.g. /, /about, /blog, /contact, valid /blog/:slug)
+  // 5. Pass-through all other requests (e.g. /, /blog, /privacy, /terms, /disclosure, valid /blog/:slug)
   return new Response(null, {
     headers: { 'x-middleware-next': '1' }
   });

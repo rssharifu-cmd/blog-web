@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, X, Sun, Moon, Search, Sparkles, ChevronDown } from 'lucide-react';
-import { BLOG_CATEGORIES_MENU } from '../data/agencyContent.js';
+import { Menu, X, Sun, Moon, Search, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   currentPath: string;
@@ -12,16 +11,13 @@ interface HeaderProps {
 
 export default function Header({ currentPath, navigate, darkMode, setDarkMode, onSearchOpen }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mobileBlogCatsOpen, setMobileBlogCatsOpen] = useState(false);
 
   const links = [
-    { name: 'Home', path: '/' },
-    { name: 'Services', path: '/services' },
-    { name: 'Products', path: '/products' },
-    { name: 'Our Work', path: '/our-work' },
+    { name: 'About', path: '/#about' },
+    { name: 'Services', path: '/#services' },
+    { name: 'Work', path: '/#work' },
+    { name: 'Contact', path: '/#contact' },
     { name: 'Blog', path: '/blog' },
-    { name: 'About', path: '/about' },
-    { name: 'Contact', path: '/contact' },
   ];
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
@@ -32,16 +28,11 @@ export default function Header({ currentPath, navigate, darkMode, setDarkMode, o
     }
   };
 
-  const isPathActive = (path: string) => {
-    if (path === '/') return currentPath === '/';
-    if (path === '/blog') return currentPath === '/blog' || currentPath.startsWith('/blog/');
-    if (path === '/products') return currentPath === '/products' || currentPath.startsWith('/products/');
-    return currentPath === path;
-  };
+  const isBlogActive = currentPath === '/blog' || currentPath.startsWith('/blog/');
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-gray-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo */}
           <a
@@ -58,9 +49,9 @@ export default function Header({ currentPath, navigate, darkMode, setDarkMode, o
           </a>
 
           {/* Desktop Nav */}
-          <nav aria-label="Primary Navigation" className="hidden lg:flex items-center space-x-6 xl:space-x-7">
+          <nav aria-label="Primary Navigation" className="hidden md:flex items-center space-x-6 lg:space-x-8">
             {links.map((link) => {
-              const active = isPathActive(link.path);
+              const active = link.path === '/blog' ? isBlogActive : false;
               return (
                 <a
                   key={link.name}
@@ -80,12 +71,12 @@ export default function Header({ currentPath, navigate, darkMode, setDarkMode, o
           </nav>
 
           {/* Utility Controls */}
-          <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+          <div className="flex items-center space-x-2 shrink-0">
             <button
               type="button"
               onClick={onSearchOpen}
               className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-lg transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
-              aria-label="Search site and articles"
+              aria-label="Search blog articles"
             >
               <Search className="h-5 w-5" />
             </button>
@@ -106,7 +97,7 @@ export default function Header({ currentPath, navigate, darkMode, setDarkMode, o
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-navigation-drawer"
               aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-              className="lg:hidden p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-lg transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
+              className="md:hidden p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-lg transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -119,62 +110,10 @@ export default function Header({ currentPath, navigate, darkMode, setDarkMode, o
         <nav
           id="mobile-navigation-drawer"
           aria-label="Mobile Navigation"
-          className="lg:hidden border-t border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-4 pt-3 pb-5 space-y-1 transition-colors duration-200"
+          className="md:hidden border-t border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-4 pt-3 pb-4 space-y-1 transition-colors duration-200"
         >
           {links.map((link) => {
-            const active = isPathActive(link.path);
-            if (link.path === '/blog') {
-              return (
-                <div key={link.name} className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <a
-                      href={link.path}
-                      onClick={(e) => handleNavClick(e, link.path)}
-                      aria-current={active ? 'page' : undefined}
-                      className={`flex-1 block px-3 py-2.5 rounded-lg font-medium text-base transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 ${
-                        active
-                          ? 'bg-gold-50/70 dark:bg-gold-500/10 text-gold-700 dark:text-gold-500'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-900'
-                      }`}
-                    >
-                      {link.name}
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => setMobileBlogCatsOpen(!mobileBlogCatsOpen)}
-                      aria-expanded={mobileBlogCatsOpen}
-                      aria-label="Toggle blog categories"
-                      className="p-2.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
-                    >
-                      <ChevronDown className={`h-4 w-4 transition-transform ${mobileBlogCatsOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                  </div>
-                  {mobileBlogCatsOpen && (
-                    <div className="pl-4 ml-3 border-l border-gray-200 dark:border-zinc-800 space-y-1 py-1">
-                      {BLOG_CATEGORIES_MENU.map((cat) => {
-                        const catPath = `/blog/category/${cat.slug}`;
-                        const catActive = currentPath === catPath;
-                        return (
-                          <a
-                            key={cat.slug}
-                            href={catPath}
-                            onClick={(e) => handleNavClick(e, catPath)}
-                            className={`block px-3 py-1.5 rounded-md text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500 ${
-                              catActive
-                                ? 'text-gold-700 dark:text-gold-500 font-semibold'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                            }`}
-                          >
-                            {cat.name}
-                          </a>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
+            const active = link.path === '/blog' ? isBlogActive : false;
             return (
               <a
                 key={link.name}

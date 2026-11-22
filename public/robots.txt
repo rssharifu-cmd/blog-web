@@ -5,12 +5,7 @@
 
 User-agent: *
 Allow: /
-Allow: /services
-Allow: /products
-Allow: /our-work
 Allow: /blog
-Allow: /about
-Allow: /contact
 Allow: /privacy
 Allow: /terms
 Allow: /disclosure

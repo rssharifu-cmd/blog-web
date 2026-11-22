@@ -321,62 +321,6 @@ async function generatePages() {
   // -------------------------------------------------------------------------
   const staticRoutes = [
     {
-      routePath: 'services',
-      title: 'Hospitality Websites, Management Apps & Local SEO - NetVentures',
-      description: 'Services for hotels and restaurants: mobile-friendly websites, custom management websites and apps, and evidence-based Local SEO & AI search visibility audits.',
-      canonicalUrl: `${SITE_BASE_URL}/services`,
-      ogType: 'website',
-      ogImage: DEFAULT_IMAGE
-    },
-    {
-      routePath: 'our-work',
-      title: 'Our Work & Reference Systems - NetVentures',
-      description: 'Verified live web platforms and hospitality architecture reference builds from NetVentures.',
-      canonicalUrl: `${SITE_BASE_URL}/our-work`,
-      ogType: 'website',
-      ogImage: DEFAULT_IMAGE
-    },
-    {
-      routePath: 'products',
-      title: 'Digital Products, Templates & Micro Apps - NetVentures',
-      description: 'Self-serve digital templates, local search audit tools, and hospitality micro apps planned for individual one-time purchase.',
-      canonicalUrl: `${SITE_BASE_URL}/products`,
-      ogType: 'website',
-      ogImage: DEFAULT_IMAGE
-    },
-    {
-      routePath: 'products/hospitality-website-starter-kit',
-      title: 'Hospitality Website Starter Kit - NetVentures Products',
-      description: 'A structured website template designed for independent hotels and restaurants covering rooms, menus, directions, and direct enquiry pages.',
-      canonicalUrl: `${SITE_BASE_URL}/products/hospitality-website-starter-kit`,
-      ogType: 'website',
-      ogImage: DEFAULT_IMAGE
-    },
-    {
-      routePath: 'products/local-seo-ai-visibility-audit-workbook',
-      title: 'Local SEO & AI Visibility Audit Workbook - NetVentures Products',
-      description: 'A practical audit spreadsheet and prompt-logging workbook to check Google Business Profile completeness, NAP consistency, and AI search observations.',
-      canonicalUrl: `${SITE_BASE_URL}/products/local-seo-ai-visibility-audit-workbook`,
-      ogType: 'website',
-      ogImage: DEFAULT_IMAGE
-    },
-    {
-      routePath: 'products/hospitality-enquiry-estimator-widget',
-      title: 'Hospitality Group & Event Enquiry Widget - NetVentures Products',
-      description: 'A lightweight embeddable micro app for capturing structured private dining, group stay, and event enquiries ready to send to your inbox.',
-      canonicalUrl: `${SITE_BASE_URL}/products/hospitality-enquiry-estimator-widget`,
-      ogType: 'website',
-      ogImage: DEFAULT_IMAGE
-    },
-    {
-      routePath: 'about',
-      title: 'About Stefan Sharf & NetVentures - NetVentures',
-      description: 'Stefan Sharf is the Founder & CEO of NetVentures, a digital agency building websites, custom management systems, and local & AI search visibility for hotels and restaurants alongside our blog.',
-      canonicalUrl: `${SITE_BASE_URL}/about`,
-      ogType: 'profile',
-      ogImage: DEFAULT_IMAGE
-    },
-    {
       routePath: 'blog',
       title: 'The NetVentures Blog - NetVentures',
       description: 'Browse our library of AI tools, automation workflows, digital marketing guides, and SaaS reviews.',
@@ -385,17 +329,9 @@ async function generatePages() {
       ogImage: DEFAULT_IMAGE
     },
     {
-      routePath: 'contact',
-      title: 'Contact NetVentures - Discuss Your Hospitality Project',
-      description: 'Get in touch with NetVentures about hotel and restaurant websites, custom management systems, Local SEO & AI search visibility, or digital product inquiries.',
-      canonicalUrl: `${SITE_BASE_URL}/contact`,
-      ogType: 'website',
-      ogImage: DEFAULT_IMAGE
-    },
-    {
       routePath: 'privacy',
       title: 'Privacy Policy - NetVentures',
-      description: 'Our clear data storage, cookie transparency, and editorial security parameters.',
+      description: 'Data storage, newsletter privacy, and cookie transparency for NetVentures.',
       canonicalUrl: `${SITE_BASE_URL}/privacy`,
       ogType: 'website',
       ogImage: DEFAULT_IMAGE
@@ -403,7 +339,7 @@ async function generatePages() {
     {
       routePath: 'terms',
       title: 'Terms & Conditions - NetVentures',
-      description: 'Intellectual property, compliance mandates, and consulting liability limitations.',
+      description: 'Editorial terms, intellectual property, and liability limitations for NetVentures.',
       canonicalUrl: `${SITE_BASE_URL}/terms`,
       ogType: 'website',
       ogImage: DEFAULT_IMAGE
@@ -411,7 +347,7 @@ async function generatePages() {
     {
       routePath: 'disclosure',
       title: 'Affiliate Marketing Disclosure - NetVentures',
-      description: 'FTC disclosure and partnership details explaining how affiliate links support NetVentures blog publishing.',
+      description: 'FTC disclosure and editorial partnership details explaining how affiliate links support NetVentures blog publishing.',
       canonicalUrl: `${SITE_BASE_URL}/disclosure`,
       ogType: 'website',
       ogImage: DEFAULT_IMAGE
@@ -420,7 +356,7 @@ async function generatePages() {
 
   let generatedCount = 0;
 
-  // 1. Generate Static Pages (/about, /blog, /contact, /privacy, /terms, /disclosure)
+  // 1. Generate Static Pages (/blog, /privacy, /terms, /disclosure)
   for (const page of staticRoutes) {
     const pageHtml = applyMetaToTemplate(templateHtml, page);
     const targetDir = path.join(distDir, page.routePath);

@@ -42,7 +42,7 @@ const SITE_BASE_URL = 'https://www.netventures.online';
 
 const DEFAULT_SETTINGS = {
   siteName: 'NetVentures',
-  siteDescription: 'Digital agency building customer-facing websites, custom management systems, and local & AI search visibility for hotels and restaurants, alongside an independent technology blog.',
+  siteDescription: 'Stefan Sharf — Founder & CEO of NetVentures. Hospitality websites, custom management apps, Local SEO & AI search visibility, and the NetVentures blog.',
   googleSearchConsoleVerification: '',
 };
 
@@ -218,12 +218,7 @@ async function run() {
 
 User-agent: *
 Allow: /
-Allow: /services
-Allow: /products
-Allow: /our-work
 Allow: /blog
-Allow: /about
-Allow: /contact
 Allow: /privacy
 Allow: /terms
 Allow: /disclosure

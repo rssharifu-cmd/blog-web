@@ -68,12 +68,12 @@ const DEFAULT_TAGS: Tag[] = [
 
 const DEFAULT_SETTINGS: SiteSettings = {
   siteName: 'NetVentures',
-  siteDescription: 'The premium online business magazine and resource center for making money online, AI tools, SaaS reviews, and digital automation.',
-  contactEmail: 'editor@netventures.online',
+  siteDescription: 'Stefan Sharf — Founder & CEO of NetVentures. Websites, custom management apps, and local & AI search visibility for hotels and restaurants.',
+  contactEmail: 'hello@netventures.online',
   logoUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=40&q=80',
-  founderImageUrl: '',
-  footerText: '© 2026 NetVentures. Premium digital business strategies and insights.',
-  affiliateDisclosure: 'Affiliate Disclosure: Some of the links on this website are affiliate links, meaning we may earn a small commission if you make a purchase through them, at no extra cost to you. We only recommend products we have personally tested and trust.',
+  founderImageUrl: '/uploads/stefan-sharf.jpg',
+  footerText: '© 2026 NetVentures · Stefan Sharf',
+  affiliateDisclosure: 'Some links inside NetVentures blog articles are affiliate links, meaning we may earn a small commission at no extra cost to you.',
   googleAnalyticsId: '',
   googleSearchConsoleVerification: ''
 };
